@@ -8,7 +8,6 @@ package com.shesse.h2ha;
 
 import java.io.File;
 import java.io.IOException;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -67,7 +66,7 @@ extends ServerSideProtocolInstance
      */
     public ReplicationClientInstance(H2HaServer haServer, FileSystemHa fileSystem, String[] args)
     {
-        super(haServer, fileSystem);
+        super("server", 0, haServer, fileSystem);
         log.debug("ReplicationClientInstance()");
 
         dirtyFlagUrl = FileSystemHa.getRoot()+dirtyFlagFile;
@@ -471,6 +470,12 @@ extends ServerSideProtocolInstance
             instance.processNegotiateRoleRequestMessage(masterPriority, uuid);
 
         }
+
+	@Override
+	public int getSizeEstimate()
+	{
+	    return 35;
+	}
     }
 
     /**
@@ -491,7 +496,13 @@ extends ServerSideProtocolInstance
         {
             instance.processSendListOfFilesRequestMessage();
          }
-    }
+
+	@Override
+	public int getSizeEstimate()
+	{
+	    return 4;
+	}
+   }
 
     /**
      * 
@@ -514,6 +525,12 @@ extends ServerSideProtocolInstance
             instance.processSendFileRequestMessage(entries);
 
         }
+
+	@Override
+	public int getSizeEstimate()
+	{
+	    return 45*entries.size();
+	}
     }
 
     /**
@@ -541,6 +558,12 @@ extends ServerSideProtocolInstance
         {
             instance.processSendBlockRequestMessage(haName, offset, length);
         }
+
+	@Override
+	public int getSizeEstimate()
+	{
+	    return 32;
+	}
     }
 
     /**
@@ -564,6 +587,12 @@ extends ServerSideProtocolInstance
         {
             instance.processFileProcessedMessage(haName);
         }
+
+	@Override
+	public int getSizeEstimate()
+	{
+	    return 20;
+	}
     }
 
     /**
@@ -585,6 +614,12 @@ extends ServerSideProtocolInstance
         {
             instance.processLiveModeRequestMessage();
         }
-    }
+
+	@Override
+	public int getSizeEstimate()
+	{
+	    return 4;
+	}
+   }
 
 }

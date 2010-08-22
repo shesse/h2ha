@@ -11,7 +11,6 @@ import java.io.IOException;
 import java.security.InvalidKeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -51,8 +50,10 @@ extends ReplicationProtocolInstance
     // /////////////////////////////////////////////////////////
     /**
      */
-    public ServerSideProtocolInstance(H2HaServer haServer, FileSystemHa fileSystem)
+    public ServerSideProtocolInstance(String instanceName, int maxWaitingMessages, H2HaServer haServer, FileSystemHa fileSystem)
     {
+	super(instanceName, maxWaitingMessages);
+	
         this.haServer = haServer;
         this.fileSystem = fileSystem;
         

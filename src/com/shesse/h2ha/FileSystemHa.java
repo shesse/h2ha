@@ -923,6 +923,12 @@ public class FileSystemHa
         {
             instance.processCopyMessage(original, copy);
         }
+
+	@Override
+	public int getSizeEstimate()
+	{
+	    return 50;
+	}
     }
     
     /** */
@@ -942,6 +948,12 @@ public class FileSystemHa
         {
             instance.processCreateDirsMessage(fileName);
         }
+
+	@Override
+	public int getSizeEstimate()
+	{
+	    return 20;
+	}
     }
     
     /** */
@@ -961,6 +973,12 @@ public class FileSystemHa
         {
             instance.processCreateNewFileMessage(fileName);
         }
+
+	@Override
+	public int getSizeEstimate()
+	{
+	    return 20;
+	}
     }
     
     /** */
@@ -980,7 +998,13 @@ public class FileSystemHa
         {
             instance.processTryDeleteMessage(fileName);
         }
-    }
+
+	@Override
+	public int getSizeEstimate()
+	{
+	    return 20;
+	}
+   }
 
     /** */
     private static class DeleteMessage
@@ -999,6 +1023,12 @@ public class FileSystemHa
         {
             instance.processDeleteMessage(fileName);
         }
+
+	@Override
+	public int getSizeEstimate()
+	{
+	    return 20;
+	}
     }
     
     /** */
@@ -1020,6 +1050,12 @@ public class FileSystemHa
         {
             instance.processDeleteRecursiveMessage(directory, tryOnly);
         }
+
+	@Override
+	public int getSizeEstimate()
+	{
+	    return 24;
+	}
     }
     
     /** */
@@ -1039,6 +1075,12 @@ public class FileSystemHa
         {
             instance.processMkdirsMessage(directoryName);
         }
+
+	@Override
+	public int getSizeEstimate()
+	{
+	    return 20;
+	}
     }
     
     /** */
@@ -1060,6 +1102,12 @@ public class FileSystemHa
         {
             instance.processRenameMessage(oldName, newName);
         }
+
+	@Override
+	public int getSizeEstimate()
+	{
+	    return 50;
+	}
     }
     
     /** */
@@ -1079,6 +1127,12 @@ public class FileSystemHa
         {
             instance.processSetReadOnlyMessage(fileName);
         }
-    }
+
+	@Override
+	public int getSizeEstimate()
+	{
+	    return 20;
+	}
+   }
 
 }

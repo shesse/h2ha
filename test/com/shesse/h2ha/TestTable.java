@@ -28,7 +28,6 @@ public class TestTable
     private static Logger log = Logger.getLogger(TestTable.class);
     
     /** */
-    @SuppressWarnings("unused")
     private DbManager dbManager;
     
     /** */

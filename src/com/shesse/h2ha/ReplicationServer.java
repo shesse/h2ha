@@ -36,6 +36,9 @@ public class ReplicationServer
     /** */
     private int listenPort = 8234;
     
+    /** */
+    private int maxWaitingMessages = 0;
+    
     // /////////////////////////////////////////////////////////
     // Constructors
     // /////////////////////////////////////////////////////////
@@ -54,6 +57,13 @@ public class ReplicationServer
                     listenPort = Integer.parseInt(args[i+1]);
                 } catch (NumberFormatException x) {
                     log.error("inhalid haListenPort: "+x);
+                }
+                
+            } else if (args[i].equals("-haMaxWaitingMessages")) {
+                try {
+                    maxWaitingMessages = Integer.parseInt(args[i+1]);
+                } catch (NumberFormatException x) {
+                    log.error("inhalid haMaxWaitingMessages: "+x);
                 }
             }
         }        
@@ -92,8 +102,8 @@ public class ReplicationServer
         while (!serverSocket.isClosed()) {
             Socket connSocket = serverSocket.accept();
             log.debug("accepted incoming replication connection");
-            
-            new Thread(new ReplicationServerInstance(haServer, fileSystem, connSocket)).start();
+            String instanceName = String.valueOf(connSocket.getRemoteSocketAddress());
+            new Thread(new ReplicationServerInstance(instanceName, maxWaitingMessages, haServer, fileSystem, connSocket)).start();
             
         }
     }

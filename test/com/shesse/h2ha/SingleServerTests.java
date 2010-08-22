@@ -69,7 +69,7 @@ extends TestGroupBase
     @Test
     public void createDb()
     {
-        Assert.assertTrue(new File(servers.getDirA(), "test.data.db").exists());
+        Assert.assertTrue(new File(servers.getDirA(), "test.h2.db").exists());
     }
     
     /**

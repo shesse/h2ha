@@ -22,6 +22,7 @@ import java.util.TimerTask;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 import javax.net.SocketFactory;
 
@@ -41,6 +42,12 @@ implements Runnable
 
     /** */
     private static Logger log = Logger.getLogger(ReplicationProtocolInstance.class);
+
+    /** */
+    private String instanceName;
+    
+    /** */
+    private int maxWaitingMessages;
 
     /** */
     protected Socket socket = null;
@@ -66,7 +73,13 @@ implements Runnable
         throws Exception
         {
         }        
-    };
+
+	@Override
+	public int getSizeEstimate()
+	{
+	    return 4;
+	}
+   };
     
     /** */
     protected Map<Integer, WaitingOperation<?>> waitingOperations = new HashMap<Integer, WaitingOperation<?>>();
@@ -77,14 +90,32 @@ implements Runnable
     /** */
     protected Timer timer = new Timer();
 
+    /** */
+    private boolean connectionCanceled = false;
+
+    /** */
+    private long totalBytesTransmitted = 0;
+    
+    /** */
+    private long lastStatisticsTimestamp = 0L;
+    
+    /** */
+    private long lastStatisticsBytesTransmitted = 0L;
+    
+    /** */
+    private long nextStatisticsTimestamp = 0L;
+    
+
     // /////////////////////////////////////////////////////////
     // Constructors
     // /////////////////////////////////////////////////////////
     /**
      * 
      */
-    public ReplicationProtocolInstance()
+    public ReplicationProtocolInstance(String instanceName, int maxWaitingMessages)
     {
+	this.instanceName = instanceName;
+	this.maxWaitingMessages = maxWaitingMessages;
     }
 
     
@@ -113,7 +144,7 @@ implements Runnable
     public boolean tryToConnect(String peerHost, int peerPort, int connectTimeout)
     {
         try {
-            log.debug("try to connect to "+peerHost+":"+peerPort);
+            log.debug(instanceName+": try to connect to "+peerHost+":"+peerPort);
             Socket socket = SocketFactory.getDefault().createSocket();
             try {
                 SocketAddress addr = new InetSocketAddress(peerHost, peerPort);
@@ -122,7 +153,7 @@ implements Runnable
                 } else {
                     socket.connect(addr);
                 }
-                log.debug("successfully connected to peer "+peerHost+":"+peerPort);
+                log.debug(instanceName+": successfully connected to peer "+peerHost+":"+peerPort);
                 
                 setSocket(socket);
                 
@@ -135,7 +166,7 @@ implements Runnable
             }
             
         } catch (IOException x) {
-            log.info("Cannot connect to peer "+peerHost+":"+peerPort);
+            log.info(instanceName+": Cannot connect to peer "+peerHost+":"+peerPort);
             return false;
         }
     }
@@ -194,7 +225,7 @@ implements Runnable
             body();
     
         } catch (Throwable x) {
-            log.error("caught unexpected exception within ReplicationInstance", x);
+            log.error(instanceName+": caught unexpected exception within ReplicationInstance", x);
     
         } finally {
             closeSocket();
@@ -211,7 +242,7 @@ implements Runnable
         throws SQLException, IOException, InterruptedException
     {
         try {
-            log.debug("replication instance has started");
+            log.debug(instanceName+": replication instance has started");
     
             processProtocolMessages();
     
@@ -224,7 +255,7 @@ implements Runnable
                     try {
                         message.process(this);
                     } catch (Exception x) {
-                        log.error("unexpected exception when processing message in replication queue", x);
+                        log.error(instanceName+": unexpected exception when processing message in replication queue", x);
                     }
                 }
             }
@@ -248,20 +279,44 @@ implements Runnable
      */
     private void processProtocolMessages()
         throws InterruptedException, IOException
-    {
-        for (;;) {
-            ReplicationMessage message = messageQueue.take();
-            if (message == terminateMessage) break;
-    
-            try {
-                message.process(this);
-            } catch (Exception x) {
-                log.error("unexpected exception when processing message from peer", x);
-                log.error("terminating connection!");
-                closeSocket();
-                return;
-            }
-        }
+        {
+	try {
+	    for (;;) {
+		long now = System.currentTimeMillis();
+		if (now >= nextStatisticsTimestamp) {
+		    if (lastStatisticsTimestamp != 0L) {
+			double transmittedBytesPerSecond =
+			    (totalBytesTransmitted - lastStatisticsBytesTransmitted) /
+				((now - lastStatisticsTimestamp) / 1000.);
+			
+			log.info(instanceName+String.format(": transmit rate = %7.1f KB/sec", transmittedBytesPerSecond/1000));
+			log.info(instanceName+String.format(": queue size    = %5d", messageQueue.size()));
+		    }
+		    
+		    lastStatisticsBytesTransmitted = totalBytesTransmitted;
+		    lastStatisticsTimestamp = now;
+		    nextStatisticsTimestamp = now + 300000;
+		}
+		
+		long delta = nextStatisticsTimestamp - now;
+		ReplicationMessage message = messageQueue.poll(delta, TimeUnit.MILLISECONDS);
+		
+		if (message != null) {
+		    if (message == terminateMessage) break;
+
+		    message.process(this);
+		}
+	    }
+	    
+	} catch (TerminateThread x) {
+	    x.logError(log, instanceName);
+
+	} catch (Exception x) {
+	    log.error(instanceName+": unexpected exception when processing message from peer", x);
+	    log.error(instanceName+": terminating connection!");
+	}
+	
+	closeSocket();
     }
 
     /**
@@ -272,6 +327,15 @@ implements Runnable
      */
     public void send(final ReplicationMessage message)
     {
+	if (connectionCanceled) return;
+	
+	if (maxWaitingMessages > 0 && messageQueue.size() > maxWaitingMessages) {
+	    log.error(instanceName+": too many waiting messages - replicator connection will be canceled");
+	    cancelConnection();
+	    return;
+	}
+	
+	
         messageQueue.add(new ReplicationMessage() {
             private static final long serialVersionUID = 1L;
     
@@ -282,26 +346,57 @@ implements Runnable
                 try {
                     sendToPeer(message);
                 } catch (IOException x) {
-                    log.error("unexpected exception when sending message to peer", x);
-                    log.error("terminating connection!");
+                    log.error(instanceName+": unexpected exception when sending message to peer", x);
+                    log.error(instanceName+": terminating connection!");
                     
                     closeSocket();
                 }
             }
-        });
+
+            @Override
+            public int getSizeEstimate()
+            {
+        	return 4;
+            }
+       });
     }
 
+    /**
+     * 
+     */
+    private void cancelConnection()
+    {
+	connectionCanceled = true;
+	
+	messageQueue.add(new ReplicationMessage() {
+	    private static final long serialVersionUID = 1L;
+
+	    @Override
+	    protected void process(ReplicationProtocolInstance instance)
+	    throws Exception
+	    {
+		throw new TerminateThread("connection has been canceled!");
+	    }
+
+            @Override
+            public int getSizeEstimate()
+            {
+        	return 4;
+            }
+	});
+
+    }
     /**
      * 
      */
     protected void processReceivedMessage(Object message)
     {
         if (message instanceof ReplicationMessage) {
-            log.debug("got "+message.getClass().getName()+" from protocol connection");
+            log.debug(instanceName+": got "+message.getClass().getName()+" from protocol connection");
             messageQueue.add((ReplicationMessage)message);
     
         } else {
-            log.debug("got unexpected object from protocol connection: "+(message == null ? "null" : message.getClass().getName()));
+            log.debug(instanceName+": got unexpected object from protocol connection: "+(message == null ? "null" : message.getClass().getName()));
         }
     
     }
@@ -334,7 +429,13 @@ implements Runnable
             {
                 return false;
             }
-        });
+
+            @Override
+            public int getSizeEstimate()
+            {
+        	return 4;
+            }
+       });
         
         sema.acquire();
     }
@@ -355,9 +456,9 @@ implements Runnable
     {
         WaitingOperation<Void> wo = new WaitingOperation<Void>(new SyncRequestMessage());
 
-        log.debug("sending sync request to peer");
+        log.debug(instanceName+": sending sync request to peer");
         wo.sendAndGetResult();
-        log.debug("sync has been confirmed");
+        log.debug(instanceName+": sync has been confirmed");
     }
 
     /**
@@ -372,17 +473,30 @@ implements Runnable
      * @throws IOException 
      * 
      */
-    protected void sendToPeer(Serializable message)
+    protected void sendToPeer(ReplicationMessage message)
         throws IOException
     {
-        log.debug("sending message to peer: "+message.getClass().getName());
+	sendToPeer(message, message.getSizeEstimate());
+    }
+    
+    /**
+     * @throws IOException 
+     * 
+     */
+    protected void sendToPeer(Serializable message, int sizeEstimate)
+        throws IOException
+    {
+        log.debug(instanceName+": sending message to peer: "+message.getClass().getName());
         if (instanceThread == null) {
             instanceThread = Thread.currentThread();
         } else if (Thread.currentThread() != instanceThread) {
             throw new IllegalStateException("sendToPeer used by non-owener thread");
         }
+        
         oos.writeObject(message);
         oos.flush();
+        
+        totalBytesTransmitted  += sizeEstimate;
     }
 
     // /////////////////////////////////////////////////////////
@@ -451,6 +565,12 @@ implements Runnable
                 }
             }
         }
+
+        @Override
+        public int getSizeEstimate()
+        {
+            return 12;
+        }
     }
 
     /**
@@ -470,7 +590,7 @@ implements Runnable
             this.request = request;
             operationId = nextWaitingOperationId++;
             
-            log.debug("waitingOperation "+operationId+" - reqClass="+request.getClass().getName());
+            log.debug(instanceName+": waitingOperation "+operationId+" - reqClass="+request.getClass().getName());
             
             request.operationId = operationId;
             waitGate = new Semaphore(0);
@@ -498,11 +618,11 @@ implements Runnable
             }
 
             try {
-                log.debug("send WaitingOperation "+operationId);
+                log.debug(instanceName+": send WaitingOperation "+operationId);
                 send(request);
-                log.debug("wait for result "+operationId);
+                log.debug(instanceName+": wait for result "+operationId);
                 waitGate.acquire();
-                log.debug("got result "+operationId);
+                log.debug(instanceName+": got result "+operationId);
 
             } finally {
                 synchronized (waitingOperations) {
@@ -536,6 +656,12 @@ implements Runnable
         {
             return null;
         }
+
+	@Override
+	public int getSizeEstimate()
+	{
+	    return 4;
+	}
     }
 
 }

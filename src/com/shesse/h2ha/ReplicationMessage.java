@@ -56,6 +56,13 @@ public abstract class ReplicationMessage
         return true;
     }
 
+    /**
+     * @return estimated size of this object when serialized. 
+     * This value is only used for statistical purposes and
+     * need not be exact.
+     */
+    public abstract int getSizeEstimate();
+
     // /////////////////////////////////////////////////////////
     // Inner Classes
     // /////////////////////////////////////////////////////////

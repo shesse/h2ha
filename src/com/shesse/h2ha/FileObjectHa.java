@@ -197,6 +197,12 @@ public class FileObjectHa
         {
             instance.processFoCloseMessage(haName, lastModified);
         }
+
+	@Override
+	public int getSizeEstimate()
+	{
+	    return 30;
+	}
     }
 
     /** */
@@ -218,6 +224,12 @@ public class FileObjectHa
         {
             instance.processFoSetFileLengthMessage(haName, newLength);
         }
+
+	@Override
+	public int getSizeEstimate()
+	{
+	    return 30;
+	}
     }
 
     /** */
@@ -241,7 +253,13 @@ public class FileObjectHa
         {
             instance.processFoWriteMessage(haName, filePointer, data);
         }
-    }
+
+	@Override
+	public int getSizeEstimate()
+	{
+	    return 30 + data.length;
+	}
+   }
 
 
 }

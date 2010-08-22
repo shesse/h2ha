@@ -95,9 +95,10 @@ extends ServerSideProtocolInstance
     /**
      * @throws IOException 
      */
-    public ReplicationServerInstance(H2HaServer haServer, FileSystemHa fileSystem, Socket socket) throws IOException
+    public ReplicationServerInstance(String instanceName, int maxWaitingMessages, H2HaServer haServer, FileSystemHa fileSystem, Socket socket)
+    throws IOException
     {
-        super(haServer, fileSystem);
+        super(instanceName, maxWaitingMessages, haServer, fileSystem);
         
         setSocket(socket);
         
@@ -423,6 +424,12 @@ extends ServerSideProtocolInstance
         {
             instance.processNegotiateRoleConfirmMessage(peerIsMaster);
         }
+
+	@Override
+	public int getSizeEstimate()
+	{
+	    return 8;
+	}
     }
     
     
@@ -446,7 +453,13 @@ extends ServerSideProtocolInstance
             instance.processListOfFilesConfirmMessage(entries);
 
         }
-    }
+
+	@Override
+	public int getSizeEstimate()
+	{
+	    return 20*entries.size();
+	}
+   }
     
     
     /**
@@ -466,6 +479,12 @@ extends ServerSideProtocolInstance
         {
             instance.processSendFileConfirmMessage();
        }
+
+	@Override
+	public int getSizeEstimate()
+	{
+	    return 4;
+	}
     }
     
     
@@ -493,7 +512,13 @@ extends ServerSideProtocolInstance
             instance.processFileDataMessage(haName, offset, data);
 
         }
-    }
+
+	@Override
+	public int getSizeEstimate()
+	{
+	    return 30+data.length;
+	}
+   }
     
     
     /**
@@ -522,6 +547,12 @@ extends ServerSideProtocolInstance
             instance.processFileChecksumMessage(haName, offset, length, checksum);
 
         }
+
+	@Override
+	public int getSizeEstimate()
+	{
+	    return 32+checksum.length;
+	}
     }
     
     
@@ -549,6 +580,12 @@ extends ServerSideProtocolInstance
             instance.processEndOfFileMessage(haName, length, lastModified);
 
         }
+
+	@Override
+	public int getSizeEstimate()
+	{
+	    return 36;
+	}
     }
     
     
@@ -573,7 +610,13 @@ extends ServerSideProtocolInstance
             instance.processEndOfChecksumsMessage(haName);
 
         }
-    }
+
+	@Override
+	public int getSizeEstimate()
+	{
+	    return 20;
+	}
+   }
     
     
     /**
@@ -594,6 +637,12 @@ extends ServerSideProtocolInstance
             instance.processLiveModeConfirmMessage();
 
         }
+
+	@Override
+	public int getSizeEstimate()
+	{
+	    return 4;
+	}
     }
     
     
@@ -603,9 +652,12 @@ extends ServerSideProtocolInstance
      */
     private static class SyncStatus
     {
-        FileInfo fileInfo;
-        volatile long beginIgnore = 0L;
-        volatile long endIgnore = Long.MAX_VALUE;
+        @SuppressWarnings("unused")
+	FileInfo fileInfo;
+        @SuppressWarnings("unused")
+	volatile long beginIgnore = 0L;
+        @SuppressWarnings("unused")
+	volatile long endIgnore = Long.MAX_VALUE;
         SyncStatus(FileInfo fileInfo)
         {
             this.fileInfo = fileInfo;

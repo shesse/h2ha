@@ -40,6 +40,10 @@ public class FileInfo
     /** */
     private boolean isDatabaseFile;
     
+    
+    /** */
+    private boolean needsReplication;
+    
   
 
     // /////////////////////////////////////////////////////////
@@ -58,30 +62,35 @@ public class FileInfo
         if (haName.endsWith(Constants.SUFFIX_PAGE_FILE)) {
             log.debug("file "+haName+" is a page file");
             isDatabaseFile = true;
+            needsReplication = true;
         } else if (haName.endsWith(Constants.SUFFIX_LOCK_FILE)) {
             log.debug("file "+haName+" is a lock file");
             isDatabaseFile = true;
+            needsReplication = true;
         } else if (haName.endsWith(Constants.SUFFIX_LOB_FILE)) {
             log.debug("file "+haName+" is a LOB file");
             isDatabaseFile = true;
+            needsReplication = true;
         } else if (haName.endsWith(Constants.SUFFIX_LOBS_DIRECTORY)) {
             log.debug("file "+haName+" is a LOBs directory");
             isDatabaseFile = true;
+            needsReplication = true;
         } else if (haName.endsWith(Constants.SUFFIX_TEMP_FILE)) {
             log.debug("file "+haName+" is a temp file");
             isDatabaseFile = true;
-        } else if (haName.endsWith(Constants.SUFFIX_PAGE_FILE)) {
-            log.debug("file "+haName+" is a page file");
-            isDatabaseFile = true;
+            needsReplication = false;
         } else if (haName.endsWith(Constants.SUFFIX_TRACE_FILE)) {
             log.debug("file "+haName+" is an trace file");
             isDatabaseFile = true;
+            needsReplication = false;
         } else if (haName.endsWith(Constants.SUFFIX_DB_FILE)) {
             log.debug("file "+haName+" is an unrecognized DB file");
             isDatabaseFile = true;
+            needsReplication = true;
         } else {
             log.debug("file "+haName+" does not have a relevant suffix -- ignored");
             isDatabaseFile = false;
+            needsReplication = false;
         }
     }
 
@@ -151,7 +160,7 @@ public class FileInfo
      */
     public boolean mustReplicate()
     {
-        return isDatabaseFile && withinHaTree;
+        return needsReplication && withinHaTree;
     }
 
     /**

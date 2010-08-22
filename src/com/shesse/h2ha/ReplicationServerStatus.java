@@ -32,6 +32,8 @@ extends ReplicationProtocolInstance
      */
     public ReplicationServerStatus()
     {
+	super("server", 0);
+	
         log.debug("ReplicationServerStatus()");
 
     }
@@ -81,6 +83,12 @@ extends ReplicationProtocolInstance
                 return false;
             }
         }
+
+	@Override
+	public int getSizeEstimate()
+	{
+	    return 4;
+	}
     }
 
  }
