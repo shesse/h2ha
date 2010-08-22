@@ -486,7 +486,7 @@ implements Runnable
     protected void sendToPeer(Serializable message, int sizeEstimate)
         throws IOException
     {
-        log.debug(instanceName+": sending message to peer: "+message.getClass().getName());
+        log.debug(instanceName+": sending message to peer: "+message.getClass().getName()+", size="+sizeEstimate);
         if (instanceThread == null) {
             instanceThread = Thread.currentThread();
         } else if (Thread.currentThread() != instanceThread) {

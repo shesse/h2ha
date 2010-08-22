@@ -81,7 +81,15 @@ public class ServerProcess
         
         String instName = dbDir.getName();
         
+        String testcfg = System.getProperty("user.home")+"/config/h2";
+        if (isPrimary) {
+            testcfg += "/prim";
+        } else {
+            testcfg += "/sec";
+        }
+        
         String[] serverCommand = {//
+            "-Dlog4j.configuration=file:///"+testcfg+"/log4j.properties",
             "-DhaTestProc="+instName,
             "com.shesse.h2ha.H2HaServer",//
             "-haPeerHost", "localhost",//

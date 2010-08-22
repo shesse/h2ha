@@ -66,7 +66,7 @@ extends TestGroupBase
     }
 
 
-    @Ignore @Test
+    @Test
     public void createAndDrop()
     throws SQLException, IOException, InterruptedException {
         log.info("createAndDrop");
