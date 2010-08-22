@@ -929,6 +929,12 @@ public class FileSystemHa
 	{
 	    return 50;
 	}
+	
+	@Override
+	public String toString()
+	{
+	    return "copy "+original+" to "+copy;
+	}
     }
     
     /** */
@@ -953,6 +959,12 @@ public class FileSystemHa
 	public int getSizeEstimate()
 	{
 	    return 20;
+	}
+	
+	@Override
+	public String toString()
+	{
+	    return "create dirs "+fileName;
 	}
     }
     
@@ -979,6 +991,12 @@ public class FileSystemHa
 	{
 	    return 20;
 	}
+	
+	@Override
+	public String toString()
+	{
+	    return "create new file "+fileName;
+	}
     }
     
     /** */
@@ -1004,6 +1022,12 @@ public class FileSystemHa
 	{
 	    return 20;
 	}
+	
+	@Override
+	public String toString()
+	{
+	    return "try delete "+fileName;
+	}
    }
 
     /** */
@@ -1028,6 +1052,12 @@ public class FileSystemHa
 	public int getSizeEstimate()
 	{
 	    return 20;
+	}
+	
+	@Override
+	public String toString()
+	{
+	    return "delete "+fileName;
 	}
     }
     
@@ -1056,6 +1086,12 @@ public class FileSystemHa
 	{
 	    return 24;
 	}
+	
+	@Override
+	public String toString()
+	{
+	    return "delete recursive "+directory+", tryOnly="+tryOnly;
+	}
     }
     
     /** */
@@ -1080,6 +1116,12 @@ public class FileSystemHa
 	public int getSizeEstimate()
 	{
 	    return 20;
+	}
+	
+	@Override
+	public String toString()
+	{
+	    return "mkdirs "+directoryName;
 	}
     }
     
@@ -1108,6 +1150,12 @@ public class FileSystemHa
 	{
 	    return 50;
 	}
+	
+	@Override
+	public String toString()
+	{
+	    return "rename "+oldName+" to "+newName;
+	}
     }
     
     /** */
@@ -1132,6 +1180,12 @@ public class FileSystemHa
 	public int getSizeEstimate()
 	{
 	    return 20;
+	}
+	
+	@Override
+	public String toString()
+	{
+	    return "set read only "+fileName;
 	}
    }
 

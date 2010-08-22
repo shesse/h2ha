@@ -7,6 +7,7 @@
 package com.shesse.h2ha;
 
 import java.io.IOException;
+import java.util.Date;
 
 import org.apache.log4j.Logger;
 import org.h2.store.fs.FileObject;
@@ -203,6 +204,12 @@ public class FileObjectHa
 	{
 	    return 30;
 	}
+	
+	@Override
+	public String toString()
+	{
+	    return "close "+haName+", mod="+new Date(lastModified);
+	}
     }
 
     /** */
@@ -229,6 +236,12 @@ public class FileObjectHa
 	public int getSizeEstimate()
 	{
 	    return 30;
+	}
+	
+	@Override
+	public String toString()
+	{
+	    return "set file length "+haName+": "+newLength;
 	}
     }
 
@@ -258,6 +271,12 @@ public class FileObjectHa
 	public int getSizeEstimate()
 	{
 	    return 30 + data.length;
+	}
+	
+	@Override
+	public String toString()
+	{
+	    return "write message "+haName+", offs="+filePointer+", len="+data.length;
 	}
    }
 

@@ -13,6 +13,7 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -180,8 +181,10 @@ extends ServerSideProtocolInstance
         
         final List<String> entries = new ArrayList<String>();
         for (FileInfo fi: discoverExistingFiles()) {
-            String haName = fi.getHaName();
-            entries.add(haName);
+            if (fi.mustReplicate()) {
+        	String haName = fi.getHaName();
+        	entries.add(haName);
+            }
         }
         
         sendToPeer(new ListOfFilesConfirm(entries));
@@ -430,6 +433,12 @@ extends ServerSideProtocolInstance
 	{
 	    return 8;
 	}
+	
+	@Override
+	public String toString()
+	{
+	    return "negotiate role cnf: peerIsMaster: "+peerIsMaster;
+	}
     }
     
     
@@ -459,6 +468,12 @@ extends ServerSideProtocolInstance
 	{
 	    return 20*entries.size();
 	}
+	
+	@Override
+	public String toString()
+	{
+	    return "list of files: "+entries;
+	}
    }
     
     
@@ -484,6 +499,12 @@ extends ServerSideProtocolInstance
 	public int getSizeEstimate()
 	{
 	    return 4;
+	}
+	
+	@Override
+	public String toString()
+	{
+	    return "send file cnf";
 	}
     }
     
@@ -517,6 +538,12 @@ extends ServerSideProtocolInstance
 	public int getSizeEstimate()
 	{
 	    return 30+data.length;
+	}
+	
+	@Override
+	public String toString()
+	{
+	    return "fiel data "+haName+", offs="+offset+", len="+data.length;
 	}
    }
     
@@ -553,6 +580,12 @@ extends ServerSideProtocolInstance
 	{
 	    return 32+checksum.length;
 	}
+	
+	@Override
+	public String toString()
+	{
+	    return "file checksum "+haName+", offs="+offset+", len="+length;
+	}
     }
     
     
@@ -586,6 +619,12 @@ extends ServerSideProtocolInstance
 	{
 	    return 36;
 	}
+	
+	@Override
+	public String toString()
+	{
+	    return "end of file "+haName+", len="+length+", mod="+new Date(lastModified);
+	}
     }
     
     
@@ -616,6 +655,12 @@ extends ServerSideProtocolInstance
 	{
 	    return 20;
 	}
+	
+	@Override
+	public String toString()
+	{
+	    return "end of checksums "+haName;
+	}
    }
     
     
@@ -642,6 +687,12 @@ extends ServerSideProtocolInstance
 	public int getSizeEstimate()
 	{
 	    return 4;
+	}
+	
+	@Override
+	public String toString()
+	{
+	    return "live mode cnf";
 	}
     }
     

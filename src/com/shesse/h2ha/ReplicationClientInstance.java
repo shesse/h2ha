@@ -476,6 +476,12 @@ extends ServerSideProtocolInstance
 	{
 	    return 35;
 	}
+	
+	@Override
+	public String toString()
+	{
+	    return "negotiate role req prio="+masterPriority+", uuid="+uuid;
+	}
     }
 
     /**
@@ -501,6 +507,12 @@ extends ServerSideProtocolInstance
 	public int getSizeEstimate()
 	{
 	    return 4;
+	}
+	
+	@Override
+	public String toString()
+	{
+	    return "send list of files req";
 	}
    }
 
@@ -530,6 +542,12 @@ extends ServerSideProtocolInstance
 	public int getSizeEstimate()
 	{
 	    return 45*entries.size();
+	}
+	
+	@Override
+	public String toString()
+	{
+	    return "send file req: nentries="+entries.size();
 	}
     }
 
@@ -564,6 +582,12 @@ extends ServerSideProtocolInstance
 	{
 	    return 32;
 	}
+	
+	@Override
+	public String toString()
+	{
+	    return "send block req "+haName+", offs="+offset+", len="+length;
+	}
     }
 
     /**
@@ -593,6 +617,12 @@ extends ServerSideProtocolInstance
 	{
 	    return 20;
 	}
+	
+	@Override
+	public String toString()
+	{
+	    return "file processed "+haName;
+	}
     }
 
     /**
@@ -619,6 +649,12 @@ extends ServerSideProtocolInstance
 	public int getSizeEstimate()
 	{
 	    return 4;
+	}
+	
+	@Override
+	public String toString()
+	{
+	    return "live mode req";
 	}
    }
 

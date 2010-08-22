@@ -65,7 +65,8 @@ implements Runnable
     protected BlockingQueue<ReplicationMessage> messageQueue = new LinkedBlockingQueue<ReplicationMessage>();
     
     /** */
-    protected ReplicationMessage terminateMessage = new ReplicationMessage() {
+    protected ReplicationMessage terminateMessage = new ReplicationMessage()
+    {
         private static final long serialVersionUID = 1L;
 
         @Override
@@ -79,6 +80,12 @@ implements Runnable
 	{
 	    return 4;
 	}
+
+        @Override
+        public String toString()
+        {
+            return "terminate";
+        }
    };
     
     /** */
@@ -104,6 +111,12 @@ implements Runnable
     
     /** */
     private long nextStatisticsTimestamp = 0L;
+    
+    /** */
+    private long nextHeartbeatToSend = 0L;
+    
+    /** */
+    private long lastHeartbeatReceived = 0L;
     
 
     // /////////////////////////////////////////////////////////
@@ -298,7 +311,19 @@ implements Runnable
 		    nextStatisticsTimestamp = now + 300000;
 		}
 		
-		long delta = nextStatisticsTimestamp - now;
+		if (now >= nextHeartbeatToSend) {
+		    nextHeartbeatToSend = now + 30000;
+		    sendHeartbeat();
+		}
+		
+		if (lastHeartbeatReceived != 0 && now > lastHeartbeatReceived+120000) {
+		    throw new TerminateThread("did not receive heartbeats");
+		}
+		
+		long nextActivity = nextStatisticsTimestamp;
+		if (nextHeartbeatToSend < nextActivity) nextActivity = nextHeartbeatToSend;
+		
+		long delta = nextActivity - now;
 		ReplicationMessage message = messageQueue.poll(delta, TimeUnit.MILLISECONDS);
 		
 		if (message != null) {
@@ -319,6 +344,24 @@ implements Runnable
 	closeSocket();
     }
 
+    /**
+     * @throws IOException 
+     * 
+     */
+    private void sendHeartbeat()
+    throws IOException
+    {
+	sendToPeer(new HeartbeatMessage());
+    }
+    
+    /**
+     * 
+     */
+    private void heartbeatReceived()
+    {
+	lastHeartbeatReceived = System.currentTimeMillis();
+    }
+    
     /**
      * Enqueues a message for sending to the peer. This
      * method may be called from any thread. The actual 
@@ -358,6 +401,12 @@ implements Runnable
             {
         	return 4;
             }
+
+            @Override
+            public String toString()
+            {
+        	return "send to peer: "+message;
+            }
        });
     }
 
@@ -383,6 +432,12 @@ implements Runnable
             {
         	return 4;
             }
+
+            @Override
+            public String toString()
+            {
+        	return "cancel connection";
+            }
 	});
 
     }
@@ -392,7 +447,7 @@ implements Runnable
     protected void processReceivedMessage(Object message)
     {
         if (message instanceof ReplicationMessage) {
-            log.debug(instanceName+": got "+message.getClass().getName()+" from protocol connection");
+            log.debug(instanceName+": got from protocol connection: "+message);
             messageQueue.add((ReplicationMessage)message);
     
         } else {
@@ -435,7 +490,13 @@ implements Runnable
             {
         	return 4;
             }
-       });
+
+            @Override
+            public String toString()
+            {
+        	return "flush";
+            }
+        });
         
         sema.acquire();
     }
@@ -486,7 +547,7 @@ implements Runnable
     protected void sendToPeer(Serializable message, int sizeEstimate)
         throws IOException
     {
-        log.debug(instanceName+": sending message to peer: "+message.getClass().getName()+", size="+sizeEstimate);
+        log.debug(instanceName+": sending message to peer: "+message+", size="+sizeEstimate);
         if (instanceThread == null) {
             instanceThread = Thread.currentThread();
         } else if (Thread.currentThread() != instanceThread) {
@@ -532,6 +593,12 @@ implements Runnable
         {
             return cls.cast(cnf);
         }
+	
+	@Override
+	public String toString()
+	{
+	    return "op req id="+operationId;
+	}
     }
 
     /**
@@ -571,6 +638,12 @@ implements Runnable
         {
             return 12;
         }
+	
+	@Override
+	public String toString()
+	{
+	    return "op cnf op="+operationId;
+	}
     }
 
     /**
@@ -638,6 +711,8 @@ implements Runnable
             return request.castConfirm(cnf);
         }
     }
+    
+    
     /**
      * 
      */
@@ -662,6 +737,39 @@ implements Runnable
 	{
 	    return 4;
 	}
+	
+	@Override
+	public String toString()
+	{
+	    return "sync req";
+	}
     }
 
+    /**
+     * 
+     */
+    protected static class HeartbeatMessage
+    extends ReplicationMessage
+    {
+	private static final long serialVersionUID = 1L;
+
+	@Override
+	protected void process(ReplicationProtocolInstance instance)
+	throws Exception
+	{
+	    instance.heartbeatReceived();
+	}
+
+	@Override
+	public int getSizeEstimate()
+	{
+	    return 4;
+	}
+
+	@Override
+	public String toString()
+	{
+	    return "heartbeat";
+	}
+    }
 }

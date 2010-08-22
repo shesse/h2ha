@@ -66,7 +66,7 @@ public class FileInfo
         } else if (haName.endsWith(Constants.SUFFIX_LOCK_FILE)) {
             log.debug("file "+haName+" is a lock file");
             isDatabaseFile = true;
-            needsReplication = true;
+            needsReplication = false;
         } else if (haName.endsWith(Constants.SUFFIX_LOB_FILE)) {
             log.debug("file "+haName+" is a LOB file");
             isDatabaseFile = true;
