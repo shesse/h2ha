@@ -32,9 +32,6 @@ public class H2HaServer
     private ReplicationServer server;
 
     /** */
-    private ReplicationClientInstance client;
-    
-    /** */
     @SuppressWarnings("unused")
     private Server tcpDatabaseServer;
     
@@ -143,9 +140,10 @@ public class H2HaServer
             state = State.STARTING_AS_MASTER;
             
         } else {
-            client = new ReplicationClientInstance(this, fileSystem, args);
-
+ 
             for (;;) {
+        	ReplicationClientInstance client = new ReplicationClientInstance(this, fileSystem, args);
+        	
                 int retryCount = 0;
                 role = Role.NEGOTIATING;
                 while (retryCount < maxConnectRetries && !client.isConnected()) {

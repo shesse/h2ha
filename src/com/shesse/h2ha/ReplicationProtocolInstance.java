@@ -149,6 +149,14 @@ implements Runnable
         receiver.start();
         
     }
+    
+    /**
+     * 
+     */
+    protected void setInstanceName(String instanceName)
+    {
+	this.instanceName = instanceName;
+    }
 
     /**
      * Tries to initiate a connection to the peer.
@@ -207,9 +215,10 @@ implements Runnable
         }
         if (receiver != null) {
             try {
-                receiver.join();
+                receiver.join(10000);
             } catch (InterruptedException x) {
             }
+            receiver.terminate();
             receiver = null;
         }
         if (oos != null) {
@@ -317,7 +326,7 @@ implements Runnable
 		}
 		
 		if (lastHeartbeatReceived != 0 && now > lastHeartbeatReceived+120000) {
-		    throw new TerminateThread("did not receive heartbeats");
+		    throw new TerminateThread("did not receive heartbeats on replication connection");
 		}
 		
 		long nextActivity = nextStatisticsTimestamp;
@@ -335,6 +344,7 @@ implements Runnable
 	    
 	} catch (TerminateThread x) {
 	    x.logError(log, instanceName);
+	    log.error(instanceName+": terminating connection!");
 
 	} catch (Exception x) {
 	    log.error(instanceName+": unexpected exception when processing message from peer", x);

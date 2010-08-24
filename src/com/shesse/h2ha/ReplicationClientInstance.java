@@ -104,7 +104,12 @@ extends ServerSideProtocolInstance
      */
     public boolean tryToConnect()
     {
-        return tryToConnect(peerHost, peerPort, connectTimeout);
+        if (tryToConnect(peerHost, peerPort, connectTimeout)) {
+            setInstanceName(String.valueOf(socket.getRemoteSocketAddress()));
+            return true;
+        } else {
+            return false;
+        }
     }
 
     /**
