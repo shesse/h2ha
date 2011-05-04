@@ -344,15 +344,6 @@ extends ServerSideProtocolInstance
     }
 
     /**
-     * @param original
-     * @param copy
-     */
-    public void processCopyMessage(String original, String copy)
-    {
-        fileSystem.copy(original, copy);
-    }
-
-    /**
      * @param fileName
      */
     public void processCreateDirsMessage(String fileName)
@@ -390,14 +381,6 @@ extends ServerSideProtocolInstance
     public void processDeleteRecursiveMessage(String directory, boolean tryOnly)
     {
         fileSystem.deleteRecursive(directory, tryOnly);
-    }
-
-    /**
-     * @param directoryName
-     */
-    public void processMkdirsMessage(String directoryName)
-    {
-        fileSystem.mkdirs(directoryName);
     }
 
     /**

@@ -43,9 +43,6 @@ public class FileSystemHa
     private String haBaseDir = null;
     
     /** */
-    private String haBaseDirAbsolute = null;
-
-    /** */
     private String haBaseDirAbsoluteNormalized = null;
     
     /** */
@@ -77,8 +74,7 @@ public class FileSystemHa
         }
         
         if (haBaseDir != null) {
-            haBaseDirAbsolute = baseFileSystem.getAbsolutePath(haBaseDir);
-            haBaseDirAbsoluteNormalized = baseFileSystem.normalize(haBaseDirAbsolute);
+             haBaseDirAbsoluteNormalized = baseFileSystem.getCanonicalPath(haBaseDir);
             register(this);
         }
     }
@@ -110,7 +106,7 @@ public class FileSystemHa
                 else
                     localName = haBaseDirAbsoluteNormalized+"/"+localName;
                  
-                localName = baseFileSystem.normalize(localName);
+                localName = baseFileSystem.getCanonicalPath(localName);
 
                 // there may be cases where multiple haName refer to the same
                 // file. However, localName is normalized and must therefore be
@@ -421,28 +417,6 @@ public class FileSystemHa
     /**
      * {@inheritDoc}
      *
-     * @see org.h2.store.fs.FileSystem#copy(java.lang.String, java.lang.String)
-     */
-    @Override
-    public void copy(String original, String copy)
-    {
-        log.debug("copy "+original+" to "+copy);
-        FileInfo fiOriginal = getFileInfoForHaName(original);
-        FileInfo fiCopy = getFileInfoForHaName(copy);
-        baseFileSystem.copy(fiOriginal.getLocalName(), fiCopy.getLocalName());
-        
-        if (fiOriginal.mustReplicate() && fiCopy.mustReplicate()) {
-            sendToReplicators(new CopyMessage(original, copy));
-        } else if (fiOriginal.mustReplicate() || fiCopy.mustReplicate()) {
-            log.error("attempt to copy with differing replication requirements: "+
-                fiOriginal+" to "+fiCopy);
-        }
-    }
-
-
-    /**
-     * {@inheritDoc}
-     *
      * @see org.h2.store.fs.FileSystem#createDirs(java.lang.String)
      */
     @Override
@@ -598,12 +572,12 @@ public class FileSystemHa
     /**
      * {@inheritDoc}
      *
-     * @see org.h2.store.fs.FileSystem#getAbsolutePath(java.lang.String)
+     * @see org.h2.store.fs.FileSystem#getCanonicalPath(java.lang.String)
      */
     @Override
-    public String getAbsolutePath(String fileName)
+    public String getCanonicalPath(String fileName)
     {
-        String ret = localNameToHa(baseFileSystem.getAbsolutePath(haNameToLocal(fileName)));
+        String ret = localNameToHa(baseFileSystem.getCanonicalPath(haNameToLocal(fileName)));
         log.debug("getAbsolutePath "+fileName+" -> "+ret);
         return ret;
     }
@@ -745,37 +719,6 @@ public class FileSystemHa
     /**
      * {@inheritDoc}
      *
-     * @see org.h2.store.fs.FileSystem#mkdirs(java.lang.String)
-     */
-    @Override
-    public void mkdirs(String directoryName)
-    {
-        log.debug("mkdirs "+directoryName);
-        FileInfo dirInfo = getFileInfoForHaName(directoryName);
-        baseFileSystem.mkdirs(dirInfo.getLocalName());
-        if (dirInfo.isWithinHaTree()) {
-            sendToReplicators(new MkdirsMessage(directoryName));
-        }
-    }
-
-
-    /**
-     * {@inheritDoc}
-     *
-     * @see org.h2.store.fs.FileSystem#normalize(java.lang.String)
-     */
-    @Override
-    public String normalize(String fileName)
-    {
-        String ret = localNameToHa(baseFileSystem.normalize(haNameToLocal(fileName)));
-        log.debug("normalize "+fileName+" -> "+ret);
-        return ret;
-    }
-
-
-    /**
-     * {@inheritDoc}
-     *
      * @see org.h2.store.fs.FileSystem#openFileInputStream(java.lang.String)
      */
     @Override
@@ -891,52 +834,18 @@ public class FileSystemHa
     /**
      * {@inheritDoc}
      *
-     * @see org.h2.store.fs.FileSystem#getNextTempFileNamePart(boolean)
+     * @see org.h2.store.fs.FileSystem#unwrap(java.lang.String)
      */
     @Override
-    protected synchronized String getNextTempFileNamePart(boolean newRandom)
+    public String unwrap(String fileName)
     {
-        return super.getNextTempFileNamePart(newRandom);
+        return haNameToLocal(fileName);
     }
-
 
 
     // /////////////////////////////////////////////////////////
     // Inner Classes
     // /////////////////////////////////////////////////////////
-    /** */
-    private static class CopyMessage
-    extends MessageToClient
-    {
-        private static final long serialVersionUID = 1L;
-        String original;
-        String copy;
-        CopyMessage(String original, String copy)
-        {
-            this.original = original;
-            this.copy = copy;
-        }
-        
-        @Override
-        protected void processMessageToClient(ReplicationClientInstance instance)
-            throws Exception
-        {
-            instance.processCopyMessage(original, copy);
-        }
-
-	@Override
-	public int getSizeEstimate()
-	{
-	    return 50;
-	}
-	
-	@Override
-	public String toString()
-	{
-	    return "copy "+original+" to "+copy;
-	}
-    }
-    
     /** */
     private static class CreateDirsMessage
     extends MessageToClient
@@ -1091,37 +1000,6 @@ public class FileSystemHa
 	public String toString()
 	{
 	    return "delete recursive "+directory+", tryOnly="+tryOnly;
-	}
-    }
-    
-    /** */
-    private static class MkdirsMessage
-    extends MessageToClient
-    {
-        private static final long serialVersionUID = 1L;
-        String directoryName;
-        MkdirsMessage(String directoryName)
-        {
-            this.directoryName = directoryName;
-        }
-        
-        @Override
-        protected void processMessageToClient(ReplicationClientInstance instance)
-            throws Exception
-        {
-            instance.processMkdirsMessage(directoryName);
-        }
-
-	@Override
-	public int getSizeEstimate()
-	{
-	    return 20;
-	}
-	
-	@Override
-	public String toString()
-	{
-	    return "mkdirs "+directoryName;
 	}
     }
     

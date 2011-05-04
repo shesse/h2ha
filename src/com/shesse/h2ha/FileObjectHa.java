@@ -106,6 +106,30 @@ public class FileObjectHa
     /**
      * {@inheritDoc}
      *
+     * @see org.h2.store.fs.FileObject#tryLock()
+     */
+    public boolean tryLock()
+    {
+        return baseFileObject.tryLock();
+    }
+
+
+
+    /**
+     * {@inheritDoc}
+     *
+     * @see org.h2.store.fs.FileObject#releaseLock()
+     */
+    public void releaseLock()
+    {
+        baseFileObject.releaseLock();
+    }
+
+
+
+    /**
+     * {@inheritDoc}
+     *
      * @see org.h2.store.fs.FileObject#readFully(byte[], int, int)
      */
     public void readFully(byte[] b, int off, int len)
