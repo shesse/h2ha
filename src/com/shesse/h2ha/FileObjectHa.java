@@ -27,10 +27,10 @@ public class FileObjectHa
 
     /** */
     private FileSystemHa fileSystem;
-
-    /** */
-    private String haName;
     
+    /** */
+    private FileInfo fileInfo;
+
     /** */
     private FileObject baseFileObject;
     
@@ -40,13 +40,14 @@ public class FileObjectHa
     // Constructors
     // /////////////////////////////////////////////////////////
     /**
+     * @param fi 
      */
-    public FileObjectHa(FileSystemHa fileSystem, String haName, FileObject baseFileObject)
+    public FileObjectHa(FileSystemHa fileSystem, FileInfo fileInfo, FileObject baseFileObject)
     {
         log.debug("FileObjectHa()");
         
         this.fileSystem = fileSystem;
-        this.haName = haName;
+        this.fileInfo = fileInfo;
         this.baseFileObject = baseFileObject;
     }
 
@@ -64,7 +65,7 @@ public class FileObjectHa
         throws IOException
     {
         baseFileObject.close();
-        fileSystem.sendToReplicators(new CloseMessage(haName, fileSystem.getLastModified(haName)));
+        fileSystem.sendToReplicators(new CloseMessage(fileInfo.getHaName(), fileSystem.getLastModified(fileInfo.getHaName())));
     }
 
 
@@ -87,7 +88,7 @@ public class FileObjectHa
      */
     public String getName()
     {
-        return haName;
+        return fileInfo.getHaName();
     }
 
 
@@ -133,10 +134,32 @@ public class FileObjectHa
      * @see org.h2.store.fs.FileObject#readFully(byte[], int, int)
      */
     public void readFully(byte[] b, int off, int len)
-        throws IOException
+    throws IOException
     {
-        baseFileObject.readFully(b, off, len);
+	if (len == 0) {
+	    return;
+	}
+	
+	long filePointer = baseFileObject.getFilePointer();
+
+	baseFileObject.readFully(b, off, len);
+	
+	fileSystem.cacheRead(fileInfo, filePointer, b, off, len);
     }
+
+
+    /**
+     * @param buffer
+     * @param i
+     * @param length
+     * @param b
+     */
+    public void readFullyNocache(byte[] b, int off, int len)
+    throws IOException
+    {
+	baseFileObject.readFully(b, off, len);
+    }
+
 
 
     /**
@@ -160,7 +183,7 @@ public class FileObjectHa
         throws IOException
     {
         baseFileObject.setFileLength(newLength);
-        fileSystem.sendToReplicators(new SetFileLengthMessage(haName, newLength));
+        fileSystem.sendToReplicators(new SetFileLengthMessage(fileInfo.getHaName(), newLength));
     }
 
 
@@ -187,16 +210,16 @@ public class FileObjectHa
      * @see org.h2.store.fs.FileObject#write(byte[], int, int)
      */
     public void write(byte[] b, int off, int len)
-        throws IOException
+    throws IOException
     {
-        long filePointer = baseFileObject.getFilePointer();
-        baseFileObject.write(b, off, len);
-        
-        // b may be changed by the caller upon return, so 
-        // we need to copy the data before placing it into the queue
-        byte[] dupData = new byte[len];
-        System.arraycopy(b, off, dupData, 0, len);
-        fileSystem.sendToReplicators(new WriteMessage(haName, filePointer, dupData));
+	if (len == 0) {
+	    return;
+	}
+
+	long filePointer = baseFileObject.getFilePointer();
+	baseFileObject.write(b, off, len);
+
+	fileSystem.compressAndSendWrite(fileInfo, filePointer, b, off, len);
     }
 
 
@@ -268,41 +291,5 @@ public class FileObjectHa
 	    return "set file length "+haName+": "+newLength;
 	}
     }
-
-    /** */
-    private static class WriteMessage
-    extends MessageToClient
-    {
-        private static final long serialVersionUID = 1L;
-        String haName;
-        long filePointer;
-        byte[] data;
-        WriteMessage(String haName, long filePointer, byte[] data)
-        {
-            this.haName = haName;
-            this.filePointer = filePointer;
-            this.data = data;
-        }
-        
-        @Override
-        protected void processMessageToClient(ReplicationClientInstance instance)
-            throws Exception
-        {
-            instance.processFoWriteMessage(haName, filePointer, data);
-        }
-
-	@Override
-	public int getSizeEstimate()
-	{
-	    return 30 + data.length;
-	}
-	
-	@Override
-	public String toString()
-	{
-	    return "write message "+haName+", offs="+filePointer+", len="+data.length;
-	}
-   }
-
 
 }

@@ -29,7 +29,7 @@ public class FileInfo
     private String haName;
     
     /** */
-    private static Set<String> allHaNames = null;
+    private Set<String> allHaNames = null;
     
     /** */
     private String localName;
@@ -44,7 +44,6 @@ public class FileInfo
     /** */
     private boolean needsReplication;
     
-  
 
     // /////////////////////////////////////////////////////////
     // Constructors
@@ -187,6 +186,4 @@ public class FileInfo
     // /////////////////////////////////////////////////////////
     // Inner Classes
     // /////////////////////////////////////////////////////////
-
-
 }

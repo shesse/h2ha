@@ -245,7 +245,11 @@ extends ServerSideProtocolInstance
 
                 syncStatus.beginIgnore = endrd;
                  
-                fo.readFully(buffer, 0, rdlen);
+                if (fo instanceof FileObjectHa) {
+                    ((FileObjectHa)fo).readFullyNocache(buffer, 0, rdlen);
+                } else {
+                    fo.readFully(buffer, 0, rdlen);
+                }
                 sendToPeer(new FileDataMessage(haName, offset, buffer));
                 offset += rdlen;
                 
@@ -310,7 +314,11 @@ extends ServerSideProtocolInstance
 
                     syncStatus.beginIgnore = endrd;
                     
-                    fo.readFully(buffer, 0, rdlen);
+                    if (fo instanceof FileObjectHa) {
+                        ((FileObjectHa)fo).readFullyNocache(buffer, 0, rdlen);
+                    } else {
+                	fo.readFully(buffer, 0, rdlen);
+                    }
                     sendToPeer(new FileChecksumMessage(haName, offset, rdlen, computeMd5(buffer, 0, rdlen)));
                     offset += rdlen;
 
@@ -352,7 +360,11 @@ extends ServerSideProtocolInstance
             try {
                 byte[] buffer = new byte[length];
                 fo.seek(offset);
-                fo.readFully(buffer, 0, length);
+                if (fo instanceof FileObjectHa) {
+                    ((FileObjectHa)fo).readFullyNocache(buffer, 0, length);
+                } else {
+                    fo.readFully(buffer, 0, length);
+                }
                 sendToPeer(new FileDataMessage(haName, offset, buffer));
                 return;
                 

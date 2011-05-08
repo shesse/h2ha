@@ -264,7 +264,11 @@ extends ServerSideProtocolInstance
         } else {
             fo.seek(offset);
             byte[] buffer = new byte[length];
-            fo.readFully(buffer, 0, length);
+            if (fo instanceof FileObjectHa) {
+        	((FileObjectHa)fo).readFullyNocache(buffer, 0, length);
+            } else {
+        	fo.readFully(buffer, 0, length);
+            }
             
             byte[] localMd5 = computeMd5(buffer, 0, length);
             if (!Arrays.equals(localMd5, checksum)) {
