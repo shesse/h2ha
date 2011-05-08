@@ -90,8 +90,11 @@ public class DbManager
         Connection conn = createConnection();
         try {
             Statement stmnt = conn.createStatement();
-            stmnt.executeUpdate("create alias SYNC_ALL for \"com.shesse.h2ha.H2HaServer.syncWithAllReplicators\"");
-            stmnt.executeUpdate("call SYNC_ALL()");
+            try {
+        	stmnt.executeUpdate("create alias SYNC_ALL_REPLICATORS for \"com.shesse.h2ha.H2HaServer.syncWithAllReplicators\"");
+            } catch (SQLException x) {
+            }
+            stmnt.executeUpdate("call SYNC_ALL_REPLICATORS()");
             
         } finally {
             conn.close();

@@ -96,13 +96,12 @@ extends TestGroupBase
     
      
     /**
-     * Test Purpose: verify that auto-reconnect is working. Note: standard H2 
-     * does not support combining multiple addresses and auto reconnect
+     * Test Purpose: verify that auto-reconnect is working. 
      * @throws SQLException 
      * @throws InterruptedException 
      * @throws IOException 
      */
-    @Ignore @Test
+    @Test
     public void verifyAutoreconnect() throws SQLException, InterruptedException, IOException
     {
         dbManager.shutdown();

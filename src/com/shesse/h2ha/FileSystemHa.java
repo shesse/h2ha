@@ -214,7 +214,7 @@ public class FileSystemHa
      */
     private boolean isHaName(String name)
     {
-        return name.startsWith(getRoot());
+        return name.startsWith(haProtocol);
     }
     
     /**
@@ -577,8 +577,9 @@ public class FileSystemHa
     @Override
     public String getCanonicalPath(String fileName)
     {
+        log.debug("getCanonicalPath "+fileName);
         String ret = localNameToHa(baseFileSystem.getCanonicalPath(haNameToLocal(fileName)));
-        log.debug("getAbsolutePath "+fileName+" -> "+ret);
+        log.debug("getCanonicalPath "+fileName+" -> "+ret);
         return ret;
     }
 
