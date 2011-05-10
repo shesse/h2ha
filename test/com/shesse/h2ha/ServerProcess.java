@@ -8,7 +8,9 @@ package com.shesse.h2ha;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import org.apache.log4j.Logger;
 import org.junit.Assert;
@@ -67,11 +69,12 @@ public class ServerProcess
     // Methods
     // /////////////////////////////////////////////////////////
     /**
+     * @param haCacheSize 
      * @throws IOException 
      * @throws InterruptedException 
      * 
      */
-    public void start(boolean isPrimary)
+    public void start(int haCacheSize, boolean isPrimary)
     throws IOException, InterruptedException
     {
         stop();
@@ -102,12 +105,32 @@ public class ServerProcess
             "-masterPriority", (isPrimary ? "20" : "10"),//
         };
         
+        List<String> cmd = new ArrayList<String>(Arrays.asList(serverCommand));
+        
+        if (haCacheSize >= 0) {
+            cmd.add("-haCacheSize");
+            cmd.add(String.valueOf(haCacheSize));
+        }
+        
         log.info("starting up instance "+instName);
-        dbProcess = ProcessUtils.startJavaProcess(instName, Arrays.asList(serverCommand));
+        dbProcess = ProcessUtils.startJavaProcess(instName, cmd);
 
         log.info("instance "+instName+" has been started");
     }
     
+    /**
+     * @throws InterruptedException 
+     * 
+     */
+    public void cleanup()
+    throws InterruptedException
+    {
+	stop();
+
+	log.info("removing "+dbDir);
+	FileUtils.deleteRecursive(dbDir);
+    }
+
     /**
      * @throws InterruptedException 
      * 

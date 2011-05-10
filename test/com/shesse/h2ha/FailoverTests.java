@@ -50,6 +50,8 @@ extends TestGroupBase
     public void setUp()
         throws SQLException, IOException, InterruptedException
     {
+	dbManager.cleanup();
+	servers.cleanup();
         servers.start();
         servers.waitUntilActive();
         tr.startup();

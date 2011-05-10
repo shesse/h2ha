@@ -43,6 +43,9 @@ public class ServerProcessPair
 
     /** */
     private static final int syncPortB = 8126;
+    
+    /** */
+    private int haCacheSize = -1;
 
     /** */
     private ServerProcess processA = new ServerProcess(dbDirA, tcpPortA, syncPortA, syncPortB);
@@ -66,6 +69,14 @@ public class ServerProcessPair
     // Methods
     // /////////////////////////////////////////////////////////
     /**
+     * @param haCacheSize
+     */
+    public void setHaCacheSize(int haCacheSize)
+    {
+	this.haCacheSize = haCacheSize;
+    }
+
+    /**
      * @throws InterruptedException 
      * @throws IOException 
      * 
@@ -84,7 +95,7 @@ public class ServerProcessPair
     public void startA(boolean isPrimary)
     throws IOException, InterruptedException
     {
-        processA.start(isPrimary);
+        processA.start(haCacheSize, isPrimary);
     }
     
     /**
@@ -95,7 +106,40 @@ public class ServerProcessPair
     public void startB(boolean isPrimary)
     throws IOException, InterruptedException
     {
-        processB.start(isPrimary);
+        processB.start(haCacheSize, isPrimary);
+    }
+    
+    /**
+     * @throws InterruptedException 
+     * @throws IOException 
+     * 
+     */
+    public void cleanup() throws IOException, InterruptedException
+    {
+	cleanupA();
+	cleanupB();
+    }
+    
+    /**
+     * @throws InterruptedException 
+     * @throws IOException 
+     * 
+     */
+    public void cleanupA()
+    throws IOException, InterruptedException
+    {
+        processA.cleanup();
+    }
+    
+    /**
+     * @throws InterruptedException 
+     * @throws IOException 
+     * 
+     */
+    public void cleanupB()
+    throws IOException, InterruptedException
+    {
+        processB.cleanup();
     }
     
     /**

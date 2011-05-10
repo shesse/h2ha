@@ -147,6 +147,7 @@ public class TableRegistry
                 conn.createStatement().executeUpdate(sql);
                 allTables.remove(table);
                 tablesByName.remove(name);
+                conn.commit();
 
             } finally {
                 conn.close();

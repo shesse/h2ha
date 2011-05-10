@@ -41,6 +41,7 @@ public class DbManager
         log.debug("DbManager()");
     }
 
+    
     // /////////////////////////////////////////////////////////
     // Methods
     // /////////////////////////////////////////////////////////
@@ -48,10 +49,22 @@ public class DbManager
      * @throws SQLException 
      * 
      */
-    public void shutdown() throws SQLException
+    public void shutdown()
+    throws SQLException
     {
-        cp.dispose();
-        cp = null;
+	if (cp != null) {
+	    cp.dispose();
+	    cp = null;
+	}
+    }
+    
+    /**
+     * 
+     */
+    public void cleanup()
+    throws SQLException
+    {
+	shutdown();
     }
 
     /**
@@ -65,7 +78,9 @@ public class DbManager
             cp = JdbcConnectionPool.create("jdbc:h2:tcp://localhost:9092,localhost:9093/test"+autoReconnect,
                 "sth", "sth");
         }
-        return cp.getConnection();
+        Connection conn = cp.getConnection();
+        conn.setAutoCommit(false);
+        return conn;
     }
     
     /**
@@ -115,6 +130,5 @@ public class DbManager
     // /////////////////////////////////////////////////////////
     // Inner Classes
     // /////////////////////////////////////////////////////////
-
 
 }

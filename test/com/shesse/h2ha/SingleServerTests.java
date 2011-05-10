@@ -9,6 +9,7 @@ package com.shesse.h2ha;
 import java.io.File;
 import java.io.IOException;
 import java.sql.SQLException;
+import java.util.Random;
 
 import org.apache.log4j.Logger;
 import org.junit.After;
@@ -29,6 +30,9 @@ extends TestGroupBase
     /** */
     static private Logger log = Logger.getLogger(SingleServerTests.class);
 
+    /** */
+    private Random rnd = new Random();
+
     // /////////////////////////////////////////////////////////
     // Constructors
     // /////////////////////////////////////////////////////////
@@ -47,6 +51,9 @@ extends TestGroupBase
     public void setUp()
         throws SQLException, IOException, InterruptedException
     {
+	dbManager.cleanup();
+	servers.setHaCacheSize(0);
+	servers.cleanupA();
         servers.startA(true);
         servers.waitUntilAIsActive();
         tr.startup();
@@ -117,7 +124,61 @@ extends TestGroupBase
         Assert.assertTrue(table.getNoOfRecords() == 1);
     }
     
-     
+    @Test
+    public void largeDb()
+    throws SQLException, IOException, InterruptedException {
+        log.info("largeDb");
+        
+        TestTable[] tables = new TestTable[50];
+        for (int i = 0; i < tables.length; i++) {
+            tables[i] = tr.createTable();
+        }
+        
+        Thread[] writers = new Thread[20];
+        for (int i = 0; i < writers.length; i++) {
+            writers[i] = createWriter(i, tables);
+            writers[i].start();
+        }
+        
+        for (int i = 0; i < writers.length; i++) {
+            writers[i].join();
+        }
+    }
+    
+    /**
+     */
+    private Thread createWriter(final int wi, final TestTable[] tables)
+    {
+        return new Thread() {
+            public void run()
+            {
+                try {
+                    body();
+                } catch (Throwable x) {
+                    log.error("unexpected error within writer thread", x);
+                }
+            }
+            public void body() throws SQLException
+            {
+                for (int i = 0; i < 5000; i++) {
+                    TestTable tab;
+                    synchronized (rnd) {
+                        tab = tables[rnd.nextInt(tables.length)];
+                    }
+                    
+                    synchronized (tab) {
+                        tab.insertRecord();
+                    }
+                    
+                    if (i % 1000 == 999) {
+                        log.info("writer["+wi+"]: "+(i+1));
+                    }
+                }
+            }
+        };
+    }
+    
+    
     // /////////////////////////////////////////////////////////
     // Inner Classes
     // /////////////////////////////////////////////////////////

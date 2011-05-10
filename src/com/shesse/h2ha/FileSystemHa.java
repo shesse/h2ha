@@ -71,32 +71,19 @@ public class FileSystemHa
     private int blocksizeOccurenceCount = 0;
 
     /** */
-    private LinkedHashMap<String, byte[]> blockCache =
-	new LinkedHashMap<String, byte[]>((BLOCK_CACHE_SIZE * 4) / 3, 0.75f, true) {
-
-	    private static final long serialVersionUID = 1L;
-
-	    /**
-	     * {@inheritDoc}
-	     * 
-	     * @see java.util.LinkedHashMap#removeEldestEntry(java.util.Map.Entry)
-	     */
-	    @Override
-	    protected boolean removeEldestEntry(Entry<String, byte[]> eldest)
-	    {
-		return size() > BLOCK_CACHE_SIZE;
-	    }
-	};
+    private LinkedHashMap<String, byte[]> blockCache;
 
     /** */
     private static final int REQUIRED_LEARN_COUNT = 5;
 
     /** */
-    private static final int BLOCK_CACHE_SIZE = 1000;
-
+    private int haCacheSize = DEFAULT_CACHE_SIZE;
 
     /** */
     private static final String haProtocol = "ha:";
+
+    /** */
+    private static final int DEFAULT_CACHE_SIZE = 1000;
 
 
     // /////////////////////////////////////////////////////////
@@ -111,14 +98,42 @@ public class FileSystemHa
 	for (int i = 0; i < args.length - 1; i++) {
 	    if (args[i].equals("-haBaseDir")) {
 		haBaseDir = args[i + 1];
-	    }
+		
+	    } else if (args[i].equals("-haCacheSize")) {
+                try {
+                    haCacheSize = Integer.parseInt(args[++i]);
+                } catch (NumberFormatException x) {
+                    log.error("inhalid haCacheSize: "+x);
+                }
+            }
 	}
 
 	if (haBaseDir != null) {
 	    haBaseDirAbsoluteNormalized = baseFileSystem.getCanonicalPath(haBaseDir);
 	    register(this);
 	}
+
+	if (haCacheSize > 0) {
+	    blockCache = new LinkedHashMap<String, byte[]>((haCacheSize * 4) / 3, 0.75f, true) {
+		private static final long serialVersionUID = 1L;
+
+		/**
+		 * {@inheritDoc}
+		 * 
+		 * @see java.util.LinkedHashMap#removeEldestEntry(java.util.Map.Entry)
+		 */
+		@Override
+		protected boolean removeEldestEntry(Entry<String, byte[]> eldest)
+		{
+		    return size() > haCacheSize;
+		}
+	    };
+	    
+	} else {
+	    blockCache = null;
+	}
     }
+
 
 
     // /////////////////////////////////////////////////////////
@@ -910,6 +925,10 @@ public class FileSystemHa
     public synchronized void cacheRead(FileInfo fileInfo, long filePointer, byte[] b, int off,
 				       int len)
     {
+	if (blockCache == null) {
+	    return;
+	}
+	
 	if (blocksizeLearningState == BlocksizeLearningState.INITIAL) {
 	    blocksizeLearningState = BlocksizeLearningState.LEARNING;
 	    learnedBlocksize = len;
@@ -972,9 +991,6 @@ public class FileSystemHa
     public synchronized void compressAndSendWrite(FileInfo fileInfo, long filePointer, byte[] b,
 						  int off, int len)
     {
-	if (filePointer == 3*2048 && len == 2048) {
-	    log.debug("byte at 6145: "+(int)b[1]);
-	}
 	// All writing traffic will pass through this point. So we
 	// may use the block cache to limit the amount of data sent
 	// to the peer system to only the parts that have changed.
@@ -982,7 +998,7 @@ public class FileSystemHa
 	// usually have leading and trailing unchanged bytes and
 	// cuts them off.
 	boolean addToCache = false;
-	if (blocksizeLearningState == BlocksizeLearningState.LEARNED) {
+	if (blockCache != null && blocksizeLearningState == BlocksizeLearningState.LEARNED) {
 	    long blockno = filePointer / learnedBlocksize;
 	    if (learnedBlocksize == len && blockno * learnedBlocksize == filePointer) {
 		// blocked write

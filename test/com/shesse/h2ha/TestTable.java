@@ -82,6 +82,8 @@ public class TestTable
 
             sql = "create index x_"+ name + "_2 on " +name+ "( j );";
             stmnt.executeUpdate(sql);
+            conn.commit();
+            
         } finally {
             conn.close();
         }
@@ -102,6 +104,8 @@ public class TestTable
 
             Statement stmnt = conn.createStatement();
             stmnt.executeUpdate(sql);
+            conn.commit();
+            
         } finally {
             conn.close();
         }
