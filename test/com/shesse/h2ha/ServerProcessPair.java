@@ -83,8 +83,8 @@ public class ServerProcessPair
      */
     public void start() throws IOException, InterruptedException
     {
-        startA(true);
-        startB(false);
+        startA();
+        startB();
     }
     
     /**
@@ -92,10 +92,10 @@ public class ServerProcessPair
      * @throws IOException 
      * 
      */
-    public void startA(boolean isPrimary)
+    public void startA()
     throws IOException, InterruptedException
     {
-        processA.start(haCacheSize, isPrimary);
+        processA.start(haCacheSize, true);
     }
     
     /**
@@ -103,10 +103,10 @@ public class ServerProcessPair
      * @throws IOException 
      * 
      */
-    public void startB(boolean isPrimary)
+    public void startB()
     throws IOException, InterruptedException
     {
-        processB.start(haCacheSize, isPrimary);
+        processB.start(haCacheSize, false);
     }
     
     /**
@@ -180,6 +180,24 @@ public class ServerProcessPair
     public void stop() throws InterruptedException
     {
         processA.stop();
+        processB.stop();
+    }
+    
+    /**
+     * @throws InterruptedException 
+     * 
+     */
+    public void stopA() throws InterruptedException
+    {
+        processA.stop();
+    }
+    
+    /**
+     * @throws InterruptedException 
+     * 
+     */
+    public void stopB() throws InterruptedException
+    {
         processB.stop();
     }
     

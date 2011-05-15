@@ -8,6 +8,7 @@ package com.shesse.h2ha;
 
 import java.io.IOException;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Random;
 
 import org.apache.log4j.Logger;
@@ -51,26 +52,35 @@ extends TestGroupBase
         throws SQLException, IOException, InterruptedException
     {
 	dbManager.cleanup();
+	dbManager.setAutoReconnect(true);
 	servers.cleanup();
-        servers.start();
-        servers.waitUntilActive();
-        tr.startup();
+	servers.start();
+	servers.waitUntilActive();
+	tr.startup();
+	log.info("######################################################################");
+	log.info("######################################################################");
+        log.info("setup done");
     }
-    
+
     @After
     public void tearDown()
-        throws InterruptedException, SQLException
+    throws InterruptedException, SQLException
     {
-       tr.shutdown();
-       dbManager.shutdown();
-       servers.stop();
+	log.info("######################################################################");
+	log.info("######################################################################");
+        log.info("beginning to tear down");
+	tr.shutdown();
+	dbManager.shutdown();
+	servers.stop();
     }
 
 
     @Test
     public void createAndDrop()
     throws SQLException, IOException, InterruptedException {
-        log.info("createAndDrop");
+	log.info("######################################################################");
+	log.info("######################################################################");
+        log.info("start of test createAndDrop");
         
         TestTable table = tr.createTable();
         tr.dropTable(table.getName());
@@ -78,13 +88,194 @@ extends TestGroupBase
         tr.getDbManager().syncWithAllReplicators();
          
         Assert.assertTrue(servers.contentEquals());
+        log.info("end of test createAndDrop");
+    }
+    
+     
+    @Test
+    public void failoverDuringTransaction()
+    throws SQLException, IOException, InterruptedException {
+	log.info("######################################################################");
+	log.info("######################################################################");
+	log.info("start of test failoverDuringTransaction");
+
+	final TestTable table = tr.createTable();
+
+	TransactionBody insertRecords = new TransactionBody() {
+	    public void run(Statement stmnt)
+	    throws SQLException
+	    {
+		for (int i = 0; i < 200; i++) {
+		    table.insertRecordWithoutCommit(stmnt);
+		}
+	    }
+	};
+
+	TransactionBody insertAndTerminateA = new TransactionBody() {
+	    public void run(Statement stmnt)
+	    throws SQLException
+	    {
+		for (int i = 0; i < 100; i++) {
+		    table.insertRecordWithoutCommit(stmnt);
+		}
+		
+	        log.info("terminating DB A");
+	        try {
+		    servers.stopA();
+		} catch (InterruptedException x) {
+		    log.error("InterruptedException", x);
+		}
+	        log.info("DB A has been stopped");
+	        
+		for (int i = 0; i < 100; i++) {
+		    table.insertRecordWithoutCommit(stmnt);
+		}
+	    }
+	};
+
+	log.info("step 1: writing 200 records to redundant DB");
+	executeTransaction(insertRecords);
+        
+	int nrec = table.getNoOfRecords();
+        log.info("step 1 done: wrote 200 records to redundant DB - new count = "+nrec);
+        Assert.assertTrue(nrec == 200);
+        
+        
+        
+        tr.getDbManager().syncWithAllReplicators();
+        log.info("Failover Pair is in sync");
+        
+        
+        log.info("step 2: writing 200 records and terminating A in during transaction");
+	executeTransaction(insertAndTerminateA);
+        
+
+	nrec = table.getNoOfRecords();
+        log.info("step 2 done: wrote 200 records to DB - new count = "+nrec);
+        Assert.assertTrue(nrec == 400);
+        
+        
+
+        log.info("starting DB A");
+        servers.startA();
+        servers.waitUntilAIsActive();
+        
+
+        log.info("step 3: writing 200 records to re-established redundant DB");
+	executeTransaction(insertRecords);
+        
+	nrec = table.getNoOfRecords();
+        log.info("step 3 done: wrote 200 records to re-established redundant DB - new count = "+nrec);
+        Assert.assertTrue(nrec == 600);
+        
+        
+              
+        tr.getDbManager().syncWithAllReplicators();
+        log.info("Failover Pair is in sync");
+
+         
+        Assert.assertTrue(servers.contentEquals());
+        log.info("end of test failoverOutsideTransaction");
+    }
+    
+     
+    @Test
+    public void failoverOutsideTransaction()
+    throws SQLException, IOException, InterruptedException {
+	log.info("######################################################################");
+	log.info("######################################################################");
+	log.info("start of test failoverOutsideTransaction");
+
+	final TestTable table = tr.createTable();
+
+	TransactionBody insertRecords = new TransactionBody() {
+	    public void run(Statement stmnt)
+	    throws SQLException
+	    {
+		for (int i = 0; i < 200; i++) {
+		    table.insertRecordWithoutCommit(stmnt);
+		}
+	    }
+	};
+
+	log.info("step 1: writing 200 records to redundant DB");
+	executeTransaction(insertRecords);
+        
+	int nrec = table.getNoOfRecords();
+        log.info("step 1 done: wrote 200 records to redundant DB - new count = "+nrec);
+        Assert.assertTrue(nrec == 200);
+        
+        
+        
+        tr.getDbManager().syncWithAllReplicators();
+        log.info("Failover Pair is in sync");
+        
+        
+        servers.stopA();
+        log.info("DB A has been stopped");
+        
+
+        log.info("step 2: writing 200 records to DB B");
+	executeTransaction(insertRecords);
+        
+	nrec = table.getNoOfRecords();
+        log.info("step 2 done: wrote 200 records to DB B - new count = "+nrec);
+        Assert.assertTrue(nrec == 400);
+        
+        
+
+        log.info("starting DB A");
+        servers.startA();
+        servers.waitUntilAIsActive();
+        
+
+        log.info("step 3: writing 200 records to re-established redundant DB");
+	executeTransaction(insertRecords);
+        
+	nrec = table.getNoOfRecords();
+        log.info("step 3 done: wrote 200 records to re-established redundant DB - new count = "+nrec);
+        Assert.assertTrue(nrec == 600);
+        
+        
+              
+        tr.getDbManager().syncWithAllReplicators();
+        log.info("Failover Pair is in sync");
+
+        
+        servers.stopB();
+        log.info("DB B has been stopped");
+        
+       
+        log.info("step 4: writing 200 records to DB A");
+	executeTransaction(insertRecords);
+        
+	nrec = table.getNoOfRecords();
+        log.info("step 4 done: wrote 200 records to DB A - new count = "+nrec);
+        Assert.assertTrue(nrec == 800);
+        
+        
+        
+        log.info("starting DB B");
+        servers.startB();
+        servers.waitUntilBIsActive();
+      
+	nrec = table.getNoOfRecords();
+        log.info("DB B is running again - new count = "+nrec);
+        Assert.assertTrue(nrec == 800);
+
+        tr.getDbManager().syncWithAllReplicators();
+         
+        Assert.assertTrue(servers.contentEquals());
+        log.info("end of test failoverOutsideTransaction");
     }
     
      
     @Test
     public void largeDb()
     throws SQLException, IOException, InterruptedException {
-        log.info("largeDb");
+	log.info("######################################################################");
+	log.info("######################################################################");
+        log.info("start of test largeDb");
         
         TestTable[] tables = new TestTable[50];
         for (int i = 0; i < tables.length; i++) {
@@ -106,6 +297,7 @@ extends TestGroupBase
         log.info("sync finished");
          
         Assert.assertTrue(servers.contentEquals());
+        log.info("end of test largeDb");
     }
     
     /**

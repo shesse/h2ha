@@ -61,6 +61,7 @@ public class H2HaServer
         INITIAL, //
         CONNECTING, //
         SLAVE, //
+        SLAVE_SYNC, //
         LOST_MASTER, //
         STARTING_AS_MASTER, //
         MASTER, //
@@ -196,6 +197,7 @@ public class H2HaServer
             
         } catch (SQLException x) {
             log.error("SQLException when starting database server", x);
+            System.exit(1);
         }
 
     }
@@ -282,6 +284,29 @@ public class H2HaServer
     /**
      * 
      */
+    public void setSlaveRole()
+    {
+	role = Role.SLAVE;
+    }
+
+
+    /**
+     * 
+     */
+    public void slaveSyncCompleted()
+    {
+	if (state == State.SLAVE) {
+	    state = State.SLAVE_SYNC;
+	    
+	} else {
+	    throw new IllegalStateException("got slaveSyncCompleted when in state "+state);
+	}
+    }
+
+
+    /**
+     * 
+     */
     public int getMasterPriority()
     {
         return masterPriority;
@@ -301,7 +326,7 @@ public class H2HaServer
     public boolean isActive()
     {
         boolean result;
-        if (role == Role.SLAVE && state == State.SLAVE) {
+        if (role == Role.SLAVE && state == State.SLAVE_SYNC) {
             result = true;
         } else {
             result = (state == State.MASTER);

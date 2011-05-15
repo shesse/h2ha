@@ -97,18 +97,28 @@ public class TestTable
     {
         Connection conn = dbManager.createConnection();
         try {
-            int i = nextIndex++;
-            int j = (i+45) % 222;
-            String s = "Hallo: "+i;
-            String sql = "insert into " + name + " (i, j, s) values ("+i+", "+j+", '"+s+"');";
-
             Statement stmnt = conn.createStatement();
-            stmnt.executeUpdate(sql);
+            insertRecordWithoutCommit(stmnt);
             conn.commit();
             
         } finally {
             conn.close();
         }
+    }
+    
+    /**
+     * @throws SQLException 
+     * 
+     */
+    public void insertRecordWithoutCommit(Statement stmnt)
+    throws SQLException
+    {
+	int i = nextIndex++;
+        int j = (i+45) % 222;
+        String s = "Hallo: "+i;
+        String sql = "insert into " + name + " (i, j, s) values ("+i+", "+j+", '"+s+"');";
+
+        stmnt.executeUpdate(sql);
     }
 
     /**

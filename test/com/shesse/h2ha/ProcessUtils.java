@@ -86,7 +86,7 @@ public class ProcessUtils
                 String line;
                 try {
                     while ((line = procOutput.readLine()) != null) {
-                        log.info(logPrefix+": "+line);
+                        System.err.println(logPrefix+": "+line);
                     }
                     procOutput.close();
                 } catch (Throwable x) {
@@ -151,7 +151,7 @@ public class ProcessUtils
                 String line;
                 try {
                     while ((line = procError.readLine()) != null) {
-                        log.info("exec: "+line);
+                        System.err.println("exec: "+line);
                     }
                     procError.close();
                } catch (Throwable x) {

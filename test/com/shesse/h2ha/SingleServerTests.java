@@ -54,7 +54,7 @@ extends TestGroupBase
 	dbManager.cleanup();
 	servers.setHaCacheSize(0);
 	servers.cleanupA();
-        servers.startA(true);
+        servers.startA();
         servers.waitUntilAIsActive();
         tr.startup();
     }
@@ -94,7 +94,7 @@ extends TestGroupBase
         dbManager.shutdown();
         servers.stop();
         
-        servers.startA(true);
+        servers.startA();
         servers.waitUntilAIsActive();
         
         Assert.assertTrue(table.getNoOfRecords() == 1);
@@ -118,7 +118,7 @@ extends TestGroupBase
         
         servers.stop();
         
-        servers.startA(true);
+        servers.startA();
         servers.waitUntilAIsActive();
         
         Assert.assertTrue(table.getNoOfRecords() == 1);

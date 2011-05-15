@@ -156,6 +156,7 @@ extends ServerSideProtocolInstance
     {
         if (peerIsMaster) {
             log.info("peer is master - negotiated role for this instance is: slave");
+            haServer.setSlaveRole();
 
         } else if (haServer.tryToSetMasterRole()) {
             log.info("peer is slave - negotiated role for this instance is: master");
@@ -345,6 +346,7 @@ extends ServerSideProtocolInstance
         log.info("entering realtime replication mode");
         setDirtyFlag(false);
         closeAllFileObjects();
+        haServer.slaveSyncCompleted();
     }
 
     /**

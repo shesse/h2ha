@@ -1,0 +1,30 @@
+/**
+ * (c) DICOS GmbH, 2011
+ *
+ * $Id$
+ */
+
+package com.shesse.h2ha;
+
+import java.sql.SQLException;
+import java.sql.Statement;
+
+/**
+ *
+ * @author sth
+ */
+public interface TransactionBody
+{
+    // /////////////////////////////////////////////////////////
+    // Interface Constants
+    // /////////////////////////////////////////////////////////
+
+    // /////////////////////////////////////////////////////////
+    // Methods
+    // /////////////////////////////////////////////////////////
+    /**
+     * 
+     */
+    public void run(Statement stmnt)
+    throws SQLException ;
+}
