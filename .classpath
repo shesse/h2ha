@@ -4,11 +4,7 @@
 	<classpathentry kind="src" path="test"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/h2-svn"/>
 	<classpathentry kind="lib" path="/usr/share/java/log4j-1.2.jar"/>
-	<classpathentry kind="lib" path="/home/sth/libraries/junit4.7/junit-4.7.jar">
-		<attributes>
-			<attribute name="javadoc_location" value="file:/home/sth/libraries/junit4.7/javadoc/"/>
-		</attributes>
-	</classpathentry>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="lib" path="/usr/share/java/junit4.jar"/>
 	<classpathentry kind="output" path="class"/>
 </classpath>
