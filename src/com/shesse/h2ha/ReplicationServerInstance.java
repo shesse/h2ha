@@ -157,19 +157,6 @@ extends ServerSideProtocolInstance
      * This method may only be called from within the protocol instance
      * thread.
      * 
-     * @param masterPriority
-     * @param uuid
-     * @throws IOException 
-     */
-    public void processNegotiateRoleRequestMessage(int masterPriority, String uuid) throws IOException
-    {
-        sendToPeer(new NegotiateRoleConfirm(haServer.negotiateMasterRole(masterPriority, uuid)));
-    }
-
-    /**
-     * This method may only be called from within the protocol instance
-     * thread.
-     * 
      * @throws IOException 
      * @throws SQLException 
      * 
@@ -420,40 +407,6 @@ extends ServerSideProtocolInstance
     // /////////////////////////////////////////////////////////
     // Inner Classes
     // /////////////////////////////////////////////////////////
-    /**
-     * 
-     */
-    private static class NegotiateRoleConfirm
-    extends MessageToClient
-    {
-        private static final long serialVersionUID = 1L;
-        boolean peerIsMaster;
-        
-        NegotiateRoleConfirm(boolean peerIsMaster)
-        {
-            this.peerIsMaster = peerIsMaster;
-        }
-        
-        @Override
-        protected void processMessageToClient(ReplicationClientInstance instance) throws Exception
-        {
-            instance.processNegotiateRoleConfirmMessage(peerIsMaster);
-        }
-
-	@Override
-	public int getSizeEstimate()
-	{
-	    return 8;
-	}
-	
-	@Override
-	public String toString()
-	{
-	    return "negotiate role cnf: peerIsMaster: "+peerIsMaster;
-	}
-    }
-    
-    
     /**
      * 
      */
@@ -715,12 +668,9 @@ extends ServerSideProtocolInstance
      */
     private static class SyncStatus
     {
-        @SuppressWarnings("unused")
 	FileInfo fileInfo;
-        @SuppressWarnings("unused")
-	volatile long beginIgnore = 0L;
-        @SuppressWarnings("unused")
-	volatile long endIgnore = Long.MAX_VALUE;
+ 	volatile long beginIgnore = 0L;
+ 	volatile long endIgnore = Long.MAX_VALUE;
         SyncStatus(FileInfo fileInfo)
         {
             this.fileInfo = fileInfo;

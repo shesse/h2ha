@@ -6,8 +6,15 @@
 
 package com.shesse.h2ha;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.sql.SQLException;
+import java.util.Properties;
 import java.util.UUID;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import org.apache.log4j.Logger;
 import org.h2.store.fs.FileSystem;
@@ -26,6 +33,9 @@ public class H2HaServer
     private static Logger log = Logger.getLogger(H2HaServer.class);
     
     /** */
+    private String[] args;
+    
+    /** */
     private FileSystemHa fileSystem;
     
     /** */
@@ -36,41 +46,56 @@ public class H2HaServer
     private Server tcpDatabaseServer;
     
     /** */
-    private int maxConnectRetries = 5;
-    
-    /** */
     private String peerHost = null;
     
     /** */
     private String haBaseDir = null;
     
     /** */
-    private enum Role { NEGOTIATING, MASTER, SLAVE };
-    
-    /** */
-    private volatile Role role = Role.NEGOTIATING;
-    
-    /** */
     private int masterPriority = 10;
+    
+    /** */
+    private ReplicationClientInstance client = null;
+    
+    /** */
+    private BlockingQueue<Runnable> controlQueue = new LinkedBlockingQueue<Runnable>();
+    
+    /** */
+    private volatile boolean shutdownRequested = false;
     
     /** */
     private String uuid = UUID.randomUUID().toString();
     
     /** */
-    private enum State { //
-        INITIAL, //
-        CONNECTING, //
-        SLAVE, //
-        SLAVE_SYNC, //
-        LOST_MASTER, //
-        STARTING_AS_MASTER, //
-        MASTER, //
-        WAITING_CONNECT_RETRY,//
-    };
-    
-    
+    private Properties hafsm = new Properties();
+
     /** */
-    private volatile State state = State.INITIAL;
+    public enum FailoverState { //
+	INITIAL, //
+	STARTING_STANDALONE, //
+	MASTER_STANDALONE, //
+	CONNECTING_HA, //
+	CONNECTED_HA, //
+	STARTING_HA, //
+	MASTER_HA, //
+	SLAVE_SYNCING, //
+	SLAVE, //
+    };
+
+    /** */
+    public enum Event { //
+	HA_STARTUP, //
+	NO_PEER, // we don't have a peer 
+	MASTER_STARTED, //
+	CONNECTED_TO_PEER, //
+	CANNOT_CONNECT, // parameter is: indication if local data is valid for a DB
+	SYNC_COMPLETED, //
+	PEER_STATE, // parameter is: state of HA peer
+	DISCONNECTED, //
+    };
+
+    /** */
+    private volatile FailoverState failoverState = FailoverState.INITIAL;
     
     
     // /////////////////////////////////////////////////////////
@@ -78,40 +103,14 @@ public class H2HaServer
     // /////////////////////////////////////////////////////////
     /**
      */
-    public H2HaServer()
+    public H2HaServer(String[] args)
     {
         log.debug("H2HaServer()");
-    }
-
-
-    // /////////////////////////////////////////////////////////
-    // Methods
-    // /////////////////////////////////////////////////////////
-    /**
-     * @param args
-     * @throws InterruptedException 
-     */
-    public static void main(String[] args) 
-    throws InterruptedException
-    {
-        new H2HaServer().run(args);
-    }
-
-    /**
-     * @throws InterruptedException 
-     * 
-     */
-    private void run(String[] args) 
-    throws InterruptedException
-    {
+        
+        this.args = args;
+        
         for (int i = 0; i < args.length-1; i++) {
-            if (args[i].equals("-connectRetry")) {
-                try {
-                    maxConnectRetries = Integer.parseInt(args[++i]);
-                } catch (NumberFormatException x) {
-                    log.error("inhalid connectRetry: "+x);
-                }
-            } else if (args[i].equals("-haPeerHost")) {
+            if (args[i].equals("-haPeerHost")) {
                 peerHost = args[++i];
                 
             } else if (args[i].equals("-haBaseDir")) {
@@ -125,11 +124,71 @@ public class H2HaServer
                 }
             }
         }        
-
+	
         if (haBaseDir == null) {
             System.err.println("mandatory flag -haBaseDir is missing");
             System.exit(1);
         }
+
+        InputStream fsmStream = getClass().getResourceAsStream("hafsm.properties");
+        if (fsmStream == null) {
+            throw new IllegalStateException("cannot find hafsm.properties");
+        }
+        
+        try {
+	    hafsm.load(fsmStream);
+	} catch (IOException e) {
+            throw new IllegalStateException("cannot read hafsm.properties", e);
+	}
+	
+	for (String key: hafsm.stringPropertyNames()) {
+	    String[] trans = hafsm.getProperty(key, "").split("\\s+");
+	    if (trans.length != 2) {
+		throw new IllegalStateException("invalid FSM transition for "+key);
+	    }
+	    
+	    try {
+		getAction(trans[0]);
+	    } catch (NoSuchMethodException x) {
+		throw new IllegalStateException("unknown action in FSM transition for "+key);
+	    }
+	    
+
+	    try {
+		FailoverState.valueOf(trans[1]);
+	    } catch (IllegalArgumentException x) {
+		throw new IllegalStateException("unknown target state in FSM transition for "+key);
+	    }
+	}
+    }
+
+
+    // /////////////////////////////////////////////////////////
+    // Methods
+    // /////////////////////////////////////////////////////////
+    /**
+     * @param args
+     * @throws InterruptedException 
+     */
+    public static void main(String[] args) 
+    throws InterruptedException
+    {
+	try {
+	    new H2HaServer(args).run();
+	    
+	} catch (Throwable x) {
+	    log.fatal("unexepected exception within HA server main thread", x);
+	    System.exit(1);
+	}
+    }
+
+    /**
+     * @throws InterruptedException 
+     * 
+     */
+    private void run() 
+    throws InterruptedException
+    {
         
         fileSystem = new FileSystemHa(args);
         server = new ReplicationServer(this, fileSystem, args);
@@ -137,71 +196,30 @@ public class H2HaServer
         
         if (peerHost == null) {
             log.warn("no haPeerHost specified - running in master only mode!");
-            role = Role.MASTER;
-            state = State.STARTING_AS_MASTER;
+            applyEvent(Event.NO_PEER, null);
             
         } else {
- 
-            for (;;) {
-        	ReplicationClientInstance client = new ReplicationClientInstance(this, fileSystem, args);
-        	
-                int retryCount = 0;
-                role = Role.NEGOTIATING;
-                while (retryCount < maxConnectRetries && !client.isConnected()) {
-                    state = State.CONNECTING;
-                    if (client.tryToConnect()) {
-                        break;
-                    }
-                    retryCount++;
-
-                    try {
-                        state = State.WAITING_CONNECT_RETRY;
-                        Thread.sleep(500);
-                    } catch (InterruptedException x) {
-                    }
-               }
-
-                if (client.isConnected()) {
-                    state = State.SLAVE;
-                    client.run();
-                    if (role == Role.MASTER) break;
-                    log.info("slave mode has ended - verifying that peer is down");
-                    state = State.LOST_MASTER;
-                    
-                } else {
-                    if (client.isConsistentData()) {
-                        log.info("could not contact peer - we will become master!");
-                        role = Role.MASTER;
-                        state = State.STARTING_AS_MASTER;
-                        break;
-                        
-                    } else {
-                        log.warn("cannot establish slave mode - but our database is unusable");
-                        log.warn("... keep waiting for a master");
-                        state = State.WAITING_CONNECT_RETRY;
-                        try {
-                            Thread.sleep(20000);
-                        } catch (InterruptedException x) {
-                        }
-                   }
-                }
-            }
+            applyEvent(Event.HA_STARTUP, null);
         }
         
-        // when program flow reaches this line, we have determined that
-        // there is no other master and we need to enter master mode.
-        try {
-            tcpDatabaseServer = Server.createTcpServer(args).start();
-            state = State.MASTER;
-            log.info("DB server is ready to accept connections");
-            
-        } catch (SQLException x) {
-            log.error("SQLException when starting database server", x);
-            System.exit(1);
+        while (!shutdownRequested) {
+            Runnable queueEntry = controlQueue.take();
+            queueEntry.run();
         }
-
     }
-
+    
+    /**
+     * 
+     */
+    private void enqueue(Runnable queueEntry)
+    {
+	try {
+	    controlQueue.put(queueEntry);
+	} catch (InterruptedException x) {
+	    log.error("InterruptedException", x);
+	}
+    }
+    
     /**
      * may be called when running as a master to ensure that
      * all outstanding changes have been sent to all clients
@@ -235,75 +253,35 @@ public class H2HaServer
      * computes deterministic role assignment depending on
      * current local role, local and remote master priority and
      * local and remote UUID.
-     * @return true if negotiation results in a master role for the
-     * local system
+     * @return true if the local system is the configured master system
      */
-    public synchronized boolean negotiateMasterRole(int otherMasterPriority, String otherUuid)
+    public synchronized boolean weAreConfiguredMaster(int otherMasterPriority, String otherUuid)
     {
-        if (role == Role.NEGOTIATING) {
-            if (masterPriority > otherMasterPriority) {
-                role = Role.MASTER;
-                log.debug("our priority is higher - we become "+role);
-                
-            } else if (masterPriority < otherMasterPriority) {
-                role = Role.SLAVE;
-                log.debug("our priority is lower - we become "+role);
-                
-            } else {
-                int cmp = uuid.compareTo(otherUuid);
-                if (cmp < 0) {
-                    role = Role.MASTER;
-                    log.debug("our uuid is lower - we become "+role);
-                    
-                } else {
-                    // UUIDs should never be equal
-                    role = Role.SLAVE;
-                    log.debug("our uuid is higher or equal - we become "+role);
-                }
-            }
-        }
-        
-        if (role == Role.MASTER) {
-            return true;
-        } else {
-            return false;
-        }
-    }
-    
-    /**
-     * @return
-     */
-    public synchronized boolean tryToSetMasterRole()
-    {
-        if (role == Role.SLAVE) return false;
-        
-        role = Role.MASTER;
-        return true;
-    }
-    
-    /**
-     * 
-     */
-    public void setSlaveRole()
-    {
-	role = Role.SLAVE;
-    }
-
-
-    /**
-     * 
-     */
-    public void slaveSyncCompleted()
-    {
-	if (state == State.SLAVE) {
-	    state = State.SLAVE_SYNC;
-	    
-	} else {
-	    throw new IllegalStateException("got slaveSyncCompleted when in state "+state);
+	if (!client.isConsistentData()) {
+	    return false;
 	}
+	
+	boolean localWins;
+	if (masterPriority > otherMasterPriority) {
+	    localWins = true;
+
+	} else if (masterPriority < otherMasterPriority) {
+	    localWins = false;
+
+	} else {
+	    int cmp = uuid.compareTo(otherUuid);
+	    if (cmp < 0) {
+		localWins = true;
+
+	    } else {
+		// UUIDs should never be equal
+		localWins = false;
+	    }
+	}
+
+	return localWins;
     }
-
-
+    
     /**
      * 
      */
@@ -319,21 +297,173 @@ public class H2HaServer
     {
         return uuid;
     }
+    
+    /**
+     * 
+     */
+    public FailoverState getFailoverState()
+    {
+	return failoverState;
+    }
+    
+    /**
+     * 
+     */
+    public void applyEvent(final Event event, final Object parameter)
+    {
+	enqueue(new Runnable(){
+	    public void run()
+	    {
+		applyEventImpl(event, parameter);
+	    }
+	});
+    }
+    
+    /**
+     * 
+     */
+    private void applyEventImpl(Event event, Object parameter)
+    {
+	String key = failoverState+"."+event;
+	
+	if (parameter != null) {
+	    key += "."+parameter;
+	}
+	
+	String transition = hafsm.getProperty(key);
+	if (transition == null) {
+	    throw new IllegalStateException("cannot find FSM entry for '"+key+"'");
+	}
+
+	String[] transitionParts = transition.split("\\s+");
+	if (transitionParts.length != 2) {
+	    throw new IllegalStateException("not a valid transition for '"+key+"': "+transition);
+	}
+	
+	String actionName = transitionParts[0];
+	String newStateName = transitionParts[1];
+	
+	FailoverState newState = FailoverState.valueOf(newStateName);
+	FailoverState oldState = failoverState;
+	if (newState != oldState) {
+	    
+	    log.info("changing state from "+oldState+" to "+newState);
+	    failoverState = newState;
+	    
+	    try {
+		Method action = getAction(actionName);
+		action.invoke(this, oldState, event, newState, parameter);
+		
+	    } catch (IllegalArgumentException x) {
+		throw new IllegalStateException("illegal argument for FSM action '"+actionName+"'", x);
+
+	    } catch (IllegalAccessException x) {
+		throw new IllegalStateException("illegal access for FSM action '"+actionName+"'", x);
+
+	    } catch (InvocationTargetException x) {
+		throw new IllegalStateException("caught exception within FSM action '"+actionName+"'", x.getCause());
+
+	    } catch (SecurityException x) {
+		throw new IllegalStateException("security exception for FSM action '"+actionName+"'", x);
+
+	    } catch (NoSuchMethodException x) {
+		throw new IllegalStateException("could not find action '"+actionName+"' for FSM transition '"+key+"'");
+
+	    }
+	    
+	    if (client != null) {
+		try {
+		    client.sendHeartbeat();
+		} catch (IOException e) {
+		}
+	    }
+	}
+    }
+    
+    /**
+     * @throws NoSuchMethodException 
+     * 
+     */
+    private Method getAction(String actionName)
+    throws NoSuchMethodException
+    {
+	try {
+	    return getClass().getMethod(actionName, FailoverState.class, Event.class, FailoverState.class, Object.class);
+
+	} catch (SecurityException x) {
+	    throw new IllegalStateException("security exception for FSM action '"+actionName+"'", x);
+
+	}
+    }
+    
+    /**
+     * 
+     */
+    public void noAction(FailoverState oldState, Event event, FailoverState newState, Object parameter)
+    {
+    }
+    
+    /**
+     * 
+     */
+    public void fatalError(FailoverState oldState, Event event, FailoverState newState, Object parameter)
+    {
+	log.fatal("invalid state / event combination: "+oldState+" / "+event);
+	System.exit(1);
+    }
+    
+    /**
+     * 
+     */
+    public void logUnexpected(FailoverState oldState, Event event, FailoverState newState, Object parameter)
+    {
+	if (parameter == null) {
+	    log.warn("unexpected state / event combination: "+oldState+" / "+event);
+	} else {
+	    log.warn("unexpected state / event combination: "+oldState+" / "+event+"("+parameter+")");
+	}
+    }
+    
+    /**
+     * 
+     */
+    public void startHaClient(FailoverState oldState, Event event, FailoverState newState, Object parameter)
+    {
+        client = new ReplicationClientInstance(this, fileSystem, args);
+        new Thread(client, "ReplicationClient").start(); 
+    }
 
     /**
      * 
      */
+    public void startDbServer(FailoverState oldState, Event event, FailoverState newState, Object parameter)
+    {
+	try {
+	    tcpDatabaseServer = Server.createTcpServer(args).start();
+	    log.info("DB server is ready to accept connections");
+	    applyEvent(Event.MASTER_STARTED, null);
+
+	} catch (SQLException x) {
+	    log.error("SQLException when starting database server", x);
+	    System.exit(1);
+	}
+    }
+
+    /**
+     * 
+     */
+    public void sendListFilesRequest(FailoverState oldState, Event event, FailoverState newState, Object parameter)
+    {
+	client.sendListFilesRequest();
+    }
+   /**
+     * 
+     */
     public boolean isActive()
     {
-        boolean result;
-        if (role == Role.SLAVE && state == State.SLAVE_SYNC) {
-            result = true;
-        } else {
-            result = (state == State.MASTER);
-        }
-        
-        log.debug("isActive() role="+role+", state="+state+" -> "+result);
-        return result;
+	return failoverState == FailoverState.MASTER_STANDALONE ||
+	failoverState == FailoverState.MASTER_HA ||
+	failoverState == FailoverState.SLAVE;
     }
 
     // /////////////////////////////////////////////////////////

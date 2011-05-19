@@ -52,7 +52,7 @@ extends ReplicationProtocolInstance
      */
     public ServerSideProtocolInstance(String instanceName, int maxWaitingMessages, H2HaServer haServer, FileSystemHa fileSystem)
     {
-	super(instanceName, maxWaitingMessages);
+	super(instanceName, maxWaitingMessages, haServer.getMasterPriority(), haServer.getUuid());
 	
         this.haServer = haServer;
         this.fileSystem = fileSystem;

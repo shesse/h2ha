@@ -32,7 +32,7 @@ extends ReplicationProtocolInstance
      */
     public ReplicationServerStatus()
     {
-	super("server", 0);
+	super("server", 0, 0, "-");
 	
         log.debug("ReplicationServerStatus()");
 

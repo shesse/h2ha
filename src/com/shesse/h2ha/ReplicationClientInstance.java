@@ -16,6 +16,9 @@ import java.util.Set;
 import org.apache.log4j.Logger;
 import org.h2.store.fs.FileObject;
 
+import com.shesse.h2ha.H2HaServer.Event;
+import com.shesse.h2ha.H2HaServer.FailoverState;
+
 
 /**
  * 
@@ -44,6 +47,15 @@ extends ServerSideProtocolInstance
     
     /** */
     private String dirtyFlagUrl;
+    
+    /** */
+    private int maxConnectRetries = 5;
+    
+    /** */
+    private long waitBetweenReconnects = 20000;
+    
+    /** */
+    private long waitBetweenConnectRetries = 500;
     
     /** */
     private int fileDeltasRequested = 0;
@@ -83,6 +95,7 @@ extends ServerSideProtocolInstance
                 } catch (NumberFormatException x) {
                     log.error("inhalid haPeerPort: "+x);
                 }
+                
             } else if (args[i].equals("-haConnectTimeout")) {
                 try {
                     connectTimeout = Integer.parseInt(args[i+1]);
@@ -90,50 +103,125 @@ extends ServerSideProtocolInstance
                 } catch (NumberFormatException x) {
                     log.error("inhalid haConnectTimeout: "+x);
                 }
+                
+            } else if (args[i].equals("-connectRetry")) {
+                try {
+                    maxConnectRetries = Integer.parseInt(args[++i]);
+                } catch (NumberFormatException x) {
+                    log.error("inhalid connectRetry: "+x);
+                }
             }
         }
-        
     }
 
     // /////////////////////////////////////////////////////////
     // Methods
     // /////////////////////////////////////////////////////////
     /**
-     * Tries to initiate a connection connection to the peer.
-     * @return true if connection was successful.
-     */
-    public boolean tryToConnect()
-    {
-        if (tryToConnect(peerHost, peerPort, connectTimeout)) {
-            setInstanceName(String.valueOf(socket.getRemoteSocketAddress()));
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    /**
-     * @throws InterruptedException 
-     * 
      */
     public void run() 
     {
+	try {
+	    body();
+	} catch (Throwable x) {
+	    log.fatal("unexepected exception within HA client thread", x);
+	    System.exit(1);
+	}
+    }
+    
+    
+    /**
+     */
+    private void body() 
+    {
         log.debug("replication client instance has been started");
-        try {
-            sendToPeer(new NegotiateRoleRequest(haServer.getMasterPriority(), haServer.getUuid()));
-            super.run();
-        } catch (IOException x) {
-            log.error("Error when receiving messages as client", x);
+        long earliestNextConnect = 0;
+        for (;;) {
+            // we will wait between reconnect attempts to prevent
+            // busy waits when no peer can be reached
+            long now = System.currentTimeMillis();
+            if (earliestNextConnect > now) {
+        	try {
+		    Thread.sleep(earliestNextConnect-now);
+		} catch (InterruptedException e) {
+		    log.error("InterruptedException", e);
+		}
+		
+            } else {
+        	earliestNextConnect = System.currentTimeMillis() + waitBetweenReconnects;
+        	establishAndMaintainConnection();
+            }
         }
     }
     
+    
+    /**
+     */
+    private void establishAndMaintainConnection() 
+    {
+	// we will repeat a limited number of connect attempts in quick
+	// succession to be sure that the peer is really not available
+	// and that is it not a temporary glitch that causes our
+	// connect problem 
+	// 
+	int retryCount = 0;
+	while (retryCount < maxConnectRetries && !isConnected()) {
+	    if (tryToConnect()) {
+		break;
+	    }
+	    retryCount++;
+
+	    try {
+		Thread.sleep(waitBetweenConnectRetries);
+	    } catch (InterruptedException x) {
+	    }
+	}
+
+	if (isConnected()) {
+	    haServer.applyEvent(Event.CONNECTED_TO_PEER, null);
+	    super.run();
+	    log.info("connection to peer has ended");
+	    haServer.applyEvent(Event.DISCONNECTED, null);
+
+	} else {
+	    log.info("could not contact peer");
+	    if (isConsistentData()) {
+		haServer.applyEvent(Event.CANNOT_CONNECT, "valid");
+	    } else {
+		haServer.applyEvent(Event.CANNOT_CONNECT, "invalid");
+	    }
+	}
+    }
+    
+    /**
+     * Tries to initiate a connection connection to the peer.
+     * @return true if connection was successful.
+     */
+    private boolean tryToConnect()
+    {
+	if (tryToConnect(peerHost, peerPort, connectTimeout)) {
+	    setInstanceName(String.valueOf(socket.getRemoteSocketAddress()));
+	    return true;
+	} else {
+	    return false;
+	}
+    }
+
+    /**
+     * 
+     */
+    public void sendListFilesRequest()
+    {
+	send(new SendListOfFilesRequest());
+    }
+
     /**
      * 
      */
     public void setDirtyFlag(boolean dirtyFlag)
     {
-        if (dirtyFlag) {
-            fileSystem.createNewFile(dirtyFlagUrl);
+	if (dirtyFlag) {
+	    fileSystem.createNewFile(dirtyFlagUrl);
         } else {
             fileSystem.delete(dirtyFlagUrl);
         }
@@ -147,30 +235,41 @@ extends ServerSideProtocolInstance
         return !fileSystem.exists(dirtyFlagUrl);
     }
 
-   /**
-     * @param peerIsMaster
-     * @throws IOException 
+    /**
+     * {@inheritDoc}
+     *
+     * @see com.shesse.h2ha.ReplicationProtocolInstance#heartbeatReceived(int, java.lang.String)
      */
-    public void processNegotiateRoleConfirmMessage(boolean peerIsMaster) 
-    throws IOException
+    @Override
+    protected void heartbeatReceived(FailoverState peerState, int peerMasterPriority, String peerUuid)
     {
-        if (peerIsMaster) {
-            log.info("peer is master - negotiated role for this instance is: slave");
-            haServer.setSlaveRole();
+	super.heartbeatReceived(peerState, peerMasterPriority, peerUuid);
+	
+	String eventParam = peerState.toString();
+	
+	if (haServer.getFailoverState() == FailoverState.MASTER_HA && peerState == FailoverState.MASTER_HA) {
+	    if (haServer.weAreConfiguredMaster(peerMasterPriority, peerUuid)) {
+		eventParam += ".local";
+	    } else {
+		eventParam += ".peer";
+	    }
+	}
 
-        } else if (haServer.tryToSetMasterRole()) {
-            log.info("peer is slave - negotiated role for this instance is: master");
-            terminate();
-            return;
-            
-        } else {
-            log.error("other side refuses master role - and we are also not able to become master");
-            log.error("entering slave mode");
-        }
-        
-        sendToPeer(new SendListOfFilesRequest());
+	haServer.applyEvent(Event.PEER_STATE, eventParam);
     }
 
+    
+
+    /**
+     * {@inheritDoc}
+     *
+     * @see com.shesse.h2ha.ReplicationProtocolInstance#getCurrentFailoverState()
+     */
+    @Override
+    protected FailoverState getCurrentFailoverState()
+    {
+	return haServer.getFailoverState();
+    }
 
     /**
      * This method may only be called from within the protocol instance
@@ -346,7 +445,7 @@ extends ServerSideProtocolInstance
         log.info("entering realtime replication mode");
         setDirtyFlag(false);
         closeAllFileObjects();
-        haServer.slaveSyncCompleted();
+        haServer.applyEvent(Event.SYNC_COMPLETED, null);
     }
 
     /**
@@ -441,43 +540,6 @@ extends ServerSideProtocolInstance
     // /////////////////////////////////////////////////////////
     // Inner Classes
     // /////////////////////////////////////////////////////////
-    /**
-     * 
-     */
-    private static class NegotiateRoleRequest
-    extends MessageToServer
-    {
-        private static final long serialVersionUID = 1L;
-        int masterPriority;
-        String uuid;
-        
-        NegotiateRoleRequest(int masterPriority, String uuid)
-        {
-            this.masterPriority = masterPriority;
-            this.uuid = uuid;
-        }
-        
-        @Override
-        protected void processMessageToServer(ReplicationServerInstance instance)
-        throws Exception
-        {
-            instance.processNegotiateRoleRequestMessage(masterPriority, uuid);
-
-        }
-
-	@Override
-	public int getSizeEstimate()
-	{
-	    return 35;
-	}
-	
-	@Override
-	public String toString()
-	{
-	    return "negotiate role req prio="+masterPriority+", uuid="+uuid;
-	}
-    }
-
     /**
      * 
      */
