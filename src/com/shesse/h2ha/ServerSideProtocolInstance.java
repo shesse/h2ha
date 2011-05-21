@@ -19,6 +19,8 @@ import java.util.Set;
 import org.apache.log4j.Logger;
 import org.h2.store.fs.FileObject;
 
+import com.shesse.h2ha.H2HaServer.FailoverState;
+
 
 /**
  *
@@ -67,6 +69,17 @@ extends ReplicationProtocolInstance
     // /////////////////////////////////////////////////////////
     // Methods
     // /////////////////////////////////////////////////////////
+    /**
+     * {@inheritDoc}
+     *
+     * @see com.shesse.h2ha.ReplicationProtocolInstance#getCurrentFailoverState()
+     */
+    @Override
+    protected FailoverState getCurrentFailoverState()
+    {
+	return haServer.getFailoverState();
+    }
+
     /**
      * 
      */

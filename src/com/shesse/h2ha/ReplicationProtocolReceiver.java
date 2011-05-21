@@ -46,7 +46,7 @@ extends Thread
     public ReplicationProtocolReceiver(ReplicationProtocolInstance sender, Socket socket) throws IOException
     {
         super("replClientRecv");
-        log.debug("ReplicationClient()");
+        log.debug("ReplicationProtocolReceiver()");
 
         this.sender = sender;
         this.socket = socket;

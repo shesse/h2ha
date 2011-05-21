@@ -102,7 +102,7 @@ public class ReplicationServer
         while (!serverSocket.isClosed()) {
             Socket connSocket = serverSocket.accept();
             log.debug("accepted incoming replication connection");
-            String instanceName = String.valueOf(connSocket.getRemoteSocketAddress());
+            String instanceName = "replServer-"+String.valueOf(connSocket.getInetAddress());
             new Thread(new ReplicationServerInstance(instanceName, maxWaitingMessages, haServer, fileSystem, connSocket), "ha-server-conn").start();
             
         }

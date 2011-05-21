@@ -163,6 +163,9 @@ public class ProcessUtils
         ExecResult result = new ExecResult();
         result.outputLines = outputLines;
         result.exitCode = proc.waitFor();
+        
+        outputReader.join();
+        
         return result;
     }
     

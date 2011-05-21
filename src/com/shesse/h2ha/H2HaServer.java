@@ -324,6 +324,7 @@ public class H2HaServer
      */
     private void applyEventImpl(Event event, Object parameter)
     {
+	log.debug("applyEventImpl "+event+", param="+parameter);
 	String key = failoverState+"."+event;
 	
 	if (parameter != null) {
@@ -334,6 +335,8 @@ public class H2HaServer
 	if (transition == null) {
 	    throw new IllegalStateException("cannot find FSM entry for '"+key+"'");
 	}
+	
+	log.debug("transition lookup: "+key+" -> "+transition);
 
 	String[] transitionParts = transition.split("\\s+");
 	if (transitionParts.length != 2) {

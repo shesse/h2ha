@@ -668,9 +668,12 @@ extends ServerSideProtocolInstance
      */
     private static class SyncStatus
     {
+	@SuppressWarnings("unused")
 	FileInfo fileInfo;
- 	volatile long beginIgnore = 0L;
- 	volatile long endIgnore = Long.MAX_VALUE;
+ 	@SuppressWarnings("unused")
+	volatile long beginIgnore = 0L;
+ 	@SuppressWarnings("unused")
+	volatile long endIgnore = Long.MAX_VALUE;
         SyncStatus(FileInfo fileInfo)
         {
             this.fileInfo = fileInfo;

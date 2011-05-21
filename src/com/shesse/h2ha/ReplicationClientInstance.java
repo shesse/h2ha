@@ -58,6 +58,9 @@ extends ServerSideProtocolInstance
     private long waitBetweenConnectRetries = 500;
     
     /** */
+    private long earliestNextConnect = 0;
+    
+    /** */
     private int fileDeltasRequested = 0;
     
     /** */
@@ -78,7 +81,7 @@ extends ServerSideProtocolInstance
      */
     public ReplicationClientInstance(H2HaServer haServer, FileSystemHa fileSystem, String[] args)
     {
-        super("server", 0, haServer, fileSystem);
+        super("replClient", 0, haServer, fileSystem);
         log.debug("ReplicationClientInstance()");
 
         dirtyFlagUrl = FileSystemHa.getRoot()+dirtyFlagFile;
@@ -112,6 +115,8 @@ extends ServerSideProtocolInstance
                 }
             }
         }
+        
+        setInstanceName("replClient-"+peerHost+":"+peerPort);
     }
 
     // /////////////////////////////////////////////////////////
@@ -135,7 +140,6 @@ extends ServerSideProtocolInstance
     private void body() 
     {
         log.debug("replication client instance has been started");
-        long earliestNextConnect = 0;
         for (;;) {
             // we will wait between reconnect attempts to prevent
             // busy waits when no peer can be reached
@@ -178,6 +182,7 @@ extends ServerSideProtocolInstance
 	}
 
 	if (isConnected()) {
+	    earliestNextConnect = 0;
 	    haServer.applyEvent(Event.CONNECTED_TO_PEER, null);
 	    super.run();
 	    log.info("connection to peer has ended");
@@ -200,8 +205,9 @@ extends ServerSideProtocolInstance
     private boolean tryToConnect()
     {
 	if (tryToConnect(peerHost, peerPort, connectTimeout)) {
-	    setInstanceName(String.valueOf(socket.getRemoteSocketAddress()));
+	    setInstanceName("replClient-"+String.valueOf(socket.getRemoteSocketAddress()));
 	    return true;
+	    
 	} else {
 	    return false;
 	}
@@ -259,17 +265,6 @@ extends ServerSideProtocolInstance
     }
 
     
-
-    /**
-     * {@inheritDoc}
-     *
-     * @see com.shesse.h2ha.ReplicationProtocolInstance#getCurrentFailoverState()
-     */
-    @Override
-    protected FailoverState getCurrentFailoverState()
-    {
-	return haServer.getFailoverState();
-    }
 
     /**
      * This method may only be called from within the protocol instance
