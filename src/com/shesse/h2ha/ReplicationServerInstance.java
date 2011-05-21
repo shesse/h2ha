@@ -101,6 +101,8 @@ extends ServerSideProtocolInstance
     {
         super(instanceName, maxWaitingMessages, haServer, fileSystem);
         
+        haServer.registerServer(this);
+        
         setSocket(socket);
         
         log.debug("ReplicationServerInstance()");
@@ -121,6 +123,7 @@ extends ServerSideProtocolInstance
         } finally {
             log.info("end of Client connection");
             fileSystem.deregisterReplicator(this);
+            haServer.deregisterServer(this);
         }
     }
     
@@ -153,6 +156,19 @@ extends ServerSideProtocolInstance
         return haServer.isActive();
     }
     
+    /**
+     * {@inheritDoc}
+     *
+     * @see com.shesse.h2ha.ReplicationProtocolInstance#sendHeartbeat()
+     */
+    @Override
+    protected void sendHeartbeat()
+	throws IOException
+    {
+	super.sendHeartbeat();
+	sendStatus();
+    }
+
     /**
      * This method may only be called from within the protocol instance
      * thread.
@@ -396,7 +412,8 @@ extends ServerSideProtocolInstance
      * @throws IOException 
      * 
      */
-    public void processLiveModeRequestMessage() throws IOException
+    public void processLiveModeRequestMessage()
+    throws IOException
     {
         log.debug("got LiveModeRequest");
         log.info("a connection to a slave is entering realtime mode - we stay master");
@@ -404,6 +421,17 @@ extends ServerSideProtocolInstance
     }
 
     
+    /**
+     * 
+     */
+    public void processStopReplicationRequest()
+    throws IOException
+    {
+        fileSystem.deregisterReplicator(this);
+        sendToPeer(new StopReplicationConfirmMessage());
+    }
+
+
     // /////////////////////////////////////////////////////////
     // Inner Classes
     // /////////////////////////////////////////////////////////
@@ -645,6 +673,39 @@ extends ServerSideProtocolInstance
         protected void processMessageToClient(ReplicationClientInstance instance) throws Exception
         {
             instance.processLiveModeConfirmMessage();
+
+        }
+
+	@Override
+	public int getSizeEstimate()
+	{
+	    return 4;
+	}
+	
+	@Override
+	public String toString()
+	{
+	    return "live mode cnf";
+	}
+    }
+    
+    
+    /**
+     * 
+     */
+    private static class StopReplicationConfirmMessage
+    extends MessageToClient
+    {
+        private static final long serialVersionUID = 1L;
+        
+        StopReplicationConfirmMessage()
+        {
+        }
+        
+        @Override
+        protected void processMessageToClient(ReplicationClientInstance instance) throws Exception
+        {
+            instance.processStopReplicationConfirmMessage();
 
         }
 

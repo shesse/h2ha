@@ -52,12 +52,6 @@ implements Runnable
     private int maxWaitingMessages;
 
     /** */
-    private int masterPriority;
-
-    /** */
-    private String uuid;
-
-    /** */
     protected Socket socket = null;
 
     /** */
@@ -67,7 +61,7 @@ implements Runnable
     private ReplicationProtocolReceiver receiver = null;
 
     /** */
-    private Thread instanceThread = null;
+    protected Thread instanceThread = null;
 
     /** */
     protected BlockingQueue<ReplicationMessage> messageQueue = new LinkedBlockingQueue<ReplicationMessage>();
@@ -133,13 +127,10 @@ implements Runnable
     /**
      * 
      */
-    public ReplicationProtocolInstance(String instanceName, int maxWaitingMessages, 
-                                       int masterPriority, String uuid)
+    public ReplicationProtocolInstance(String instanceName, int maxWaitingMessages)
     {
 	this.instanceName = instanceName;
 	this.maxWaitingMessages = maxWaitingMessages;
-	this.masterPriority = masterPriority;
-	this.uuid = uuid;
     }
 
 
@@ -380,41 +371,7 @@ implements Runnable
     protected void sendHeartbeat()
     throws IOException
     {
-	if (Thread.currentThread() == instanceThread) {
-	    // send directly if within sender thread
-	    sendToPeer(new HeartbeatMessage(getCurrentFailoverState(), masterPriority, uuid));
-
-	} else {
-	    // not in sender thread: enqueue message that will send a heartbeat
-	    // when processed.
-	    // The heartbeat will carry state information of the time when it
-	    // is sent out.
-	    messageQueue.add(new ReplicationMessage() {
-		private static final long serialVersionUID = 1L;
-
-		@Override
-		protected void process(ReplicationProtocolInstance instance)
-		throws Exception
-		{
-		    try {
-			sendToPeer(new HeartbeatMessage(getCurrentFailoverState(), masterPriority, uuid));
-		    } catch (IOException x) {
-		    }
-		}
-
-		@Override
-		public int getSizeEstimate()
-		{
-		    return 4;
-		}
-
-		@Override
-		public String toString()
-		{
-		    return "send hb";
-		}
-	    });
-	}
+	sendToPeer(new HeartbeatMessage());
     }
 
 
@@ -431,11 +388,22 @@ implements Runnable
      * @param masterPriority 
      * 
      */
-    protected void heartbeatReceived(FailoverState peerState, int peerMasterPriority, String peerUuid)
+    protected void heartbeatReceived()
     {
-	log.debug("heartbeatReceived peerState="+peerState);
+	log.debug("heartbeatReceived");
 	lastHeartbeatReceived = System.currentTimeMillis();
     }
+
+    /**
+     * @param peerState
+     * @param peerMasterPriority
+     * @param peerUuid
+     */
+    protected void peerStatusReceived(FailoverState peerState, int peerMasterPriority, String peerUuid)
+    {
+	log.debug("peerStatusReceived peerState="+peerState);
+    }
+
 
     /**
      * Enqueues a message for sending to the peer. This
@@ -836,22 +804,15 @@ implements Runnable
     {
 	private static final long serialVersionUID = 1L;
 
-	private FailoverState failoverState;
-	private int masterPriority;
-	private String uuid;
-
-	public HeartbeatMessage(FailoverState failoverState, int masterPriority, String uuid)
+	public HeartbeatMessage()
 	{
-	    this.failoverState = failoverState;
-	    this.masterPriority = masterPriority;
-	    this.uuid = uuid;
 	}
 
 	@Override
 	protected void process(ReplicationProtocolInstance instance)
 	throws Exception
 	{
-	    instance.heartbeatReceived(failoverState, masterPriority, uuid);
+	    instance.heartbeatReceived();
 	}
 
 	@Override

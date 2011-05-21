@@ -72,6 +72,14 @@ extends ServerSideProtocolInstance
     /** */
     private int endOfFileReceived = 0;
     
+    /** */
+    private FailoverState peerState = FailoverState.INITIAL;
+    
+    /** */
+    private int peerMasterPriority = 0;
+    
+    /** */
+    private String peerUuid = "-";
     
     // /////////////////////////////////////////////////////////
     // Constructors
@@ -153,7 +161,15 @@ extends ServerSideProtocolInstance
 		
             } else {
         	earliestNextConnect = System.currentTimeMillis() + waitBetweenReconnects;
-        	establishAndMaintainConnection();
+        	try {
+        	    establishAndMaintainConnection();
+        	    
+        	} catch (Throwable x) {
+        	    log.error("unexepected exception within peer connection thread", x);
+        	    
+        	} finally {
+        	    peerState = FailoverState.INITIAL;
+        	}
             }
         }
     }
@@ -182,19 +198,19 @@ extends ServerSideProtocolInstance
 	}
 
 	if (isConnected()) {
+	    log.info("peer has been contacted");
 	    earliestNextConnect = 0;
-	    haServer.applyEvent(Event.CONNECTED_TO_PEER, null);
+	    
+	    issueConnEvent();
+
 	    super.run();
 	    log.info("connection to peer has ended");
 	    haServer.applyEvent(Event.DISCONNECTED, null);
 
 	} else {
 	    log.info("could not contact peer");
-	    if (isConsistentData()) {
-		haServer.applyEvent(Event.CANNOT_CONNECT, "valid");
-	    } else {
-		haServer.applyEvent(Event.CANNOT_CONNECT, "invalid");
-	    }
+	    issueConnEvent();
+
 	}
     }
     
@@ -224,6 +240,49 @@ extends ServerSideProtocolInstance
     /**
      * 
      */
+    public void sendStopReplicationRequest()
+    {
+	send(new StopReplicationRequest());
+    }
+
+    /**
+     * 
+     */
+    public void issueConnEvent()
+    {
+	if (isConnected()) {
+	    haServer.applyEvent(Event.CONNECTED_TO_PEER, null);
+
+	} else {
+	    if (isConsistentData()) {
+		haServer.applyEvent(Event.CANNOT_CONNECT, "valid");
+	    } else {
+		haServer.applyEvent(Event.CANNOT_CONNECT, "invalid");
+	    }
+	}
+    }
+
+    /**
+     * 
+     */
+    public void issuePeerEvent()
+    {
+	String eventParam = peerState.toString();
+	
+	if (haServer.getFailoverState() == peerState) {
+	    if (haServer.weAreConfiguredMaster(peerMasterPriority, peerUuid)) {
+		eventParam += ".local";
+	    } else {
+		eventParam += ".peer";
+	    }
+	}
+
+	haServer.applyEvent(Event.PEER_STATE, eventParam);
+    }
+
+    /**
+     * 
+     */
     public void setDirtyFlag(boolean dirtyFlag)
     {
 	if (dirtyFlag) {
@@ -242,26 +301,41 @@ extends ServerSideProtocolInstance
     }
 
     /**
+     * @return
+     */
+    public FailoverState getPeerState()
+    {
+        return peerState;
+    }
+
+    /**
      * {@inheritDoc}
      *
-     * @see com.shesse.h2ha.ReplicationProtocolInstance#heartbeatReceived(int, java.lang.String)
+     * @see com.shesse.h2ha.ReplicationProtocolInstance#sendHeartbeat()
      */
     @Override
-    protected void heartbeatReceived(FailoverState peerState, int peerMasterPriority, String peerUuid)
+    protected void sendHeartbeat()
+	throws IOException
     {
-	super.heartbeatReceived(peerState, peerMasterPriority, peerUuid);
-	
-	String eventParam = peerState.toString();
-	
-	if (haServer.getFailoverState() == peerState) {
-	    if (haServer.weAreConfiguredMaster(peerMasterPriority, peerUuid)) {
-		eventParam += ".local";
-	    } else {
-		eventParam += ".peer";
-	    }
-	}
+	super.sendHeartbeat();
+	sendStatus();
+    }
 
-	haServer.applyEvent(Event.PEER_STATE, eventParam);
+    /**
+     * {@inheritDoc}
+     *
+     * @see com.shesse.h2ha.ReplicationProtocolInstance#peerStatusReceived(int, java.lang.String)
+     */
+    @Override
+    protected void peerStatusReceived(FailoverState peerState, int peerMasterPriority, String peerUuid)
+    {
+	this.peerState = peerState;
+	this.peerMasterPriority = peerMasterPriority;
+	this.peerUuid = peerUuid;
+	
+	super.peerStatusReceived(peerState, peerMasterPriority, peerUuid);
+	
+	issuePeerEvent();
     }
 
     
@@ -441,6 +515,15 @@ extends ServerSideProtocolInstance
         setDirtyFlag(false);
         closeAllFileObjects();
         haServer.applyEvent(Event.SYNC_COMPLETED, null);
+    }
+
+    /**
+     * 
+     */
+    public void processStopReplicationConfirmMessage()
+    {
+        log.info("this server has stopped replicating the master");
+        haServer.applyEvent(Event.SLAVE_STOPPED, null);
     }
 
     /**
@@ -696,6 +779,38 @@ extends ServerSideProtocolInstance
             instance.processLiveModeRequestMessage();
         }
 
+        @Override
+        public int getSizeEstimate()
+        {
+            return 4;
+        }
+
+        @Override
+        public String toString()
+        {
+            return "live mode req";
+        }
+    }
+
+    /**
+     * 
+     */
+    private static class StopReplicationRequest
+    extends MessageToServer
+    {
+        private static final long serialVersionUID = 1L;
+        
+        StopReplicationRequest()
+        {
+        }
+        
+        @Override
+        protected void processMessageToServer(ReplicationServerInstance instance)
+        throws Exception
+        {
+            instance.processStopReplicationRequest();
+         }
+
 	@Override
 	public int getSizeEstimate()
 	{
@@ -705,7 +820,7 @@ extends ServerSideProtocolInstance
 	@Override
 	public String toString()
 	{
-	    return "live mode req";
+	    return "stop replication req";
 	}
    }
 

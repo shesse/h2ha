@@ -57,6 +57,9 @@ public class H2HaServer
     private ReplicationClientInstance client = null;
     
     /** */
+    private ReplicationServerInstance[] servers = new ReplicationServerInstance[0];
+    
+    /** */
     private BlockingQueue<Runnable> controlQueue = new LinkedBlockingQueue<Runnable>();
     
     /** */
@@ -77,8 +80,11 @@ public class H2HaServer
 	STARTING, //
 	MASTER, //
 	STOPPING, //
+	TRANSFERING, //
+	TRANSFERED, //
 	SLAVE_SYNCING, //
 	SLAVE, //
+	SLAVE_STOPPING, //
     };
 
     /** */
@@ -92,6 +98,8 @@ public class H2HaServer
 	SYNC_COMPLETED, //
 	PEER_STATE, // parameter is: state of HA peer
 	DISCONNECTED, //
+	TRANSFER_MASTER, //
+	SLAVE_STOPPED, //
     };
 
     /** */
@@ -190,7 +198,7 @@ public class H2HaServer
     throws InterruptedException
     {
         
-        fileSystem = new FileSystemHa(args);
+        fileSystem = new FileSystemHa(this, args);
         server = new ReplicationServer(this, fileSystem, args);
         server.start();
         
@@ -230,7 +238,7 @@ public class H2HaServer
         if (fs instanceof FileSystemHa) {
             ((FileSystemHa)fs).flushAll();
         } else {
-            throw new IllegalStateException("did not get a FileSystemHa for url)ha://");
+            throw new IllegalStateException("did not get a FileSystemHa for url ha://");
         }
     }
     
@@ -245,17 +253,51 @@ public class H2HaServer
         if (fs instanceof FileSystemHa) {
             ((FileSystemHa)fs).syncAll();
         } else {
-            throw new IllegalStateException("did not get a FileSystemHa for url)ha://");
+            throw new IllegalStateException("did not get a FileSystemHa for url ha://");
         }
     }
     
+    /**
+     * must be called on the actual master system
+     * @throws SQLException 
+     */
+    public static void transferMasterRole()
+    throws SQLException
+    {
+	FileSystem fs = FileSystem.getInstance("ha://");
+        if (fs instanceof FileSystemHa) {
+            ((FileSystemHa)fs).getHaServer().transferMasterRoleImpl();
+        } else {
+            throw new IllegalStateException("did not get a FileSystemHa for url ha://");
+        }
+    }
+    
+    /**
+     * @throws SQLException 
+     * 
+     */
+    private void transferMasterRoleImpl()
+    throws SQLException
+    {
+	if (failoverState != FailoverState.MASTER) {
+	    throw new SQLException("master role can only be transferred from an active master");
+	}
+	
+	if (client == null) {
+	    throw new SQLException("master role can only be transferred from within a failover configuration");
+	}
+	
+	applyEvent(Event.TRANSFER_MASTER, null);
+    }
+
+
     /**
      * computes deterministic role assignment depending on
      * current local role, local and remote master priority and
      * local and remote UUID.
      * @return true if the local system is the configured master system
      */
-    public synchronized boolean weAreConfiguredMaster(int otherMasterPriority, String otherUuid)
+    public boolean weAreConfiguredMaster(int otherMasterPriority, String otherUuid)
     {
 	if (!client.isConsistentData()) {
 	    return false;
@@ -306,6 +348,44 @@ public class H2HaServer
 	return failoverState;
     }
     
+    
+    /**
+     * @param server
+     */
+    public synchronized void registerServer(ReplicationServerInstance server)
+    {
+	for (ReplicationProtocolInstance r : servers) {
+	    if (r == server) {
+		return;
+	    }
+	}
+
+	ReplicationServerInstance[] newServers =
+	    new ReplicationServerInstance[servers.length + 1];
+	System.arraycopy(servers, 0, newServers, 0, servers.length);
+	newServers[servers.length] = server;
+	servers = newServers;
+    }
+
+
+    /**
+     * @param server
+     */
+    public void deregisterServer(ReplicationProtocolInstance server)
+    {
+	for (int i = 0; i < servers.length; i++) {
+	    if (servers[i] == server) {
+		ReplicationServerInstance[] newServers =
+		    new ReplicationServerInstance[servers.length - 1];
+		System.arraycopy(servers, 0, newServers, 0, i);
+		System.arraycopy(servers, i + 1, newServers, i, newServers.length - i);
+		servers = newServers;
+		return;
+	    }
+	}
+    }
+
+
     /**
      * 
      */
@@ -325,11 +405,14 @@ public class H2HaServer
     private void applyEventImpl(Event event, Object parameter)
     {
 	log.debug("applyEventImpl "+event+", param="+parameter);
-	String key = failoverState+"."+event;
+	String eventKey = String.valueOf(event);
 	
 	if (parameter != null) {
-	    key += "."+parameter;
+	    eventKey += "."+parameter;
 	}
+	
+	String key = failoverState+"."+eventKey;
+	
 	
 	String transition = hafsm.getProperty(key);
 	if (transition == null) {
@@ -350,7 +433,7 @@ public class H2HaServer
 	FailoverState oldState = failoverState;
 	if (newState != oldState) {
 	    
-	    log.info("changing state from "+oldState+" to "+newState);
+	    log.info("changing state from "+oldState+" to "+newState+" (event was "+eventKey+")");
 	    failoverState = newState;
 	    
 	    try {
@@ -376,33 +459,39 @@ public class H2HaServer
 	    
 	    if (client != null) {
 		try {
-		    client.sendHeartbeat();
+		    client.sendStatus();
 		} catch (IOException e) {
 		}
 	    }
 	    
-	    fileSystem.enqueueForAllReplicators(new ReplicationMessage() {
-		private static final long serialVersionUID = 1L;
+	    ReplicationServerInstance[] sdup = servers;
+	    for (ReplicationServerInstance server: sdup) {
+		server.enqueue(new ReplicationMessage() {
+			private static final long serialVersionUID = 1L;
 
-		@Override
-		protected void process(ReplicationProtocolInstance instance)
-		throws Exception
-		{
-		    instance.sendHeartbeat();
-		}
+			@Override
+			protected void process(ReplicationProtocolInstance instance)
+			throws Exception
+			{
+			    if (instance instanceof ServerSideProtocolInstance) {
+				((ServerSideProtocolInstance)instance).sendStatus();
+			    }
+			}
 
-		@Override
-		public int getSizeEstimate()
-		{
-		    return 4;
-		}
+			@Override
+			public int getSizeEstimate()
+			{
+			    return 4;
+			}
 
-		@Override
-		public String toString()
-		{
-		    return "send hb";
-		}
-	    });
+			@Override
+			public String toString()
+			{
+			    return "send hb";
+			}
+		    }
+		);
+	    }
 	}
     }
     
@@ -491,6 +580,33 @@ public class H2HaServer
     public void sendListFilesRequest(FailoverState oldState, Event event, FailoverState newState, Object parameter)
     {
 	client.sendListFilesRequest();
+    }
+    
+    
+    /**
+     * 
+     */
+    public void sendStopReplicationRequest(FailoverState oldState, Event event, FailoverState newState, Object parameter)
+    {
+	client.sendStopReplicationRequest();
+    }
+    
+    
+    /**
+     * 
+     */
+    public void issueConnEvent(FailoverState oldState, Event event, FailoverState newState, Object parameter)
+    {
+	client.issueConnEvent();
+    }
+    
+    
+    /**
+     * 
+     */
+    public void issuePeerEvent(FailoverState oldState, Event event, FailoverState newState, Object parameter)
+    {
+	client.issuePeerEvent();
     }
     
     

@@ -93,6 +93,84 @@ extends TestGroupBase
     
      
     @Test
+    public void transferMaster()
+    throws SQLException, IOException, InterruptedException {
+	log.info("######################################################################");
+	log.info("######################################################################");
+	log.info("start of test transferMaster");
+
+	final TestTable table = tr.createTable();
+
+	TransactionBody insertRecords = new TransactionBody() {
+	    public void run(Statement stmnt)
+	    throws SQLException
+	    {
+		for (int i = 0; i < 200; i++) {
+		    table.insertRecordWithoutCommit(stmnt);
+		}
+	    }
+	};
+
+	log.info("step 1: writing 200 records to redundant DB");
+	executeTransaction(insertRecords);
+        
+	int nrec = table.getNoOfRecords();
+        log.info("step 1 done: wrote 200 records to redundant DB - new count = "+nrec);
+        Assert.assertTrue(nrec == 200);
+        
+        
+	log.info("step 2: transfering master to DB B");
+        tr.getDbManager().transferMasterRole();
+	servers.waitUntilActive();
+	
+        log.info("step 2 done: transfered master role");
+	nrec = table.getNoOfRecords();
+	Assert.assertTrue(nrec == 200);
+	
+	
+	log.info("step 3: writing 200 records to redundant DB");
+	executeTransaction(insertRecords);
+        
+	nrec = table.getNoOfRecords();
+        log.info("step 3 done: wrote 200 records to redundant DB - new count = "+nrec);
+        Assert.assertTrue(nrec == 400);
+        
+        
+	log.info("step 4: transfering master to DB A");
+        tr.getDbManager().transferMasterRole();
+	servers.waitUntilActive();
+	
+        log.info("step 4 done: transfered master role");
+	nrec = table.getNoOfRecords();
+	Assert.assertTrue(nrec == 400);
+	
+	
+	log.info("step 5: writing 200 records to redundant DB");
+	executeTransaction(insertRecords);
+        
+	nrec = table.getNoOfRecords();
+        log.info("step 5 done: wrote 200 records to redundant DB - new count = "+nrec);
+        Assert.assertTrue(nrec == 600);
+        
+        
+	log.info("step 6: transfering master to DB B");
+        tr.getDbManager().transferMasterRole();
+	servers.waitUntilActive();
+	
+        log.info("step 6 done: transfered master role");
+	nrec = table.getNoOfRecords();
+	Assert.assertTrue(nrec == 600);
+              
+        tr.getDbManager().syncWithAllReplicators();
+        log.info("Failover Pair is in sync");
+
+         
+        Assert.assertTrue(servers.contentEquals());
+        log.info("end of test failoverOutsideTransaction");
+    }
+    
+     
+    @Test
     public void failoverDuringTransaction()
     throws SQLException, IOException, InterruptedException {
 	log.info("######################################################################");

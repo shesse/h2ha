@@ -118,6 +118,32 @@ public class DbManager
     
     
     /**
+     * Calls transferMasterRole on the master db server
+     * @throws SQLException 
+     */
+    public void transferMasterRole()
+    throws SQLException
+    {
+        Connection conn = createConnection();
+        try {
+            Statement stmnt = conn.createStatement();
+            try {
+        	stmnt.executeUpdate("create alias TRANSFER_MASTER for \"com.shesse.h2ha.H2HaServer.transferMasterRole\"");
+            } catch (SQLException x) {
+            }
+            stmnt.executeUpdate("call TRANSFER_MASTER()");
+            
+        } finally {
+            try {
+        	conn.close();
+            } catch (SQLException x) {
+        	// ignore
+            }
+        }
+    }
+    
+    
+    /**
      * for testing only
      */
     public static void main(String[] args)

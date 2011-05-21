@@ -54,11 +54,11 @@ extends ReplicationProtocolInstance
      */
     public ServerSideProtocolInstance(String instanceName, int maxWaitingMessages, H2HaServer haServer, FileSystemHa fileSystem)
     {
-	super(instanceName, maxWaitingMessages, haServer.getMasterPriority(), haServer.getUuid());
+	super(instanceName, maxWaitingMessages);
 	
         this.haServer = haServer;
         this.fileSystem = fileSystem;
-        
+
         try {
             md5Digest = MessageDigest.getInstance("MD5");
         } catch (NoSuchAlgorithmException x) {
@@ -79,6 +79,51 @@ extends ReplicationProtocolInstance
     {
 	return haServer.getFailoverState();
     }
+
+    /**
+     * @throws IOException 
+     * 
+     */
+    protected void sendStatus()
+    throws IOException
+    {
+	if (Thread.currentThread() == instanceThread) {
+	    // send directly if within sender thread
+	    sendToPeer(new StatusMessage(getCurrentFailoverState(), haServer.getMasterPriority(), haServer.getUuid()));
+
+	} else {
+	    // not in sender thread: enqueue message that will send a heartbeat
+	    // when processed.
+	    // The heartbeat will carry state information of the time when it
+	    // is sent out.
+	    messageQueue.add(new ReplicationMessage() {
+		private static final long serialVersionUID = 1L;
+
+		@Override
+		protected void process(ReplicationProtocolInstance instance)
+		throws Exception
+		{
+		    try {
+			sendToPeer(new StatusMessage(getCurrentFailoverState(), haServer.getMasterPriority(), haServer.getUuid()));
+		    } catch (IOException x) {
+		    }
+		}
+
+		@Override
+		public int getSizeEstimate()
+		{
+		    return 4;
+		}
+
+		@Override
+		public String toString()
+		{
+		    return "send hb";
+		}
+	    });
+	}
+    }
+
 
     /**
      * 
@@ -179,4 +224,42 @@ extends ReplicationProtocolInstance
     }
     
 
+    /**
+     * 
+     */
+    protected static class StatusMessage
+    extends ReplicationMessage
+    {
+	private static final long serialVersionUID = 1L;
+
+	private FailoverState failoverState;
+	private int masterPriority;
+	private String uuid;
+
+	public StatusMessage(FailoverState failoverState, int masterPriority, String uuid)
+	{
+	    this.failoverState = failoverState;
+	    this.masterPriority = masterPriority;
+	    this.uuid = uuid;
+	}
+
+	@Override
+	protected void process(ReplicationProtocolInstance instance)
+	throws Exception
+	{
+	    instance.peerStatusReceived(failoverState, masterPriority, uuid);
+	}
+
+	@Override
+	public int getSizeEstimate()
+	{
+	    return 4;
+	}
+
+	@Override
+	public String toString()
+	{
+	    return "status";
+	}
+    }
 }

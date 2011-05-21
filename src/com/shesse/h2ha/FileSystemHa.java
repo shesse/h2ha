@@ -37,6 +37,9 @@ public class FileSystemHa
     // /////////////////////////////////////////////////////////
     /** */
     private static Logger log = Logger.getLogger(FileSystemHa.class);
+    
+    /** */
+    private H2HaServer haServer;
 
     /** */
     private FileSystem baseFileSystem = FileSystemDisk.getInstance();
@@ -91,9 +94,11 @@ public class FileSystemHa
     // /////////////////////////////////////////////////////////
     /**
      */
-    public FileSystemHa(String[] args)
+    public FileSystemHa(H2HaServer haServer, String[] args)
     {
 	log.debug("HaFileSystem()");
+	
+	this.haServer = haServer;
 
 	for (int i = 0; i < args.length - 1; i++) {
 	    if (args[i].equals("-haBaseDir")) {
@@ -364,7 +369,7 @@ public class FileSystemHa
 	}
     }
 
-   /**
+    /**
      * flushes all replicator connections.
      */
     public void flushAll()
@@ -468,6 +473,16 @@ public class FileSystemHa
 	}
 	log.debug("syncAll finshed");
     }
+
+    /**
+     * @return the haServer
+     */
+    public H2HaServer getHaServer()
+    {
+        return haServer;
+    }
+
+
 
     /**
      * {@inheritDoc}
