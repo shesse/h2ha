@@ -247,7 +247,7 @@ extends ServerSideProtocolInstance
 	
 	String eventParam = peerState.toString();
 	
-	if (haServer.getFailoverState() == FailoverState.MASTER_HA && peerState == FailoverState.MASTER_HA) {
+	if (haServer.getFailoverState() == peerState) {
 	    if (haServer.weAreConfiguredMaster(peerMasterPriority, peerUuid)) {
 		eventParam += ".local";
 	    } else {

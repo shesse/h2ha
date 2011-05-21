@@ -438,16 +438,7 @@ implements Runnable
      */
     public void send(final ReplicationMessage message)
     {
-	if (connectionCanceled) return;
-	
-	if (maxWaitingMessages > 0 && messageQueue.size() > maxWaitingMessages) {
-	    log.error(instanceName+": too many waiting messages - replicator connection will be canceled");
-	    cancelConnection();
-	    return;
-	}
-	
-	
-        messageQueue.add(new ReplicationMessage() {
+	enqueue(new ReplicationMessage() {
             private static final long serialVersionUID = 1L;
     
             @Override
@@ -476,6 +467,23 @@ implements Runnable
         	return "send to peer: "+message;
             }
        });
+    }
+    
+    /**
+     * 
+     */
+    public void enqueue(ReplicationMessage message)
+    {
+	if (connectionCanceled) return;
+	
+	if (maxWaitingMessages > 0 && messageQueue.size() > maxWaitingMessages) {
+	    log.error(instanceName+": too many waiting messages - replicator connection will be canceled");
+	    cancelConnection();
+	    return;
+	}
+	
+	
+        messageQueue.add(message);
     }
 
     /**

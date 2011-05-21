@@ -42,7 +42,6 @@ public class H2HaServer
     private ReplicationServer server;
 
     /** */
-    @SuppressWarnings("unused")
     private Server tcpDatabaseServer;
     
     /** */
@@ -74,10 +73,10 @@ public class H2HaServer
 	INITIAL, //
 	STARTING_STANDALONE, //
 	MASTER_STANDALONE, //
-	CONNECTING_HA, //
-	CONNECTED_HA, //
-	STARTING_HA, //
-	MASTER_HA, //
+	IDLE, //
+	STARTING, //
+	MASTER, //
+	STOPPING, //
 	SLAVE_SYNCING, //
 	SLAVE, //
     };
@@ -87,6 +86,7 @@ public class H2HaServer
 	HA_STARTUP, //
 	NO_PEER, // we don't have a peer 
 	MASTER_STARTED, //
+	MASTER_STOPPED, //
 	CONNECTED_TO_PEER, //
 	CANNOT_CONNECT, // parameter is: indication if local data is valid for a DB
 	SYNC_COMPLETED, //
@@ -377,6 +377,29 @@ public class H2HaServer
 		} catch (IOException e) {
 		}
 	    }
+	    
+	    fileSystem.enqueueForAllReplicators(new ReplicationMessage() {
+		private static final long serialVersionUID = 1L;
+
+		@Override
+		protected void process(ReplicationProtocolInstance instance)
+		throws Exception
+		{
+		    instance.sendHeartbeat();
+		}
+
+		@Override
+		public int getSizeEstimate()
+		{
+		    return 4;
+		}
+
+		@Override
+		public String toString()
+		{
+		    return "send hb";
+		}
+	    });
 	}
     }
     
@@ -452,18 +475,29 @@ public class H2HaServer
     /**
      * 
      */
+    public void stopDbServer(FailoverState oldState, Event event, FailoverState newState, Object parameter)
+    {
+	log.info("shutting down DB server");
+	tcpDatabaseServer.stop();
+	applyEvent(Event.MASTER_STOPPED, null);
+    }
+
+    /**
+     * 
+     */
     public void sendListFilesRequest(FailoverState oldState, Event event, FailoverState newState, Object parameter)
     {
 	client.sendListFilesRequest();
     }
-   /**
+    
+    
+    /**
      * 
      */
     public boolean isActive()
     {
 	return failoverState == FailoverState.MASTER_STANDALONE ||
-	failoverState == FailoverState.MASTER_HA ||
-	failoverState == FailoverState.SLAVE;
+	    failoverState == FailoverState.MASTER || failoverState == FailoverState.SLAVE;
     }
 
     // /////////////////////////////////////////////////////////

@@ -350,6 +350,21 @@ public class FileSystemHa
     }
 
     /**
+     * 
+     */
+    public void enqueueForAllReplicators(ReplicationMessage message)
+    {
+	// use a local reference to the replicators array to prevent
+	// any interference that may be cause by changes from other threads
+	// log.debug("sendToReplicators - FS="+System.identityHashCode(this)+", repl="+System.identityHashCode(replicators)+", nrep="+replicators.length);
+
+	ReplicationServerInstance[] reps = replicators;
+	for (ReplicationServerInstance rep : reps) {
+	    rep.enqueue(message);
+	}
+    }
+
+   /**
      * flushes all replicator connections.
      */
     public void flushAll()
