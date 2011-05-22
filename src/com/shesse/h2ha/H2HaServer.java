@@ -10,7 +10,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.Properties;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
@@ -19,6 +22,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import org.apache.log4j.Logger;
 import org.h2.store.fs.FileSystem;
 import org.h2.tools.Server;
+import org.h2.tools.SimpleResultSet;
 
 /**
  *
@@ -288,6 +292,42 @@ public class H2HaServer
 	}
 	
 	applyEvent(Event.TRANSFER_MASTER, null);
+    }
+
+    /**
+     * 
+     * @param conn
+     * @param size
+     * @return
+     * @throws SQLException
+     */
+    public static ResultSet getServerInfo(Connection conn)
+    throws SQLException
+    {
+	SimpleResultSet rs = new SimpleResultSet();
+	rs.addColumn("SERVER_NAME", Types.VARCHAR, 100, 0);
+	rs.addColumn("SERVER_PORT", Types.INTEGER, 5, 0);
+	String url = conn.getMetaData().getURL();
+	if (url.equals("jdbc:columnlist:connection")) {
+	    return rs;
+	}
+	
+	FileSystem fs = FileSystem.getInstance("ha://");
+	H2HaServer server;
+        if (fs instanceof FileSystemHa) {
+            server = ((FileSystemHa)fs).getHaServer();
+        } else {
+            throw new IllegalStateException("did not get a FileSystemHa for url ha://");
+        }
+        
+	server.client.getListenPort();
+	
+	for (int s = size.intValue(), x = 0; x < s; x++) {
+	    for (int y = 0; y < s; y++) {
+		rs.addRow(x, y);
+	    }
+	}
+	return rs;
     }
 
 
