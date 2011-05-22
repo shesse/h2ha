@@ -56,6 +56,7 @@ extends TestGroupBase
 	servers.cleanup();
 	servers.start();
 	servers.waitUntilActive();
+        servers.createDatabaseA();
 	tr.startup();
 	log.info("######################################################################");
 	log.info("######################################################################");

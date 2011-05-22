@@ -8,6 +8,7 @@ package com.shesse.h2ha;
 
 import java.io.File;
 import java.io.IOException;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -101,6 +102,7 @@ public class ServerProcess
             "-tcpAllowOthers",//
             "-tcpPort", String.valueOf(localTcpPort),//
             "-baseDir", "ha://",//
+            "-ifExists",//
             "-haBaseDir", dbDir.getPath(),//
             "-masterPriority", (isPrimary ? "20" : "10"),//
         };
@@ -158,6 +160,8 @@ public class ServerProcess
         
         return serverStatus;
     }
+    
+    
     /**
      * @throws InterruptedException 
      * @throws IOException 
@@ -171,6 +175,19 @@ public class ServerProcess
             Thread.sleep(500L);
         }
         Assert.fail("instance does not become active");
+    }
+    
+    /**
+     * @throws InterruptedException 
+     * @throws IOException 
+     * @throws SQLException 
+     * 
+     */
+    public void createDatabase(String dbName, String adminUser, String adminPassword)
+    throws IOException, InterruptedException, SQLException
+    {
+	ReplicationServerStatus rs = getServerStatus();
+	rs.createDatabase(dbName, adminUser, adminPassword);
     }
     
     /**

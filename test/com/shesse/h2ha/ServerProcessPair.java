@@ -8,6 +8,7 @@ package com.shesse.h2ha;
 
 import java.io.File;
 import java.io.IOException;
+import java.sql.SQLException;
 
 import org.apache.log4j.Logger;
 
@@ -171,6 +172,29 @@ public class ServerProcessPair
     public void waitUntilBIsActive() throws IOException, InterruptedException
     {
         processB.waitUntilActive();
+    }
+    
+    /**
+     * @throws InterruptedException 
+     * @throws IOException 
+     * @throws SQLException 
+     * 
+     */
+    public void createDatabaseA() 
+    throws IOException, InterruptedException, SQLException
+    {
+        processA.createDatabase("test", "sth", "sth");
+    }
+    
+    /**
+     * @throws InterruptedException 
+     * @throws IOException 
+     * 
+     */
+    public void createDatabaseB()
+    throws IOException, InterruptedException, SQLException
+    {
+        processB.createDatabase("test", "sth", "sth");
     }
     
     /**

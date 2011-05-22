@@ -11,6 +11,8 @@ import java.io.IOException;
 import java.net.Socket;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Date;
@@ -20,6 +22,8 @@ import java.util.Map;
 
 import org.apache.log4j.Logger;
 import org.h2.store.fs.FileObject;
+
+import com.shesse.h2ha.H2HaServer.FailoverState;
 
 
 /**
@@ -429,6 +433,31 @@ extends ServerSideProtocolInstance
     {
         fileSystem.deregisterReplicator(this);
         sendToPeer(new StopReplicationConfirmMessage());
+    }
+
+
+    /**
+     * @param dbName
+     * @param adminUser
+     * @param adminPassword
+     * @throws SQLException 
+     */
+    public void createDatabase(String dbName, String adminUser, String adminPassword)
+    throws SQLException
+    {
+	if (haServer.getFailoverState() != FailoverState.MASTER) {
+	    throw new SQLException("server is not in a valid state for creating a database: "+haServer.getFailoverState());
+	}
+	
+        String url = "jdbc:h2:"+FileSystemHa.getRoot()+dbName;
+        try {
+	    Class.forName("org.h2.Driver");
+	} catch (ClassNotFoundException x) {
+	    log.error("ClassNotFoundException", x);
+	    throw new SQLException("ClassNotFoundException", x);
+	}
+        Connection conn = DriverManager.getConnection(url, adminUser, adminPassword);
+        conn.close();
     }
 
 

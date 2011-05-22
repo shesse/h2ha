@@ -56,6 +56,7 @@ extends TestGroupBase
 	servers.cleanupA();
         servers.startA();
         servers.waitUntilAIsActive();
+        servers.createDatabaseA();
         tr.startup();
     }
     
