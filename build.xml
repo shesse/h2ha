@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="iso-8859-1" ?>
+<project name="h2ha" default="cltest" basedir=".">
+  
+  <!-- =============================================================
+       === ANT Ziele
+       =============================================================
+       
+       run
+       deliver
+       dist
+       doc
+       compile
+       clean
+       ============================================================= -->
+
+  <!-- =============================================================
+       === Versionsinformationen
+       =============================================================
+       
+      die folgenden beiden Eintraege muessen der
+      jeweiligen Projektversion entsprechen. Version
+      ist dabei die nach aussen sichtbare Versionsnummer
+      und revtag ist der Tag-Name dieser Version im CVS
+      archiv. Weiterhin sollte hier die Historie der
+      Versionsnummern und revtags dokumentiert werden:
+      
+      - 1.0 / rev-1-0:   Erste Auslieferung
+
+       ============================================================= -->
+
+  <property name="product" value="h2ha"/>
+  <property name="version" value="1.0"/>
+  <property name="revtag" value="rev-1-0"/>
+
+  <!-- =============================================================
+       === Property-Definitionen
+       =============================================================
+       
+       Die in diesem Build-File definierten Properties können 
+       durch eine benutzerspezifische Properties-Datei
+       modifiziert werden. Dies sollte insbesondere für die
+       Parametrisierung der Testumgebung genutzt werden.
+       
+       Die benutzerspezifische Properties-Datei ist relativ
+       zum Login-Verzeichnis des Benutzers unter dem Namen
+       build/h2ha.properties
+       abzulegen.
+       ============================================================= -->
+  <property file="${user.home}/build/${product}.properties"/>
+
+  <property environment="env"/>
+  <property name="build"    value="${basedir}/build"/>
+  <property name="class"    value="${basedir}/class"/>
+  <property name="doc"      value="${basedir}/doc"/>
+  <property name="inst"     value="${basedir}/inst"/>
+  <property name="src"      value="${basedir}/src"/>
+  <property name="lib"      value="${basedir}/lib"/>
+  <property name="conf"     value="${basedir}/conf"/>
+  <property name="interfaces"  value="${basedir}/interfaces"/>
+  <property name="dist.src" value="${build}/src"/>
+
+  
+  <!-- Referenzierte JAR-Files -->
+  <property name="forms.jar" value="${lib}/forms-1.1.0.jar" />
+  <property name="jdom.jar" value="${lib}/jdom-1.1.jar" />
+  <property name="log4j.jar" value="${lib}/log4j-1.2.9.jar" />
+  <property name="looks.jar" value="${lib}/looks-2.1.4.jar" />
+  <property name="swingx.jar" value="${lib}/swingx-core-1.6.2.jar" />
+  <property name="xerces.jar" value="${lib}/xercesImpl.jar" />
+ 
+
+  <path id="classpath.base">
+    <pathelement location="${class}" />
+    <pathelement location="${xerces.jar}" />
+    <pathelement location="${log4j.jar}" />
+    <pathelement location="${forms.jar}" />
+    <pathelement location="${looks.jar}" />
+    <pathelement location="${swingx.jar}" />
+    <pathelement location="${jdom.jar}" />
+  </path>
+
+  <target name="init">
+    <tstamp/>
+    <mkdir dir="${build}"/>
+    <mkdir dir="${class}"/>
+    <mkdir dir="${inst}"/>
+    <mkdir dir="${doc}"/>
+
+    <tstamp>
+      <format property="bin.stamp" pattern="yyyy-MM-dd HH:mm:ss"/>
+    </tstamp>
+    <mkdir dir="${class}/lib"/>
+    <echo message="PTI Simulator ${version} ${bin.stamp}"
+	  file="${class}/lib/${product}.vers"/>
+    <echo file="${class}/lib/version.props">
+      version: ${version}
+      stamp: ${bin.stamp}
+    </echo>
+  </target>
+
+  <target name="clean">
+    <delete dir="${build}"/>
+    <delete dir="${class}"/>
+    <delete dir="${doc}"/>
+  </target>
+
+  <target name="compile" depends="init">
+    <javac destdir="${class}"
+	   classpathref="classpath.base"
+	   deprecation="on"
+           optimize="on"
+	   debug="on"
+	   Encoding="iso-8859-15"
+	   source="1.6"
+	   target="1.6"
+	   includeantruntime="false">
+      <src path="${src}"/>
+      <compilerarg value="-Xlint:unchecked"/>
+    </javac>
+
+    <copy todir="${class}">
+      <fileset dir="${src}" excludes="**/*.java,**/*~"/>
+    </copy>
+  </target>
+
+  <target name="doc" depends="compile">
+    <javadoc sourcepath="${src}"
+             packagenames="*"
+	     destdir="${doc}"
+	     source="1.5"
+	     Encoding="iso-8859-15"
+	     classpathref="classpath.base">
+    </javadoc>
+  </target>
+
+  <target name="run" depends="compile">
+    <java classname="de.dicos.h2ha.H2ha"
+	  classpathref="classpath.base"
+	  fork="yes">
+      <jvmarg value="-enableassertions"/> 
+      <sysproperty key="log4j.logger.de.dicos.h2ha" value="INFO"/>
+    </java>
+  </target>
+  
+  <target name="run-jar" depends="dist.bin">
+    <java jar="${build}/h2ha.jar"
+	  fork="yes">
+    </java>
+  </target>
+  
+  <target name="dist" depends="dist.src, dist.bin">
+  </target>
+
+  <target name="dist.src" depends="doc">
+    <delete dir="${dist.src}"/>
+    <mkdir dir="${dist.src}"/>
+    <mkdir dir="${dist.src}/${product}"/>
+    <copy todir="${dist.src}/${product}">
+      <fileset dir=".">
+        <include name="build.xml"/>	
+        <include name="doc/**"/>	
+        <include name="lib/**"/>	
+	<include name="src/**"/>	
+      </fileset>
+    </copy>
+  </target>
+
+  <target name="dist.bin" depends="compile">
+    <jar destfile="${build}/h2ha.jar">
+      <fileset dir="${class}"/>
+      
+      <zipfileset src="${xerces.jar}" />
+      <zipfileset src="${log4j.jar}" />
+      <zipfileset src="${forms.jar}" />
+      <zipfileset src="${looks.jar}" />
+      <zipfileset src="${swingx.jar}" />
+      <zipfileset src="${jdom.jar}" />
+
+      <manifest>
+	<attribute name="Main-Class" value="de.dicos.h2ha.H2ha"/>
+      	<attribute name="Built-By" value="${user.name}"/>
+      	<attribute name="Implementation-Vendor" value="DICOS GmbH"/>
+    	<attribute name="Implementation-Version" value="${version}"/> 
+	<attribute name="Implementation-Timestamp" value="${bin.stamp}"/>
+      </manifest>
+    </jar>
+
+    <zip destfile="${build}/pti-interface.zip">
+      <fileset dir="${interfaces}/basicops"/>
+    </zip>
+
+  </target>
+
+  
+  <!-- =============================================================
+       === Installationsdateien erzeugen
+       ============================================================= -->
+  <target name="deliver" depends="instfiles"/>
+  <target name="instfiles" depends="instfile.jar,instfile.src,instfile.doc"/>
+  
+  <target name="instfile.jar" depends="dist.bin">
+    <fail message="Die Installationsdatei ${inst}/${product}-${version}.jar existiert bereits">
+      <condition>
+	<available file="${inst}/${product}-${version}.jar"/>
+      </condition>
+    </fail>
+    
+    <copy file="${build}/h2ha.jar" tofile="${inst}/${product}-${version}.jar"/>
+    <copy file="${build}/pti-interface.zip" tofile="${inst}/${product}-${version}-basicops.zip"/>
+  </target>
+  
+  <target name="instfile.src" depends="dist.src">
+    <jar jarfile="${inst}/${product}-${version}-src.jar">
+      <fileset dir="${dist.src}" />
+    </jar>
+  </target>
+
+  <target name="instfile.doc" depends="doc">
+    <jar jarfile="${inst}/${product}-${version}-doc.jar">
+      <fileset dir="${doc}" >
+      </fileset>
+    </jar>
+
+
+
+  </target>
+  <target name="cltest">
+    <jar destfile="${user.home}/tmp/h2ha.jar">
+      <fileset dir="${class}"/>
+      
+      <fileset dir="${basedir}">
+	<include name="lib/log4j-1.2.9.jar"/>
+	<include name="lib/h2-1.3.154.jar"/>
+      </fileset>
+
+      <manifest>
+	<attribute name="Main-Class" value="com.shesse.h2ha.BootFromJar"/>
+      	<attribute name="Built-By" value="${user.name}"/>
+      	<attribute name="Implementation-Vendor" value="DICOS GmbH"/>
+    	<attribute name="Implementation-Version" value="${version}"/> 
+	<attribute name="Implementation-Timestamp" value="${bin.stamp}"/>
+      </manifest>
+    </jar>
+  </target>
+</project>
