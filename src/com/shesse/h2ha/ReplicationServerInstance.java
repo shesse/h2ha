@@ -14,6 +14,7 @@ import java.security.NoSuchAlgorithmException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -91,8 +92,11 @@ extends ServerSideProtocolInstance
     /** */
     private static Logger log = Logger.getLogger(ReplicationServerInstance.class);
 
-   /** */
+    /** */
     private Map<FileInfo, SyncStatus> syncStatusByHaName = new HashMap<FileInfo, SyncStatus>();
+    
+    /** */
+    private Timestamp startTime = new Timestamp(System.currentTimeMillis());
 
     // /////////////////////////////////////////////////////////
     // Constructors
@@ -158,6 +162,16 @@ extends ServerSideProtocolInstance
     public boolean isActive()
     {
         return haServer.isActive();
+    }
+    
+
+    /**
+     * 
+     * @return
+     */
+    public Timestamp getStartTime()
+    {
+	return startTime;
     }
     
     /**
@@ -769,5 +783,5 @@ extends ServerSideProtocolInstance
             this.fileInfo = fileInfo;
         }
     }
-    
+
 }

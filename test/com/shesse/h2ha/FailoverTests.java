@@ -67,6 +67,8 @@ extends TestGroupBase
     public void tearDown()
     throws InterruptedException, SQLException
     {
+	logStatistics();
+	
 	log.info("######################################################################");
 	log.info("######################################################################");
         log.info("beginning to tear down");

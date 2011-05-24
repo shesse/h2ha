@@ -32,11 +32,11 @@ import com.shesse.h2ha.H2HaServer.FailoverState;
 
 
 /**
- *
+ * 
  * @author sth
  */
 public class ReplicationProtocolInstance
-implements Runnable
+    implements Runnable
 {
     // /////////////////////////////////////////////////////////
     // Class Members
@@ -64,18 +64,18 @@ implements Runnable
     protected Thread instanceThread = null;
 
     /** */
-    protected BlockingQueue<ReplicationMessage> messageQueue = new LinkedBlockingQueue<ReplicationMessage>();
+    protected BlockingQueue<ReplicationMessage> messageQueue =
+	new LinkedBlockingQueue<ReplicationMessage>();
 
     /** */
-    protected ReplicationMessage terminateMessage = new ReplicationMessage()
-    {
+    protected ReplicationMessage terminateMessage = new ReplicationMessage() {
 	private static final long serialVersionUID = 1L;
 
 	@Override
 	protected void process(ReplicationProtocolInstance instance)
-	throws Exception
+	    throws Exception
 	{
-	}        
+	}
 
 	@Override
 	public int getSizeEstimate()
@@ -91,7 +91,8 @@ implements Runnable
     };
 
     /** */
-    protected Map<Integer, WaitingOperation<?>> waitingOperations = new HashMap<Integer, WaitingOperation<?>>();
+    protected Map<Integer, WaitingOperation<?>> waitingOperations =
+	new HashMap<Integer, WaitingOperation<?>>();
 
     /** */
     protected int nextWaitingOperationId = 0;
@@ -119,6 +120,9 @@ implements Runnable
 
     /** */
     private long lastHeartbeatReceived = 0L;
+    
+    /** */
+    private long lastSendDelay = 0L;
 
 
     // /////////////////////////////////////////////////////////
@@ -138,11 +142,11 @@ implements Runnable
     // Methods
     // /////////////////////////////////////////////////////////
     /**
-     * @throws IOException 
+     * @throws IOException
      * 
      */
     protected void setSocket(Socket socket)
-    throws IOException
+	throws IOException
     {
 	this.socket = socket;
 	this.oos = new ObjectOutputStream(new BufferedOutputStream(socket.getOutputStream()));
@@ -162,12 +166,13 @@ implements Runnable
 
     /**
      * Tries to initiate a connection to the peer.
+     * 
      * @return true if connection was successful.
      */
     public boolean tryToConnect(String peerHost, int peerPort, int connectTimeout)
     {
 	try {
-	    log.debug(instanceName+": try to connect to "+peerHost+":"+peerPort);
+	    log.debug(instanceName + ": try to connect to " + peerHost + ":" + peerPort);
 	    Socket socket = SocketFactory.getDefault().createSocket();
 	    try {
 		SocketAddress addr = new InetSocketAddress(peerHost, peerPort);
@@ -176,7 +181,8 @@ implements Runnable
 		} else {
 		    socket.connect(addr);
 		}
-		log.debug(instanceName+": successfully connected to peer "+peerHost+":"+peerPort);
+		log.debug(instanceName + ": successfully connected to peer " + peerHost + ":" +
+		    peerPort);
 
 		setSocket(socket);
 
@@ -189,14 +195,14 @@ implements Runnable
 	    }
 
 	} catch (IOException x) {
-	    log.info(instanceName+": Cannot connect to peer "+peerHost+":"+peerPort);
+	    log.info(instanceName + ": Cannot connect to peer " + peerHost + ":" + peerPort);
 	    return false;
 	}
     }
 
     /**
-     * @throws IOException 
-     * @throws InterruptedException 
+     * @throws IOException
+     * @throws InterruptedException
      * 
      */
     protected void closeSocket()
@@ -251,7 +257,7 @@ implements Runnable
 	    body();
 
 	} catch (Throwable x) {
-	    log.error(instanceName+": caught unexpected exception within ReplicationInstance", x);
+	    log.error(instanceName + ": caught unexpected exception within ReplicationInstance", x);
 
 	} finally {
 	    closeSocket();
@@ -259,16 +265,16 @@ implements Runnable
     }
 
     /**
-     * @throws SQLException 
-     * @throws IOException 
-     * @throws InterruptedException 
+     * @throws SQLException
+     * @throws IOException
+     * @throws InterruptedException
      * 
      */
     private void body()
-    throws SQLException, IOException, InterruptedException
+	throws SQLException, IOException, InterruptedException
     {
 	try {
-	    log.debug(instanceName+": replication instance has started");
+	    log.debug(instanceName + ": replication instance has started");
 
 	    processProtocolMessages();
 
@@ -281,34 +287,38 @@ implements Runnable
 		    try {
 			message.process(this);
 		    } catch (Exception x) {
-			log.error(instanceName+": unexpected exception when processing message in replication queue", x);
+			log.error(instanceName +
+			    ": unexpected exception when processing message in replication queue",
+			    x);
 		    }
 		}
 	    }
 
-	    // signaling all still waiting operations that the connection has failed
+	    // signaling all still waiting operations that the connection has
+	    // failed
 	    synchronized (waitingOperations) {
-		for (WaitingOperation<?> wo: waitingOperations.values()) {
-		    wo.exception = new IOException("connection terminated when waiting for confirm");
+		for (WaitingOperation<?> wo : waitingOperations.values()) {
+		    wo.exception =
+			new IOException("connection terminated when waiting for confirm");
 		    wo.waitGate.release();
 		    wo.watcher.cancel();
 		}
 		waitingOperations.clear();
 	    }
-	    
-	    log.debug(instanceName+": replication instance has ended");
+
+	    log.debug(instanceName + ": replication instance has ended");
 	}
     }
 
     /**
-     * @throws InterruptedException 
-     * @throws IOException 
+     * @throws InterruptedException
+     * @throws IOException
      * 
      */
     private void processProtocolMessages()
-    throws InterruptedException, IOException
+	throws InterruptedException, IOException
     {
-	log.debug(instanceName+": processProtocolMessages");
+	log.debug(instanceName + ": processProtocolMessages");
 	try {
 	    for (;;) {
 		long now = System.currentTimeMillis();
@@ -316,10 +326,13 @@ implements Runnable
 		    if (lastStatisticsTimestamp != 0L) {
 			double transmittedBytesPerSecond =
 			    (totalBytesTransmitted - lastStatisticsBytesTransmitted) /
-			    ((now - lastStatisticsTimestamp) / 1000.);
+				((now - lastStatisticsTimestamp) / 1000.);
 
-			log.info(instanceName+String.format(": transmit rate = %7.1f KB/sec", transmittedBytesPerSecond/1000));
-			log.info(instanceName+String.format(": queue size    = %5d", messageQueue.size()));
+			log.info(instanceName +
+			    String.format(": transmit rate = %7.1f KB/sec",
+				transmittedBytesPerSecond / 1000));
+			log.info(instanceName +
+			    String.format(": queue size    = %5d", messageQueue.size()));
 		    }
 
 		    lastStatisticsBytesTransmitted = totalBytesTransmitted;
@@ -332,44 +345,47 @@ implements Runnable
 		    sendHeartbeat();
 		}
 
-		if (lastHeartbeatReceived != 0 && now > lastHeartbeatReceived+120000) {
-		    throw new TerminateThread("did not receive heartbeats on replication connection");
+		if (lastHeartbeatReceived != 0 && now > lastHeartbeatReceived + 120000) {
+		    throw new TerminateThread(
+			"did not receive heartbeats on replication connection");
 		}
 
 		long nextActivity = nextStatisticsTimestamp;
-		if (nextHeartbeatToSend < nextActivity) nextActivity = nextHeartbeatToSend;
+		if (nextHeartbeatToSend < nextActivity)
+		    nextActivity = nextHeartbeatToSend;
 
 		long delta = nextActivity - now;
 		ReplicationMessage message = messageQueue.poll(delta, TimeUnit.MILLISECONDS);
 
 		if (message != null) {
-		    if (message == terminateMessage) break;
-		    
-		    log.debug("process message: "+message);
+		    if (message == terminateMessage)
+			break;
+
+		    log.debug("process message: " + message);
 		    message.process(this);
 		}
 	    }
 
 	} catch (TerminateThread x) {
 	    x.logError(log, instanceName);
-	    log.error(instanceName+": terminating connection!");
+	    log.error(instanceName + ": terminating connection!");
 
 	} catch (Exception x) {
-	    log.error(instanceName+": unexpected exception when processing message from peer", x);
-	    log.error(instanceName+": terminating connection!");
-	    
+	    log.error(instanceName + ": unexpected exception when processing message from peer", x);
+	    log.error(instanceName + ": terminating connection!");
+
 	} finally {
 	    closeSocket();
-	    log.debug(instanceName+": leaving processProtocolMessages");
+	    log.debug(instanceName + ": leaving processProtocolMessages");
 	}
     }
 
     /**
-     * @throws IOException 
+     * @throws IOException
      * 
      */
     protected void sendHeartbeat()
-    throws IOException
+	throws IOException
     {
 	sendToPeer(new HeartbeatMessage());
     }
@@ -384,8 +400,8 @@ implements Runnable
     }
 
     /**
-     * @param uuid 
-     * @param masterPriority 
+     * @param uuid
+     * @param masterPriority
      * 
      */
     protected void heartbeatReceived()
@@ -399,32 +415,37 @@ implements Runnable
      * @param peerMasterPriority
      * @param peerUuid
      */
-    protected void peerStatusReceived(FailoverState peerState, int peerMasterPriority, String peerUuid)
+    protected void peerStatusReceived(FailoverState peerState, int peerMasterPriority,
+				      String peerUuid)
     {
-	log.debug("peerStatusReceived peerState="+peerState);
+	log.debug("peerStatusReceived peerState=" + peerState);
     }
 
 
     /**
-     * Enqueues a message for sending to the peer. This
-     * method may be called from any thread. The actual 
-     * sending of messages will be carried out in a 
+     * Enqueues a message for sending to the peer. This method may be called
+     * from any thread. The actual sending of messages will be carried out in a
      * sequence conserving manner
      */
     public void send(final ReplicationMessage message)
     {
+	final long enqueueTimestamp = System.currentTimeMillis();
 	enqueue(new ReplicationMessage() {
 	    private static final long serialVersionUID = 1L;
 
 	    @Override
 	    protected void process(ReplicationProtocolInstance instance)
-	    throws Exception
+		throws Exception
 	    {
+		long now = System.currentTimeMillis();
+		lastSendDelay = now - enqueueTimestamp;
+		
 		try {
 		    sendToPeer(message);
 		} catch (IOException x) {
-		    log.error(instanceName+": unexpected exception when sending message to peer", x);
-		    log.error(instanceName+": terminating connection!");
+		    log.error(instanceName + ": unexpected exception when sending message to peer",
+			x);
+		    log.error(instanceName + ": terminating connection!");
 
 		    closeSocket();
 		}
@@ -439,7 +460,7 @@ implements Runnable
 	    @Override
 	    public String toString()
 	    {
-		return "send to peer: "+message;
+		return "send to peer: " + message;
 	    }
 	});
     }
@@ -449,10 +470,12 @@ implements Runnable
      */
     public void enqueue(ReplicationMessage message)
     {
-	if (connectionCanceled) return;
+	if (connectionCanceled)
+	    return;
 
 	if (maxWaitingMessages > 0 && messageQueue.size() > maxWaitingMessages) {
-	    log.error(instanceName+": too many waiting messages - replicator connection will be canceled");
+	    log.error(instanceName +
+		": too many waiting messages - replicator connection will be canceled");
 	    cancelConnection();
 	    return;
 	}
@@ -473,7 +496,7 @@ implements Runnable
 
 	    @Override
 	    protected void process(ReplicationProtocolInstance instance)
-	    throws Exception
+		throws Exception
 	    {
 		throw new TerminateThread("connection has been canceled!");
 	    }
@@ -492,31 +515,33 @@ implements Runnable
 	});
 
     }
+
     /**
      * 
      */
     protected void processReceivedMessage(Object message)
     {
 	if (message instanceof ReplicationMessage) {
-	    log.debug(instanceName+": got from protocol connection: "+message);
-	    messageQueue.add((ReplicationMessage)message);
+	    log.debug(instanceName + ": got from protocol connection: " + message);
+	    messageQueue.add((ReplicationMessage) message);
 
 	} else {
-	    log.debug(instanceName+": got unexpected object from protocol connection: "+(message == null ? "null" : message.getClass().getName()));
+	    log.debug(instanceName + ": got unexpected object from protocol connection: " +
+		(message == null ? "null" : message.getClass().getName()));
 	}
 
     }
 
     /**
-     * Will cause all outstanding messages to be sent. 
-     * This method will wait until the sending has been completed.
-     * Not that this does not necessarily mean that the peer
-     * has processed all messages. The even may still get lost 
-     * on network connection or peer failure.
-     * @throws InterruptedException 
+     * Will cause all outstanding messages to be sent. This method will wait
+     * until the sending has been completed. Not that this does not necessarily
+     * mean that the peer has processed all messages. The even may still get
+     * lost on network connection or peer failure.
+     * 
+     * @throws InterruptedException
      */
     public void flush()
-    throws InterruptedException
+	throws InterruptedException
     {
 	final Semaphore sema = new Semaphore(0);
 
@@ -525,7 +550,7 @@ implements Runnable
 
 	    @Override
 	    protected void process(ReplicationProtocolInstance instance)
-	    throws Exception
+		throws Exception
 	    {
 		sema.release();
 	    }
@@ -553,24 +578,23 @@ implements Runnable
     }
 
     /**
-     * This method behaves like flush() with additionally making
-     * sure that the outstanding messages have been processed by 
-     * the peer.
+     * This method behaves like flush() with additionally making sure that the
+     * outstanding messages have been processed by the peer.
      * <p>
-     * If no confirmation can be received from the peer, an
-     * IOException will be raised.
+     * If no confirmation can be received from the peer, an IOException will be
+     * raised.
      * 
-     * @throws InterruptedException 
-     * @throws IOException 
+     * @throws InterruptedException
+     * @throws IOException
      */
     public void syncConnection()
-    throws InterruptedException, IOException
+	throws InterruptedException, IOException
     {
 	WaitingOperation<Void> wo = new WaitingOperation<Void>(new SyncRequestMessage());
 
-	log.debug(instanceName+": sending sync request to peer");
+	log.debug(instanceName + ": sending sync request to peer");
 	wo.sendAndGetResult();
-	log.debug(instanceName+": sync has been confirmed");
+	log.debug(instanceName + ": sync has been confirmed");
     }
 
     /**
@@ -582,23 +606,57 @@ implements Runnable
     }
 
     /**
-     * @throws IOException 
+     * @return the instanceName
+     */
+    public String getInstanceName()
+    {
+	return instanceName;
+    }
+
+
+    /**
+     * @return the totalBytesTransmitted
+     */
+    public long getTotalBytesTransmitted()
+    {
+	return totalBytesTransmitted;
+    }
+
+    /**
+     * 
+     */
+    public int getQueueSize()
+    {
+	return messageQueue.size();
+    }
+
+    /**
+     * @return the lastSendDelay
+     */
+    public long getLastSendDelay()
+    {
+        return lastSendDelay;
+    }
+
+
+    /**
+     * @throws IOException
      * 
      */
     protected void sendToPeer(ReplicationMessage message)
-    throws IOException
+	throws IOException
     {
 	sendToPeer(message, message.getSizeEstimate());
     }
 
     /**
-     * @throws IOException 
+     * @throws IOException
      * 
      */
     protected void sendToPeer(Serializable message, int sizeEstimate)
-    throws IOException
+	throws IOException
     {
-	log.debug(instanceName+": sending message to peer: "+message+", size="+sizeEstimate);
+	log.debug(instanceName + ": sending message to peer: " + message + ", size=" + sizeEstimate);
 	if (instanceThread == null) {
 	    instanceThread = Thread.currentThread();
 	} else if (Thread.currentThread() != instanceThread) {
@@ -608,7 +666,7 @@ implements Runnable
 	oos.writeObject(message);
 	oos.flush();
 
-	totalBytesTransmitted  += sizeEstimate;
+	totalBytesTransmitted += sizeEstimate;
     }
 
     // /////////////////////////////////////////////////////////
@@ -618,23 +676,25 @@ implements Runnable
      * 
      */
     protected static abstract class OperationRequestMessage<CnfType>
-    extends ReplicationMessage
+	extends ReplicationMessage
     {
 	private static final long serialVersionUID = 1L;
 	private int operationId = -1;
 	private Class<CnfType> cls;
+
 	OperationRequestMessage(Class<CnfType> cls)
 	{
 	    this.cls = cls;
 	}
 
 	@Override
-	protected void process(ReplicationProtocolInstance instance) throws Exception
+	protected void process(ReplicationProtocolInstance instance)
+	    throws Exception
 	{
-	    log.debug("processing operation "+operationId);
+	    log.debug("processing operation " + operationId);
 	    CnfType cnf = performOperation(instance);
 
-	    log.debug("sending result "+operationId);
+	    log.debug("sending result " + operationId);
 	    instance.sendToPeer(new OperationConfirmMessage<CnfType>(cls, operationId, cnf));
 	}
 
@@ -648,7 +708,7 @@ implements Runnable
 	@Override
 	public String toString()
 	{
-	    return "op req id="+operationId;
+	    return "op req id=" + operationId;
 	}
     }
 
@@ -656,7 +716,7 @@ implements Runnable
      * 
      */
     protected static class OperationConfirmMessage<CnfType>
-    extends ReplicationMessage
+	extends ReplicationMessage
     {
 	private static final long serialVersionUID = 1L;
 	private int operationId;
@@ -669,9 +729,10 @@ implements Runnable
 	}
 
 	@Override
-	protected void process(ReplicationProtocolInstance instance) throws Exception
+	protected void process(ReplicationProtocolInstance instance)
+	    throws Exception
 	{
-	    log.debug("processing operation confirm "+operationId);
+	    log.debug("processing operation confirm " + operationId);
 	    synchronized (instance.waitingOperations) {
 		WaitingOperation<?> wo = instance.waitingOperations.remove(operationId);
 		if (wo != null) {
@@ -693,7 +754,7 @@ implements Runnable
 	@Override
 	public String toString()
 	{
-	    return "op cnf op="+operationId;
+	    return "op cnf op=" + operationId;
 	}
     }
 
@@ -714,7 +775,8 @@ implements Runnable
 	    this.request = request;
 	    operationId = nextWaitingOperationId++;
 
-	    log.debug(instanceName+": waitingOperation "+operationId+" - reqClass="+request.getClass().getName());
+	    log.debug(instanceName + ": waitingOperation " + operationId + " - reqClass=" +
+		request.getClass().getName());
 
 	    request.operationId = operationId;
 	    waitGate = new Semaphore(0);
@@ -734,7 +796,7 @@ implements Runnable
 	}
 
 	public CnfType sendAndGetResult()
-	throws InterruptedException, IOException
+	    throws InterruptedException, IOException
 	{
 	    synchronized (waitingOperations) {
 		waitingOperations.put(operationId, this);
@@ -742,11 +804,11 @@ implements Runnable
 	    }
 
 	    try {
-		log.debug(instanceName+": send WaitingOperation "+operationId);
+		log.debug(instanceName + ": send WaitingOperation " + operationId);
 		send(request);
-		log.debug(instanceName+": wait for result "+operationId);
+		log.debug(instanceName + ": wait for result " + operationId);
 		waitGate.acquire();
-		log.debug(instanceName+": got result "+operationId);
+		log.debug(instanceName + ": got result " + operationId);
 
 	    } finally {
 		synchronized (waitingOperations) {
@@ -768,7 +830,7 @@ implements Runnable
      * 
      */
     protected static class SyncRequestMessage
-    extends OperationRequestMessage<Void>
+	extends OperationRequestMessage<Void>
     {
 	private static final long serialVersionUID = 1L;
 
@@ -800,7 +862,7 @@ implements Runnable
      * 
      */
     protected static class HeartbeatMessage
-    extends ReplicationMessage
+	extends ReplicationMessage
     {
 	private static final long serialVersionUID = 1L;
 
@@ -810,7 +872,7 @@ implements Runnable
 
 	@Override
 	protected void process(ReplicationProtocolInstance instance)
-	throws Exception
+	    throws Exception
 	{
 	    instance.heartbeatReceived();
 	}

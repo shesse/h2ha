@@ -87,6 +87,21 @@ public class FileSystemHa
 
     /** */
     private static final int DEFAULT_CACHE_SIZE = 1000;
+    
+    /** */
+    private long replicationRawBytes = 0L;
+
+    /** */
+    private long replicationCroppedBytes = 0L;
+
+    /** */
+    private long blockCacheLookups = 0L;
+
+    /** */
+    private long blockCacheHits = 0L;
+
+    /** */
+    private long blockCacheAdds = 0L;
 
 
     // /////////////////////////////////////////////////////////
@@ -480,6 +495,56 @@ public class FileSystemHa
     public H2HaServer getHaServer()
     {
         return haServer;
+    }
+
+
+
+    /**
+     * @return the replicationRawBytes
+     */
+    public long getReplicationRawBytes()
+    {
+        return replicationRawBytes;
+    }
+
+
+
+    /**
+     * @return the replicationCompressedBytes
+     */
+    public long getReplicationCroppedBytes()
+    {
+        return replicationCroppedBytes;
+    }
+
+
+
+    /**
+     * @return the blockCacheLookups
+     */
+    public long getBlockCacheLookups()
+    {
+        return blockCacheLookups;
+    }
+
+
+
+    /**
+     * @return the blockCacheHits
+     */
+    public long getBlockCacheHits()
+    {
+        return blockCacheHits;
+    }
+
+
+
+    /**
+     * @return the blockCacheAdds
+     */
+    public long getBlockCacheAdds()
+    {
+        return blockCacheAdds;
     }
 
 
@@ -1007,6 +1072,7 @@ public class FileSystemHa
 		System.arraycopy(b, off, dupData, 0, len);
 		String cacheKey = cacheKey(fileInfo, blockno);
 		blockCache.put(cacheKey, dupData);
+		blockCacheAdds++;
 		log.debug("read: adding to cache: '"+cacheKey+"'");
 	    }
 	}
@@ -1028,14 +1094,17 @@ public class FileSystemHa
 	// usually have leading and trailing unchanged bytes and
 	// cuts them off.
 	boolean addToCache = false;
+	replicationRawBytes += len;
 	if (blockCache != null && blocksizeLearningState == BlocksizeLearningState.LEARNED) {
 	    long blockno = filePointer / learnedBlocksize;
 	    if (learnedBlocksize == len && blockno * learnedBlocksize == filePointer) {
 		// blocked write
 		String cacheKey = cacheKey(fileInfo, blockno);
 		byte[] oldData = blockCache.get(cacheKey);
+		blockCacheLookups++;
 		if (oldData != null) {
 		    log.debug("found in cache: '"+cacheKey+"'");
+		    blockCacheHits++;
 		    // we found a cached entry - modifying offset and length
 		    int ofirst = 0;
 		    for (; ofirst < oldData.length; ofirst++) {
@@ -1099,12 +1168,14 @@ public class FileSystemHa
 	// we need to copy the data before placing it into the queue
 	byte[] dupData = new byte[len];
 	System.arraycopy(b, off, dupData, 0, len);
+	replicationCroppedBytes += len;
 	sendToReplicators(new WriteMessage(fileInfo.getHaName(), filePointer, dupData));
 
 	if (addToCache) {
 	    long blockno = filePointer / learnedBlocksize;
 	    String cacheKey = cacheKey(fileInfo, blockno);
 	    blockCache.put(cacheKey, dupData);
+	    blockCacheAdds++;
 	    log.debug("write: adding to cache: '"+cacheKey+"'");
 	}
     }

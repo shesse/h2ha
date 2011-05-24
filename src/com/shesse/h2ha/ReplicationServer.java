@@ -115,6 +115,14 @@ public class ReplicationServer
     {
         return fileSystem;
     }
+
+    /**
+     * 
+     */
+    public int getListenPort()
+    {
+	return listenPort;
+    }
     
 
 

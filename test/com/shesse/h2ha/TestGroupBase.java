@@ -9,6 +9,8 @@ package com.shesse.h2ha;
 
 import java.io.IOException;
 import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 
@@ -133,4 +135,55 @@ public class TestGroupBase
 	
 	throw lastException;
     }
+    
+    /**
+     * @throws SQLException 
+     * 
+     */
+    protected void logStatistics()
+    throws SQLException
+    {
+	Connection conn = dbManager.createConnection();
+	try {
+	    Statement stmnt = conn.createStatement();
+	    
+	    try {
+		stmnt.executeUpdate("create alias SERVER_INFO for \"com.shesse.h2ha.H2HaServer.getServerInfo\"");
+		stmnt.executeUpdate("create alias REPLICATION_INFO for \"com.shesse.h2ha.H2HaServer.getReplicationInfo\"");
+
+	    } catch (SQLException x) {
+		// ignore
+	    }
+	    
+	    logTable(stmnt, "SERVER_INFO");
+	    logTable(stmnt, "REPLICATION_INFO");
+	
+	} finally {
+	    conn.close();
+	}
+    }
+
+    /**
+     * @throws SQLException 
+     * 
+     */
+    private void logTable(Statement stmnt, String aliasName)
+    throws SQLException
+    {
+	ResultSet rset = stmnt.executeQuery("select * from "+aliasName+"()");
+	ResultSetMetaData meta = rset.getMetaData();
+	
+	while (rset.next()) {
+	    StringBuilder line = new StringBuilder();
+	    String delim = "";
+	    for (int i = 0; i < meta.getColumnCount(); i++) {
+		String name = meta.getColumnLabel(i+1);
+		Object value = rset.getObject(i+1);
+		line.append(delim).append(name).append("=").append(value);
+		delim = ", ";
+	    }
+	    log.info(aliasName+": "+line);
+	}
+    }
+
 }

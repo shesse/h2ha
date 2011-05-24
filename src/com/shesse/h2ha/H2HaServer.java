@@ -10,6 +10,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -304,14 +306,6 @@ public class H2HaServer
     public static ResultSet getServerInfo(Connection conn)
     throws SQLException
     {
-	SimpleResultSet rs = new SimpleResultSet();
-	rs.addColumn("SERVER_NAME", Types.VARCHAR, 100, 0);
-	rs.addColumn("SERVER_PORT", Types.INTEGER, 5, 0);
-	String url = conn.getMetaData().getURL();
-	if (url.equals("jdbc:columnlist:connection")) {
-	    return rs;
-	}
-	
 	FileSystem fs = FileSystem.getInstance("ha://");
 	H2HaServer server;
         if (fs instanceof FileSystemHa) {
@@ -319,14 +313,110 @@ public class H2HaServer
         } else {
             throw new IllegalStateException("did not get a FileSystemHa for url ha://");
         }
-        
-	server.client.getListenPort();
+
+        return server.getServerInfoImpl(conn);
+    }
+    /**
+     * 
+     * @param conn
+     * @param size
+     * @return
+     * @throws SQLException
+     */
+    public ResultSet getServerInfoImpl(Connection conn)
+    throws SQLException
+    {
+	SimpleResultSet rs = new SimpleResultSet();
+	rs.addColumn("SERVER_NAME", Types.VARCHAR, 100, 0);
+	rs.addColumn("SERVER_PORT", Types.INTEGER, 5, 0);
+	rs.addColumn("LOCAL_STATUS", Types.VARCHAR, 20, 0);
+	rs.addColumn("PEER_STATUS", Types.VARCHAR, 20, 0);
+	rs.addColumn("REPL_BYTES_RAW", Types.INTEGER, 20, 0);
+	rs.addColumn("REPL_BYTES_CROPPED", Types.INTEGER, 20, 0);
+	rs.addColumn("BLOCK_CACHE_LOOKUPS", Types.INTEGER, 20, 0);
+	rs.addColumn("BLOCK_CACHE_ADDS", Types.INTEGER, 20, 0);
+	rs.addColumn("BLOCK_CACHE_HITS", Types.INTEGER, 20, 0);
 	
-	for (int s = size.intValue(), x = 0; x < s; x++) {
-	    for (int y = 0; y < s; y++) {
-		rs.addRow(x, y);
-	    }
+	String url = conn.getMetaData().getURL();
+	if (url.equals("jdbc:columnlist:connection")) {
+	    return rs;
 	}
+	
+        try {
+            String serverName = InetAddress.getLocalHost().getHostName();
+            int listenPort = server.getListenPort();
+            
+            rs.addRow(//
+        	serverName,//
+        	listenPort,//
+        	failoverState.toString(),//
+        	(client == null ? null : client.getPeerState().toString()),//
+        	fileSystem.getReplicationRawBytes(),//
+        	fileSystem.getReplicationCroppedBytes(),//
+        	fileSystem.getBlockCacheLookups(),//
+        	fileSystem.getBlockCacheAdds(),//
+        	fileSystem.getBlockCacheHits()//
+            );
+            
+            
+        } catch (UnknownHostException x) {
+            throw new SQLException("cannot determine local host name", x);
+        }
+
+	return rs;
+    }
+
+
+    /**
+     * 
+     * @param conn
+     * @param size
+     * @return
+     * @throws SQLException
+     */
+    public static ResultSet getReplicationInfo(Connection conn)
+    throws SQLException
+    {
+	FileSystem fs = FileSystem.getInstance("ha://");
+	H2HaServer server;
+        if (fs instanceof FileSystemHa) {
+            server = ((FileSystemHa)fs).getHaServer();
+        } else {
+            throw new IllegalStateException("did not get a FileSystemHa for url ha://");
+        }
+
+        return server.getReplicationInfoImpl(conn);
+    }
+    /**
+     * 
+     * @param conn
+     * @param size
+     * @return
+     * @throws SQLException
+     */
+    public ResultSet getReplicationInfoImpl(Connection conn)
+    throws SQLException
+    {
+	SimpleResultSet rs = new SimpleResultSet();
+	rs.addColumn("INSTANCE_NAME", Types.VARCHAR, 100, 0);
+	rs.addColumn("ACTIVE_SINCE", Types.TIMESTAMP, 0, 0);
+	rs.addColumn("TOTAL_BYTES_SENT", Types.INTEGER, 20, 0);
+	rs.addColumn("SEND_DELAY", Types.INTEGER, 10, 0);
+	
+	String url = conn.getMetaData().getURL();
+	if (url.equals("jdbc:columnlist:connection")) {
+	    return rs;
+	}
+	
+	for (ReplicationServerInstance server: servers) {
+	    rs.addRow(//
+        	server.getInstanceName(),//
+        	server.getStartTime(),//
+        	server.getTotalBytesTransmitted(),//
+        	(int)server.getLastSendDelay()//
+            );
+	}
+
 	return rs;
     }
 
