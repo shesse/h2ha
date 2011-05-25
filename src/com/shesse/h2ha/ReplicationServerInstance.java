@@ -17,9 +17,7 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.log4j.Logger;
 import org.h2.store.fs.FileObject;
@@ -93,9 +91,6 @@ extends ServerSideProtocolInstance
     private static Logger log = Logger.getLogger(ReplicationServerInstance.class);
 
     /** */
-    private Map<FileInfo, SyncStatus> syncStatusByHaName = new HashMap<FileInfo, SyncStatus>();
-    
-    /** */
     private Timestamp startTime = new Timestamp(System.currentTimeMillis());
 
     // /////////////////////////////////////////////////////////
@@ -133,27 +128,6 @@ extends ServerSideProtocolInstance
             fileSystem.deregisterReplicator(this);
             haServer.deregisterServer(this);
         }
-    }
-    
-    /**
-     * 
-     */
-    private SyncStatus getSyncStatus(String haName)
-    {
-        return getSyncStatus(fileSystem.getFileInfoForHaName(haName));
-    }
-
-    /**
-     * 
-     */
-    private SyncStatus getSyncStatus(FileInfo fileInfo)
-    {
-        SyncStatus syncStatus = syncStatusByHaName.get(fileInfo);
-        if (syncStatus == null) {
-            syncStatus = new SyncStatus(fileInfo);
-            syncStatusByHaName.put(fileInfo, syncStatus);
-        }
-        return syncStatus;
     }
     
     /**
@@ -242,18 +216,19 @@ extends ServerSideProtocolInstance
      * @param entry
      * @throws IOException 
      */
-    private void sendFullFile(FileRequestData entry) throws IOException
+    private void sendFullFile(FileRequestData entry)
+    throws IOException
     {
         String haName = entry.getHaName();
         log.debug("sending file "+haName);
 
-        SyncStatus syncStatus = getSyncStatus(haName);
+        FileInfo fileInfo = fileSystem.getFileInfoForHaName(haName);
         
         FileObject fo = getFileObject(haName);
         long fileSize = fo.length();
         byte[] buffer = new byte[4096];
         long offset = 0;
-        syncStatus.endIgnore = fileSize;
+        fileInfo.setEndIgnore(fileSize);
         while (offset < fileSize) {
             try {
                 int rdlen = buffer.length;
@@ -264,7 +239,7 @@ extends ServerSideProtocolInstance
                     buffer = new byte[rdlen];
                 }
 
-                syncStatus.beginIgnore = endrd;
+                fileInfo.setBeginIgnore(endrd);
                  
                 if (fo instanceof FileObjectHa) {
                     ((FileObjectHa)fo).readFullyNocache(buffer, 0, rdlen);
@@ -285,7 +260,8 @@ extends ServerSideProtocolInstance
             }
         }
         
-        syncStatus.beginIgnore = Long.MAX_VALUE;
+        fileInfo.setBeginIgnore(Long.MAX_VALUE);
+        
         sendToPeer(new EndOfFileMessage(haName, fileSize, fileSystem.getLastModified(haName)));
 
         log.debug("file sent: "+haName);
@@ -306,16 +282,16 @@ extends ServerSideProtocolInstance
         String haName = entry.getHaName();
         log.debug("sending checksums for file "+haName);
         
-        SyncStatus syncStatus = getSyncStatus(haName);
+        FileInfo fileInfo = fileSystem.getFileInfoForHaName(haName);
         
         // Optimization: shortcut when file size and last modified 
         // have not changed
         long length = fileSystem.length(haName);
         long lastModified = fileSystem.getLastModified(haName);
-        syncStatus.endIgnore = length;
+        fileInfo.setEndIgnore(length);
         if (entry.getExistingFileLength() == length && entry.getExistingLastModified() == lastModified) {
             log.debug("file "+haName+" is unchanged");
-            syncStatus.beginIgnore = Long.MAX_VALUE;
+            fileInfo.setBeginIgnore(Long.MAX_VALUE);
             
         } else {
 
@@ -333,7 +309,7 @@ extends ServerSideProtocolInstance
                         buffer = new byte[rdlen];
                     }
 
-                    syncStatus.beginIgnore = endrd;
+                    fileInfo.setBeginIgnore(endrd);
                     
                     if (fo instanceof FileObjectHa) {
                         ((FileObjectHa)fo).readFullyNocache(buffer, 0, rdlen);
@@ -355,7 +331,7 @@ extends ServerSideProtocolInstance
             }
         }
         
-        syncStatus.beginIgnore = Long.MAX_VALUE;
+        fileInfo.setBeginIgnore(Long.MAX_VALUE);
         sendToPeer(new EndOfChecksumsMessage(haName));
         
         log.debug("checksums sent: "+haName);
@@ -765,23 +741,4 @@ extends ServerSideProtocolInstance
 	}
     }
     
-    
-    
-    /**
-     * 
-     */
-    private static class SyncStatus
-    {
-	@SuppressWarnings("unused")
-	FileInfo fileInfo;
- 	@SuppressWarnings("unused")
-	volatile long beginIgnore = 0L;
- 	@SuppressWarnings("unused")
-	volatile long endIgnore = Long.MAX_VALUE;
-        SyncStatus(FileInfo fileInfo)
-        {
-            this.fileInfo = fileInfo;
-        }
-    }
-
 }

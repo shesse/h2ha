@@ -441,7 +441,10 @@ public class ReplicationProtocolInstance
 		lastSendDelay = now - enqueueTimestamp;
 		
 		try {
-		    sendToPeer(message);
+		    if (message.needToSend(instance)) {
+			sendToPeer(message);
+		    }
+		    
 		} catch (IOException x) {
 		    log.error(instanceName + ": unexpected exception when sending message to peer",
 			x);

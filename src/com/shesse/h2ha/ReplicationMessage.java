@@ -57,6 +57,14 @@ public abstract class ReplicationMessage
     }
 
     /**
+     * 
+     */
+    public boolean needToSend(ReplicationProtocolInstance instance)
+    {
+	return true;
+    }
+
+    /**
      * @return estimated size of this object when serialized. 
      * This value is only used for statistical purposes and
      * need not be exact.

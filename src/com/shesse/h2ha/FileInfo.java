@@ -44,6 +44,11 @@ public class FileInfo
     /** */
     private boolean needsReplication;
     
+    /** */
+    private volatile long beginIgnore = 0L;
+    
+    /** */
+    private volatile long endIgnore = 0L;
 
     // /////////////////////////////////////////////////////////
     // Constructors
@@ -160,6 +165,39 @@ public class FileInfo
     public boolean mustReplicate()
     {
         return needsReplication && withinHaTree;
+    }
+
+    
+    /**
+     * @return the beginIgnore
+     */
+    public long getBeginIgnore()
+    {
+        return beginIgnore;
+    }
+
+    /**
+     * @param beginIgnore the beginIgnore to set
+     */
+    public void setBeginIgnore(long beginIgnore)
+    {
+        this.beginIgnore = beginIgnore;
+    }
+
+    /**
+     * @return the endIgnore
+     */
+    public long getEndIgnore()
+    {
+        return endIgnore;
+    }
+
+    /**
+     * @param endIgnore the endIgnore to set
+     */
+    public void setEndIgnore(long endIgnore)
+    {
+        this.endIgnore = endIgnore;
     }
 
     /**

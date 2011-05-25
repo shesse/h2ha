@@ -11,6 +11,7 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.net.Socket;
+import java.net.SocketException;
 
 import org.apache.log4j.Logger;
 
@@ -62,6 +63,13 @@ extends Thread
     {
         try {
             body();
+            
+        } catch (SocketException x) {
+            if (x.getMessage().contains("reset")) {
+        	// treat like EOF
+            } else {
+        	log.warn("caught socket exception on replication connection: "+x.getMessage());
+            }
             
         } catch (EOFException x) {
             

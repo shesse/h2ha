@@ -1278,6 +1278,33 @@ public class FileSystemHa
             instance.processFoWriteMessage(haName, filePointer, data);
         }
 
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @see com.shesse.h2ha.ReplicationMessage#needToSend(com.shesse.h2ha.ReplicationProtocolInstance)
+	 */
+	@Override
+	public boolean needToSend(ReplicationProtocolInstance instance)
+	{
+	    if (instance instanceof ReplicationServerInstance) {
+		FileInfo fileInfo = ((ReplicationServerInstance)instance).fileSystem.getFileInfoForHaName(haName);
+		if (filePointer < fileInfo.getBeginIgnore()) {
+		    log.debug("need to send "+haName+", offset="+filePointer+" < beginIgn="+fileInfo.getBeginIgnore());
+		    return true;
+		}
+		if (filePointer + data.length > fileInfo.getEndIgnore()) {
+		    log.debug("need to send "+haName+", offset="+(filePointer+data.length)+" > endIgn="+fileInfo.getEndIgnore());
+		    return true;
+		}
+		
+		log.debug("don't need to send "+haName+", offset="+filePointer+", length="+data.length+" within "+ fileInfo.getBeginIgnore()+" - "+fileInfo.getEndIgnore());
+		return false;
+		
+	    } else {
+		return true;
+	    }
+	}
+
 	@Override
 	public int getSizeEstimate()
 	{
