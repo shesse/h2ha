@@ -33,6 +33,9 @@ extends Thread
     
     /** */
     private Socket socket;
+    
+    /** */
+    private String instanceName;
    
     /** */
     private volatile boolean terminationRequested = false;
@@ -51,6 +54,8 @@ extends Thread
 
         this.sender = sender;
         this.socket = socket;
+        
+        instanceName="recv:"+sender.getInstanceName();
     }
 
     // /////////////////////////////////////////////////////////
@@ -68,16 +73,16 @@ extends Thread
             if (x.getMessage().contains("reset")) {
         	// treat like EOF
             } else {
-        	log.warn("caught socket exception on replication connection: "+x.getMessage());
+        	log.warn(instanceName+": caught socket exception on replication connection: "+x.getMessage());
             }
             
         } catch (EOFException x) {
             
         } catch (Throwable x) {
-            log.fatal("unexpected error within replication client receiver", x);
+            log.fatal(instanceName+": unexpected error within replication client receiver", x);
 
         } finally {
-            log.info("got end of connection");
+            log.info(instanceName+": got end of connection");
             sender.terminate();
         }
     }

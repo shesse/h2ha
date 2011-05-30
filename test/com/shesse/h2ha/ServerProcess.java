@@ -99,9 +99,7 @@ public class ServerProcess
             "-haPeerHost", "localhost",//
             "-haPeerPort", String.valueOf(peerSyncPort), //
             "-haListenPort", String.valueOf(localSyncPort),//
-            "-tcpAllowOthers",//
             "-tcpPort", String.valueOf(localTcpPort),//
-            "-baseDir", "ha://",//
             "-ifExists",//
             "-haBaseDir", dbDir.getPath(),//
             "-masterPriority", (isPrimary ? "20" : "10"),//

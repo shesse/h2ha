@@ -99,10 +99,10 @@ extends ServerSideProtocolInstance
     /**
      * @throws IOException 
      */
-    public ReplicationServerInstance(String instanceName, int maxWaitingMessages, H2HaServer haServer, FileSystemHa fileSystem, Socket socket)
+    public ReplicationServerInstance(String instanceName, int maxQueueSize, long maxEnqueueWait, int maxWaitingMessages, H2HaServer haServer, FileSystemHa fileSystem, Socket socket)
     throws IOException
     {
-        super(instanceName, maxWaitingMessages, haServer, fileSystem);
+        super(instanceName, maxQueueSize, maxEnqueueWait, maxWaitingMessages, haServer, fileSystem);
         
         haServer.registerServer(this);
         
@@ -119,12 +119,12 @@ extends ServerSideProtocolInstance
      */
     public void run()
     {
-        log.info("a new client has connected");
+        log.info(getInstanceName()+": a new client has connected");
 
         try {
             super.run();
         } finally {
-            log.info("end of Client connection");
+            log.info(getInstanceName()+": end of Client connection");
             fileSystem.deregisterReplicator(this);
             haServer.deregisterServer(this);
         }

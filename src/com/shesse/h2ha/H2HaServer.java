@@ -16,6 +16,8 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
@@ -40,6 +42,9 @@ public class H2HaServer
     
     /** */
     private String[] args;
+    
+    /** */
+    private List<String> serverArgs = new ArrayList<String>();
     
     /** */
     private FileSystemHa fileSystem;
@@ -123,6 +128,11 @@ public class H2HaServer
         
         this.args = args;
         
+
+        serverArgs.add("-tcpAllowOthers");
+        serverArgs.add("-baseDir");
+        serverArgs.add("ha://");
+        
         for (int i = 0; i < args.length-1; i++) {
             if (args[i].equals("-haPeerHost")) {
                 peerHost = args[++i];
@@ -136,6 +146,12 @@ public class H2HaServer
                 } catch (NumberFormatException x) {
                     log.error("inhalid masterPriority: "+x);
                 }
+                
+            } else {
+        	serverArgs.add(args[i]);
+        	if (args[i].startsWith("-") && !args[i+1].startsWith("-")) {
+        	    serverArgs.add(args[++i]);
+        	}
             }
         }        
 	
@@ -210,10 +226,10 @@ public class H2HaServer
         
         if (peerHost == null) {
             log.warn("no haPeerHost specified - running in master only mode!");
-            applyEvent(Event.NO_PEER, null);
+            applyEvent(Event.NO_PEER, null, null);
             
         } else {
-            applyEvent(Event.HA_STARTUP, null);
+            applyEvent(Event.HA_STARTUP, null, null);
         }
         
         while (!shutdownRequested) {
@@ -293,7 +309,7 @@ public class H2HaServer
 	    throw new SQLException("master role can only be transferred from within a failover configuration");
 	}
 	
-	applyEvent(Event.TRANSFER_MASTER, null);
+	applyEvent(Event.TRANSFER_MASTER, null, null);
     }
 
     /**
@@ -519,12 +535,12 @@ public class H2HaServer
     /**
      * 
      */
-    public void applyEvent(final Event event, final Object parameter)
+    public void applyEvent(final Event event, final Object parameter, final Object optParam)
     {
 	enqueue(new Runnable(){
 	    public void run()
 	    {
-		applyEventImpl(event, parameter);
+		applyEventImpl(event, parameter, optParam);
 	    }
 	});
     }
@@ -532,7 +548,7 @@ public class H2HaServer
     /**
      * 
      */
-    private void applyEventImpl(Event event, Object parameter)
+    private void applyEventImpl(Event event, Object parameter, Object optParam)
     {
 	log.debug("applyEventImpl "+event+", param="+parameter);
 	String eventKey = String.valueOf(event);
@@ -541,10 +557,21 @@ public class H2HaServer
 	    eventKey += "."+parameter;
 	}
 	
+	String eventKeyOpt = eventKey + "." +optParam;
+	
 	String key = failoverState+"."+eventKey;
+	String keyOpt = failoverState+"."+eventKeyOpt;
 	
 	
-	String transition = hafsm.getProperty(key);
+	String transition = hafsm.getProperty(keyOpt);
+	if (transition == null) {
+	    transition = hafsm.getProperty(key);
+	    
+	} else {
+	    key = keyOpt;
+	    eventKey = eventKeyOpt;
+	}
+	
 	if (transition == null) {
 	    throw new IllegalStateException("cannot find FSM entry for '"+key+"'");
 	}
@@ -684,9 +711,9 @@ public class H2HaServer
     public void startDbServer(FailoverState oldState, Event event, FailoverState newState, Object parameter)
     {
 	try {
-	    tcpDatabaseServer = Server.createTcpServer(args).start();
+	    tcpDatabaseServer = Server.createTcpServer(serverArgs.toArray(new String[serverArgs.size()])).start();
 	    log.info("DB server is ready to accept connections");
-	    applyEvent(Event.MASTER_STARTED, null);
+	    applyEvent(Event.MASTER_STARTED, null, null);
 
 	} catch (SQLException x) {
 	    log.error("SQLException when starting database server", x);
@@ -701,7 +728,7 @@ public class H2HaServer
     {
 	log.info("shutting down DB server");
 	tcpDatabaseServer.stop();
-	applyEvent(Event.MASTER_STOPPED, null);
+	applyEvent(Event.MASTER_STOPPED, null, null);
     }
 
     /**

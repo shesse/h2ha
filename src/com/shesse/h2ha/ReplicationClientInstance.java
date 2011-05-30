@@ -89,7 +89,7 @@ extends ServerSideProtocolInstance
      */
     public ReplicationClientInstance(H2HaServer haServer, FileSystemHa fileSystem, String[] args)
     {
-        super("replClient", 0, haServer, fileSystem);
+        super("replClient", 0, 0, 0, haServer, fileSystem);
         log.debug("ReplicationClientInstance()");
 
         dirtyFlagUrl = FileSystemHa.getRoot()+dirtyFlagFile;
@@ -205,7 +205,7 @@ extends ServerSideProtocolInstance
 
 	    super.run();
 	    log.info("connection to peer has ended");
-	    haServer.applyEvent(Event.DISCONNECTED, null);
+	    haServer.applyEvent(Event.DISCONNECTED, null, null);
 
 	} else {
 	    log.info("could not contact peer");
@@ -251,13 +251,14 @@ extends ServerSideProtocolInstance
     public void issueConnEvent()
     {
 	if (isConnected()) {
-	    haServer.applyEvent(Event.CONNECTED_TO_PEER, null);
+	    haServer.applyEvent(Event.CONNECTED_TO_PEER, null, null);
 
 	} else {
 	    if (isConsistentData()) {
-		haServer.applyEvent(Event.CANNOT_CONNECT, "valid");
+		haServer.applyEvent(Event.CANNOT_CONNECT, "valid", null);
 	    } else {
-		haServer.applyEvent(Event.CANNOT_CONNECT, "invalid");
+		log.info("no peer and local database is in an inconsistent state - we need to wait for a consistent master");
+		haServer.applyEvent(Event.CANNOT_CONNECT, "invalid", null);
 	    }
 	}
     }
@@ -268,16 +269,14 @@ extends ServerSideProtocolInstance
     public void issuePeerEvent()
     {
 	String eventParam = peerState.toString();
-	
-	if (haServer.getFailoverState() == peerState) {
-	    if (haServer.weAreConfiguredMaster(peerMasterPriority, peerUuid)) {
-		eventParam += ".local";
-	    } else {
-		eventParam += ".peer";
-	    }
+	String optParam;
+	if (haServer.weAreConfiguredMaster(peerMasterPriority, peerUuid)) {
+	    optParam = "local";
+	} else {
+	    optParam = "peer";
 	}
 
-	haServer.applyEvent(Event.PEER_STATE, eventParam);
+	haServer.applyEvent(Event.PEER_STATE, eventParam, optParam);
     }
 
     /**
@@ -514,7 +513,7 @@ extends ServerSideProtocolInstance
         log.info("entering realtime replication mode");
         setDirtyFlag(false);
         closeAllFileObjects();
-        haServer.applyEvent(Event.SYNC_COMPLETED, null);
+        haServer.applyEvent(Event.SYNC_COMPLETED, null, null);
     }
 
     /**
@@ -523,7 +522,7 @@ extends ServerSideProtocolInstance
     public void processStopReplicationConfirmMessage()
     {
         log.info("this server has stopped replicating the master");
-        haServer.applyEvent(Event.SLAVE_STOPPED, null);
+        haServer.applyEvent(Event.SLAVE_STOPPED, null, null);
     }
 
     /**

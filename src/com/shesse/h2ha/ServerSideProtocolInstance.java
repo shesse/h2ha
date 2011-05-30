@@ -52,9 +52,9 @@ extends ReplicationProtocolInstance
     // /////////////////////////////////////////////////////////
     /**
      */
-    public ServerSideProtocolInstance(String instanceName, int maxWaitingMessages, H2HaServer haServer, FileSystemHa fileSystem)
+    public ServerSideProtocolInstance(String instanceName, int maxQueueSize, long maxEnqueueWait, int maxWaitingMessages, H2HaServer haServer, FileSystemHa fileSystem)
     {
-	super(instanceName, maxWaitingMessages);
+	super(instanceName, maxQueueSize, maxEnqueueWait, maxWaitingMessages);
 	
         this.haServer = haServer;
         this.fileSystem = fileSystem;
@@ -96,7 +96,7 @@ extends ReplicationProtocolInstance
 	    // when processed.
 	    // The heartbeat will carry state information of the time when it
 	    // is sent out.
-	    messageQueue.add(new ReplicationMessage() {
+	    enqueue(new ReplicationMessage() {
 		private static final long serialVersionUID = 1L;
 
 		@Override

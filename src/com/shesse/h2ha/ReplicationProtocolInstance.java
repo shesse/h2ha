@@ -49,6 +49,9 @@ public class ReplicationProtocolInstance
     private String instanceName;
 
     /** */
+    private long maxEnqueueWait;
+    
+    /** */
     private int maxWaitingMessages;
 
     /** */
@@ -64,8 +67,7 @@ public class ReplicationProtocolInstance
     protected Thread instanceThread = null;
 
     /** */
-    protected BlockingQueue<ReplicationMessage> messageQueue =
-	new LinkedBlockingQueue<ReplicationMessage>();
+    protected BlockingQueue<ReplicationMessage> messageQueue;
 
     /** */
     protected ReplicationMessage terminateMessage = new ReplicationMessage() {
@@ -123,6 +125,9 @@ public class ReplicationProtocolInstance
     
     /** */
     private long lastSendDelay = 0L;
+    
+    /** */
+    private int objectsSentWithoutReset = 0;
 
 
     // /////////////////////////////////////////////////////////
@@ -131,10 +136,17 @@ public class ReplicationProtocolInstance
     /**
      * 
      */
-    public ReplicationProtocolInstance(String instanceName, int maxWaitingMessages)
+    public ReplicationProtocolInstance(String instanceName, int maxQueueSize, long maxEnqueueWait, int maxWaitingMessages)
     {
 	this.instanceName = instanceName;
+	this.maxEnqueueWait = maxEnqueueWait;
 	this.maxWaitingMessages = maxWaitingMessages;
+	
+	if (maxQueueSize > 0) {
+	    messageQueue = new LinkedBlockingQueue<ReplicationMessage>(maxQueueSize);
+	} else {
+	    messageQueue = new LinkedBlockingQueue<ReplicationMessage>();
+	}
     }
 
 
@@ -150,7 +162,12 @@ public class ReplicationProtocolInstance
     {
 	this.socket = socket;
 	this.oos = new ObjectOutputStream(new BufferedOutputStream(socket.getOutputStream()));
-
+	nextWaitingOperationId = 0;
+	connectionCanceled = false;
+	nextHeartbeatToSend = 0L;
+	lastHeartbeatReceived = 0L;
+	lastSendDelay = 0L;
+	
 	receiver = new ReplicationProtocolReceiver(this, socket);
 	receiver.start();
 
@@ -483,8 +500,24 @@ public class ReplicationProtocolInstance
 	    return;
 	}
 
+	try {
+	    if (maxEnqueueWait > 0) {
+		if (!messageQueue.offer(message, maxEnqueueWait, TimeUnit.MILLISECONDS)) {
+		    log.error(instanceName +
+			": replication connection is too slow - it will be terminated. Queue size is "+messageQueue.size());
+		    cancelConnection();
+		}
+		
+	    } else {
+		messageQueue.put(message);
+	    }
+	    
+	} catch (InterruptedException e) {
+	    log.error(instanceName +
+		": enqueue to replication connection has been interrupted - terminating it");
+	    cancelConnection();
+	}
 
-	messageQueue.add(message);
     }
 
     /**
@@ -493,8 +526,10 @@ public class ReplicationProtocolInstance
     private void cancelConnection()
     {
 	connectionCanceled = true;
-
-	messageQueue.add(new ReplicationMessage() {
+	
+	messageQueue.clear();
+	
+	enqueue(new ReplicationMessage() {
 	    private static final long serialVersionUID = 1L;
 
 	    @Override
@@ -517,6 +552,9 @@ public class ReplicationProtocolInstance
 	    }
 	});
 
+	if (instanceThread != null) {
+	    instanceThread.interrupt();
+	}
     }
 
     /**
@@ -526,7 +564,7 @@ public class ReplicationProtocolInstance
     {
 	if (message instanceof ReplicationMessage) {
 	    log.debug(instanceName + ": got from protocol connection: " + message);
-	    messageQueue.add((ReplicationMessage) message);
+	    enqueue((ReplicationMessage) message);
 
 	} else {
 	    log.debug(instanceName + ": got unexpected object from protocol connection: " +
@@ -548,7 +586,7 @@ public class ReplicationProtocolInstance
     {
 	final Semaphore sema = new Semaphore(0);
 
-	messageQueue.add(new ReplicationMessage() {
+	enqueue(new ReplicationMessage() {
 	    private static final long serialVersionUID = 1L;
 
 	    @Override
@@ -605,7 +643,7 @@ public class ReplicationProtocolInstance
      */
     public void terminate()
     {
-	messageQueue.add(terminateMessage);
+	enqueue(terminateMessage);
     }
 
     /**
@@ -667,6 +705,16 @@ public class ReplicationProtocolInstance
 	}
 
 	oos.writeObject(message);
+	
+	// we need to reset() the oos to force the oos to release all references
+	// to already written objects. However, we try to allow the oos to optimize
+	// by calling reset not on every write. The factor is arbitray and may be changed
+	// to enhance optimization
+	if (++objectsSentWithoutReset > 20) {
+	    oos.reset();
+	    objectsSentWithoutReset = 0;
+	}
+	
 	oos.flush();
 
 	totalBytesTransmitted += sizeEstimate;
