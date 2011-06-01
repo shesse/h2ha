@@ -234,6 +234,7 @@ extends ServerSideProtocolInstance
      */
     public void sendListFilesRequest()
     {
+	log.info("HA sync: requesting list of files");
 	send(new SendListOfFilesRequest());
     }
 

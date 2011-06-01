@@ -207,7 +207,7 @@ public class H2HaServer
 	    new H2HaServer(args).run();
 	    
 	} catch (Throwable x) {
-	    log.fatal("unexepected exception within HA server main thread", x);
+	    log.fatal("unexpected exception within HA server main thread", x);
 	    System.exit(1);
 	}
     }
@@ -236,6 +236,21 @@ public class H2HaServer
             Runnable queueEntry = controlQueue.take();
             queueEntry.run();
         }
+    }
+    
+    /**
+     * 
+     */
+    public void shutdown()
+    {
+	shutdownRequested = true;
+	enqueue(new Runnable(){
+	    public void run()
+	    {
+		// no content - we simply want the controlQueue.take()
+		// in the main loop to return.
+	    }
+	});
     }
     
     /**

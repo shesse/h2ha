@@ -40,16 +40,9 @@ public class FileInfo
     /** */
     private boolean isDatabaseFile;
     
-    
     /** */
     private boolean needsReplication;
     
-    /** */
-    private volatile long beginIgnore = 0L;
-    
-    /** */
-    private volatile long endIgnore = 0L;
-
     // /////////////////////////////////////////////////////////
     // Constructors
     // /////////////////////////////////////////////////////////
@@ -57,7 +50,7 @@ public class FileInfo
      */
     public FileInfo(String haName, String localName, boolean withinHaTree)
     {
-        log.debug("HaFile()");
+        log.debug("FileInfo()");
         
         this.haName = haName;
         this.localName = localName;
@@ -168,38 +161,6 @@ public class FileInfo
     }
 
     
-    /**
-     * @return the beginIgnore
-     */
-    public long getBeginIgnore()
-    {
-        return beginIgnore;
-    }
-
-    /**
-     * @param beginIgnore the beginIgnore to set
-     */
-    public void setBeginIgnore(long beginIgnore)
-    {
-        this.beginIgnore = beginIgnore;
-    }
-
-    /**
-     * @return the endIgnore
-     */
-    public long getEndIgnore()
-    {
-        return endIgnore;
-    }
-
-    /**
-     * @param endIgnore the endIgnore to set
-     */
-    public void setEndIgnore(long endIgnore)
-    {
-        this.endIgnore = endIgnore;
-    }
-
     /**
      * Copies all the status information from oldFile to the
      * current object. HA and local names don't get modified.

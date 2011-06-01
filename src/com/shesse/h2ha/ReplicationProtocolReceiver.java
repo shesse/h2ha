@@ -83,6 +83,7 @@ extends Thread
 
         } finally {
             log.info(instanceName+": got end of connection");
+            //ReplicationServerInstance.logStacksOfAllThreads(log);
             sender.terminate();
         }
     }

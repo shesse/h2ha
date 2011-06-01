@@ -52,6 +52,8 @@ public class ReplicationServer
      */
     public ReplicationServer(H2HaServer haServer, FileSystemHa fileSystem, String[] args)
     {
+	super("ReplicationServer");
+	
         log.debug("ReplicationServer()");
         
         this.haServer = haServer;

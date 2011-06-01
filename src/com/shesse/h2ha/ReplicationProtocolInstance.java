@@ -505,6 +505,7 @@ public class ReplicationProtocolInstance
 		if (!messageQueue.offer(message, maxEnqueueWait, TimeUnit.MILLISECONDS)) {
 		    log.error(instanceName +
 			": replication connection is too slow - it will be terminated. Queue size is "+messageQueue.size());
+		    //logStacksOfAllThreads(log);
 		    cancelConnection();
 		}
 		
@@ -518,6 +519,22 @@ public class ReplicationProtocolInstance
 	    cancelConnection();
 	}
 
+    }
+    
+    /**
+     */
+    public static void logStacksOfAllThreads(Logger slog)
+    {
+	slog.info("begin stack trace of all threads");
+	for (Map.Entry<Thread, StackTraceElement[]> e: Thread.getAllStackTraces().entrySet()) {
+	    Thread t = e.getKey();
+	    slog.info("Thread "+t.getName()+" ("+t.getState()+")");
+	    for (StackTraceElement se: e.getValue()) {
+		slog.info("  at "+se.getClassName()+"."+se.getMethodName()+"("+se.getFileName()+":"+se.getLineNumber()+")");
+	    }
+	    slog.info("");
+	}
+	slog.info("end stack trace of all threads");
     }
 
     /**

@@ -1084,7 +1084,7 @@ public class FileSystemHa
      * @param off
      * @param len
      */
-    public synchronized void compressAndSendWrite(FileInfo fileInfo, long filePointer, byte[] b,
+    public void compressAndSendWrite(FileInfo fileInfo, long filePointer, byte[] b,
 						  int off, int len)
     {
 	// All writing traffic will pass through this point. So we
@@ -1093,91 +1093,96 @@ public class FileSystemHa
 	// The current implementation assumes that the block will
 	// usually have leading and trailing unchanged bytes and
 	// cuts them off.
-	boolean addToCache = false;
-	replicationRawBytes += len;
-	if (blockCache != null && blocksizeLearningState == BlocksizeLearningState.LEARNED) {
-	    long blockno = filePointer / learnedBlocksize;
-	    if (learnedBlocksize == len && blockno * learnedBlocksize == filePointer) {
-		// blocked write
-		String cacheKey = cacheKey(fileInfo, blockno);
-		byte[] oldData = blockCache.get(cacheKey);
-		blockCacheLookups++;
-		if (oldData != null) {
-		    log.debug("found in cache: '"+cacheKey+"'");
-		    blockCacheHits++;
-		    // we found a cached entry - modifying offset and length
-		    int ofirst = 0;
-		    for (; ofirst < oldData.length; ofirst++) {
-			if (b[off] == oldData[ofirst]) {
-			    off++;
-			    filePointer++;
-			    len--;
-			} else {
-			    break;
+	byte[] dupData;
+	synchronized (this) {
+	    boolean addToCache = false;
+	    replicationRawBytes += len;
+	    if (blockCache != null && blocksizeLearningState == BlocksizeLearningState.LEARNED) {
+		long blockno = filePointer / learnedBlocksize;
+		if (learnedBlocksize == len && blockno * learnedBlocksize == filePointer) {
+		    // blocked write
+		    String cacheKey = cacheKey(fileInfo, blockno);
+		    byte[] oldData = blockCache.get(cacheKey);
+		    blockCacheLookups++;
+		    if (oldData != null) {
+			log.debug("found in cache: '"+cacheKey+"'");
+			blockCacheHits++;
+			// we found a cached entry - modifying offset and length
+			int ofirst = 0;
+			for (; ofirst < oldData.length; ofirst++) {
+			    if (b[off] == oldData[ofirst]) {
+				off++;
+				filePointer++;
+				len--;
+			    } else {
+				break;
+			    }
 			}
-		    }
 
-		    int blast = off + len - 1;
-		    int olast = oldData.length - 1;
-		    for (; olast >= ofirst; olast--) {
-			if (b[blast] == oldData[olast]) {
-			    blast--;
-			    len--;
-			} else {
-			    break;
+			int blast = off + len - 1;
+			int olast = oldData.length - 1;
+			for (; olast >= ofirst; olast--) {
+			    if (b[blast] == oldData[olast]) {
+				blast--;
+				len--;
+			    } else {
+				break;
+			    }
 			}
-		    }
-		    log.debug("adjusted bounds to "+ofirst+" - "+olast+", len="+len);
+			log.debug("adjusted bounds to "+ofirst+" - "+olast+", len="+len);
 
-		    if (len == 0) {
-			return;
-		    }
+			if (len == 0) {
+			    return;
+			}
 
-		    // we need to remember the update in case this block
-		    // gets updated again
-		    System.arraycopy(b, off, oldData, ofirst, len);
+			// we need to remember the update in case this block
+			// gets updated again
+			System.arraycopy(b, off, oldData, ofirst, len);
+
+		    } else {
+			// block sized write but no cached entry - we will add
+			// the block to the cache after we have created a copy
+			// of the data
+			log.debug("not in cache: '"+cacheKey+"'");
+			addToCache = true;
+		    }
 
 		} else {
-		    // block sized write but no cached entry - we will add
-		    // the block to the cache after we have created a copy
-		    // of the data
-		    log.debug("not in cache: '"+cacheKey+"'");
-		    addToCache = true;
+		    // not a block sized write. We need to flush
+		    // all entries from the cache that may have been invalidated
+		    // by this write
+		    log.debug("non-blocked: "+fileInfo.getHaName()+" - p="+filePointer+", l="+len);
+		    long lastBlockModified = (filePointer + len - 1) / learnedBlocksize;
+		    while (blockno <= lastBlockModified) {
+			blockCache.remove(cacheKey(fileInfo, blockno));
+			blockno++;
+		    }
 		}
 
 	    } else {
-		// not a block sized write. We need to flush
-		// all entries from the cache that may have been invalidated
-		// by this write
-		log.debug("non-blocked: "+fileInfo.getHaName()+" - p="+filePointer+", l="+len);
-		long lastBlockModified = (filePointer + len - 1) / learnedBlocksize;
-		while (blockno <= lastBlockModified) {
-		    blockCache.remove(cacheKey(fileInfo, blockno));
-		    blockno++;
-		}
+		log.debug("blocksize not yet learned");
+		// we don't have a blocksize yet - we can assume that
+		// the cache is still empty so that we don't need to flush
+		// any entries
+	    }
+	    
+	    // b may be changed by the caller upon return, so
+	    // we need to copy the data before placing it into the queue
+	    dupData = new byte[len];
+	    System.arraycopy(b, off, dupData, 0, len);
+	    replicationCroppedBytes += len;
+
+	    if (addToCache) {
+		long blockno = filePointer / learnedBlocksize;
+		String cacheKey = cacheKey(fileInfo, blockno);
+		blockCache.put(cacheKey, dupData);
+		blockCacheAdds++;
+		log.debug("write: adding to cache: '"+cacheKey+"'");
 	    }
 
-	} else {
-	    log.debug("blocksize not yet learned");
-	    // we don't have a blocksize yet - we can assume that
-	    // the cache is still empty so that we don't need to flush
-	    // any entries
 	}
 
-	// b may be changed by the caller upon return, so
-	// we need to copy the data before placing it into the queue
-	byte[] dupData = new byte[len];
-	System.arraycopy(b, off, dupData, 0, len);
-	replicationCroppedBytes += len;
 	sendToReplicators(new WriteMessage(fileInfo.getHaName(), filePointer, dupData));
-
-	if (addToCache) {
-	    long blockno = filePointer / learnedBlocksize;
-	    String cacheKey = cacheKey(fileInfo, blockno);
-	    blockCache.put(cacheKey, dupData);
-	    blockCacheAdds++;
-	    log.debug("write: adding to cache: '"+cacheKey+"'");
-	}
     }
 
     /**
@@ -1287,17 +1292,20 @@ public class FileSystemHa
 	public boolean needToSend(ReplicationProtocolInstance instance)
 	{
 	    if (instance instanceof ReplicationServerInstance) {
-		FileInfo fileInfo = ((ReplicationServerInstance)instance).fileSystem.getFileInfoForHaName(haName);
-		if (filePointer < fileInfo.getBeginIgnore()) {
-		    log.debug("need to send "+haName+", offset="+filePointer+" < beginIgn="+fileInfo.getBeginIgnore());
+		ReplicationServerInstance rsi = (ReplicationServerInstance)instance;
+		FileInfo fileInfo = rsi.fileSystem.getFileInfoForHaName(haName);
+	        SyncInfo syncInfo = rsi.getSyncInfo(fileInfo);
+	        
+		if (filePointer < syncInfo.getBeginIgnore()) {
+		    log.debug("need to send "+haName+", offset="+filePointer+" < beginIgn="+syncInfo.getBeginIgnore());
 		    return true;
 		}
-		if (filePointer + data.length > fileInfo.getEndIgnore()) {
-		    log.debug("need to send "+haName+", offset="+(filePointer+data.length)+" > endIgn="+fileInfo.getEndIgnore());
+		if (filePointer + data.length > syncInfo.getEndIgnore()) {
+		    log.debug("need to send "+haName+", offset="+(filePointer+data.length)+" > endIgn="+syncInfo.getEndIgnore());
 		    return true;
 		}
 		
-		log.debug("don't need to send "+haName+", offset="+filePointer+", length="+data.length+" within "+ fileInfo.getBeginIgnore()+" - "+fileInfo.getEndIgnore());
+		log.debug("don't need to send "+haName+", offset="+filePointer+", length="+data.length+" within "+ syncInfo.getBeginIgnore()+" - "+syncInfo.getEndIgnore());
 		return false;
 		
 	    } else {
