@@ -25,7 +25,7 @@ public class ServerProcessPair
     private static Logger log = Logger.getLogger(ServerProcessPair.class);
 
     /** */
-    private static final File dbBaseDir = new File("/tmp/h2hatest");
+    private static final File dbBaseDir = new File("h2hatest");
 
     /** */
     private static final File dbDirA = new File(dbBaseDir, "a");

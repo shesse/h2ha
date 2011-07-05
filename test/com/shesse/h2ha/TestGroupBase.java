@@ -64,12 +64,12 @@ public class TestGroupBase
         boolean stillActive;
         do {
             stillActive = false;
-            ProcessUtils.ExecResult psres = ProcessUtils.exec("ps -ewwwf | grep 'DhaTestProc=' | grep -v grep");
+            ProcessUtils.ExecResult psres = ProcessUtils.exec("jps -v | grep DhaTestProc=");
             
             for (String psline: psres.outputLines) {
                 String[] fields = psline.split("\\s+");
                 log.info("terminating old ha test process "+fields[1]);
-                ProcessUtils.exec("kill -9 "+fields[1]);
+                ProcessUtils.exec("kill -9 "+fields[0]);
                 stillActive = true;
             }
             

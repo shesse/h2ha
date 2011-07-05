@@ -228,9 +228,11 @@ public class FileSystemHa
 	FileInfo fi = fileByLocalName.get(localName);
 	if (fi == null) {
 	    // not yet known - we build a HA name algorithmically
-
-	    if (localName.startsWith(haBaseDirAbsoluteNormalized + "/")) {
-		String haName = localName.substring(haBaseDirAbsoluteNormalized.length() + 1);
+	    String normLocalName = localName.replace("\\", "/");
+	    String normHaBase = haBaseDirAbsoluteNormalized.replace("\\", "/");
+	    
+	    if (normLocalName.startsWith(normHaBase + "/")) {
+		String haName = normLocalName.substring(normHaBase.length() + 1);
 		while (haName.startsWith("/"))
 		    haName = haName.substring(1);
 		haName = haProtocol + "///" + haName;
@@ -238,7 +240,7 @@ public class FileSystemHa
 		    localName);
 		fi = new FileInfo(haName, localName, true);
 
-	    } else if (localName.equals(haBaseDirAbsoluteNormalized)) {
+	    } else if (normLocalName.equals(normHaBase)) {
 		String haName = haProtocol + "///";
 		log.debug("new FileInfo for HA base directory: " + haName + " -> " + localName);
 		fi = new FileInfo(haName, localName, true);
@@ -557,6 +559,7 @@ public class FileSystemHa
     @Override
     protected boolean accepts(String fileName)
     {
+	fileName = fileName.replace('\\', '/');
 	if (fileName.startsWith(haProtocol)) {
 	    log.debug("accepted file name for HA: " + fileName);
 	    return true;
@@ -574,6 +577,7 @@ public class FileSystemHa
     @Override
     public boolean canWrite(String fileName)
     {
+	fileName = fileName.replace('\\', '/');
 	log.debug("canWrite " + fileName);
 	return baseFileSystem.canWrite(haNameToLocal(fileName));
     }
@@ -587,6 +591,7 @@ public class FileSystemHa
     @Override
     public void createDirs(String fileName)
     {
+	fileName = fileName.replace('\\', '/');
 	log.debug("createDirs " + fileName);
 	FileInfo fi = getFileInfoForHaName(fileName);
 	baseFileSystem.createDirs(fi.getLocalName());
@@ -605,6 +610,7 @@ public class FileSystemHa
     @Override
     public boolean createNewFile(String fileName)
     {
+	fileName = fileName.replace('\\', '/');
 	log.debug("createNewFile " + fileName);
 	FileInfo fi = getFileInfoForHaName(fileName);
 	if (baseFileSystem.createNewFile(fi.getLocalName())) {
@@ -631,6 +637,7 @@ public class FileSystemHa
 				 boolean inTempDir)
 	throws IOException
     {
+	prefix = prefix.replace('\\', '/');
 	log.debug("createTempFile " + prefix + "*" + suffix);
 	return baseFileSystem.createTempFile(haNameToLocal(prefix), suffix, deleteOnExit, inTempDir);
     }
@@ -644,6 +651,7 @@ public class FileSystemHa
     @Override
     public boolean tryDelete(String fileName)
     {
+	fileName = fileName.replace('\\', '/');
 	log.debug("tryDelete " + fileName);
 	FileInfo fileInfo = getFileInfoForHaName(fileName);
 	if (baseFileSystem.tryDelete(fileInfo.getLocalName())) {
@@ -667,6 +675,7 @@ public class FileSystemHa
     @Override
     public void delete(String fileName)
     {
+	fileName = fileName.replace('\\', '/');
 	log.debug("delete " + fileName);
 	FileInfo fileInfo = getFileInfoForHaName(fileName);
 	baseFileSystem.delete(fileInfo.getLocalName());
@@ -686,6 +695,7 @@ public class FileSystemHa
     @Override
     public void deleteRecursive(String directory, boolean tryOnly)
     {
+	directory = directory.replace('\\', '/');
 	log.debug("deleteRecursive " + directory);
 	FileInfo dirInfo = getFileInfoForHaName(directory);
 
@@ -718,6 +728,7 @@ public class FileSystemHa
     @Override
     public boolean exists(String fileName)
     {
+	fileName = fileName.replace('\\', '/');
 	log.debug("exists " + fileName);
 	return baseFileSystem.exists(haNameToLocal(fileName));
     }
@@ -732,6 +743,7 @@ public class FileSystemHa
     @Override
     public boolean fileStartsWith(String fileName, String prefix)
     {
+	fileName = fileName.replace('\\', '/');
 	log.debug("fileStartsWith " + fileName + " pfx=" + prefix);
 	return baseFileSystem.fileStartsWith(haNameToLocal(fileName), prefix);
     }
@@ -745,6 +757,7 @@ public class FileSystemHa
     @Override
     public String getCanonicalPath(String fileName)
     {
+	fileName = fileName.replace('\\', '/');
 	log.debug("getCanonicalPath " + fileName + " - local=" + haNameToLocal(fileName));
 	String ret = localNameToHa(baseFileSystem.getCanonicalPath(haNameToLocal(fileName)));
 	log.debug("getCanonicalPath " + fileName + " -> " + ret);
@@ -760,6 +773,7 @@ public class FileSystemHa
     @Override
     public String getFileName(String name)
     {
+	name = name.replace('\\', '/');
 	String ret = baseFileSystem.getFileName(haNameToLocal(name));
 	log.debug("getFileName " + name + " -> " + ret);
 	return ret;
@@ -774,6 +788,7 @@ public class FileSystemHa
     @Override
     public long getLastModified(String fileName)
     {
+	fileName = fileName.replace('\\', '/');
 	log.debug("getLastModified " + fileName);
 	return baseFileSystem.getLastModified(haNameToLocal(fileName));
     }
@@ -783,6 +798,7 @@ public class FileSystemHa
      */
     public void setLastModified(String fileName, long millis)
     {
+	fileName = fileName.replace('\\', '/');
 	log.debug("setLastModified " + fileName);
 	File file = new File(haNameToLocal(fileName));
 	file.setLastModified(millis);
@@ -796,6 +812,7 @@ public class FileSystemHa
     @Override
     public String getParent(String fileName)
     {
+	fileName = fileName.replace('\\', '/');
 	String ret = localNameToHa(baseFileSystem.getParent(haNameToLocal(fileName)));
 	log.debug("getParent " + fileName + " -> " + ret);
 	return ret;
@@ -810,6 +827,7 @@ public class FileSystemHa
     @Override
     public boolean isAbsolute(String fileName)
     {
+	fileName = fileName.replace('\\', '/');
 	log.debug("isAbsolute " + fileName);
 	return baseFileSystem.isAbsolute(haNameToLocal(fileName));
     }
@@ -823,6 +841,7 @@ public class FileSystemHa
     @Override
     public boolean isDirectory(String fileName)
     {
+	fileName = fileName.replace('\\', '/');
 	log.debug("isDirectory " + fileName);
 	return baseFileSystem.isDirectory(haNameToLocal(fileName));
     }
@@ -836,6 +855,7 @@ public class FileSystemHa
     @Override
     public boolean isReadOnly(String fileName)
     {
+	fileName = fileName.replace('\\', '/');
 	log.debug("isReadOnly " + fileName);
 	return baseFileSystem.isReadOnly(haNameToLocal(fileName));
     }
@@ -849,6 +869,7 @@ public class FileSystemHa
     @Override
     public long length(String fileName)
     {
+	fileName = fileName.replace('\\', '/');
 	log.debug("length " + fileName);
 	return baseFileSystem.length(haNameToLocal(fileName));
     }
@@ -862,6 +883,7 @@ public class FileSystemHa
     @Override
     public String[] listFiles(String directory)
     {
+	directory = directory.replace('\\', '/');
 	log.debug("listFiles " + directory);
 	String[] localNames = baseFileSystem.listFiles(haNameToLocal(directory));
 	for (int i = 0; i < localNames.length; i++) {
@@ -876,6 +898,7 @@ public class FileSystemHa
      */
     public FileInfo[] listFileInfos(String directory)
     {
+	directory = directory.replace('\\', '/');
 	String[] localNames = baseFileSystem.listFiles(haNameToLocal(directory));
 	FileInfo[] fileInfos = new FileInfo[localNames.length];
 	for (int i = 0; i < localNames.length; i++) {
@@ -894,6 +917,7 @@ public class FileSystemHa
     public InputStream openFileInputStream(String fileName)
 	throws IOException
     {
+	fileName = fileName.replace('\\', '/');
 	log.debug("openFileInputStream " + fileName);
 	return baseFileSystem.openFileInputStream(haNameToLocal(fileName));
     }
@@ -909,6 +933,7 @@ public class FileSystemHa
     public FileObject openFileObject(String fileName, String mode)
 	throws IOException
     {
+	fileName = fileName.replace('\\', '/');
 	log.debug("openFileObject " + fileName);
 	FileInfo fi = getFileInfoForHaName(fileName);
 	FileObject baseFileObject = baseFileSystem.openFileObject(fi.getLocalName(), mode);
@@ -930,6 +955,7 @@ public class FileSystemHa
     @Override
     public OutputStream openFileOutputStream(String fileName, boolean append)
     {
+	fileName = fileName.replace('\\', '/');
 	log.debug("openFileOutputStream " + fileName);
 	FileInfo fi = getFileInfoForHaName(fileName);
 	if (fi.mustReplicate()) {
@@ -960,6 +986,8 @@ public class FileSystemHa
     @Override
     public void rename(String oldName, String newName)
     {
+	oldName = oldName.replace('\\', '/');
+	newName = newName.replace('\\', '/');
 	log.debug("rename " + oldName + " to " + newName);
 	FileInfo oldFile = getFileInfoForHaName(oldName);
 	FileInfo newFile = getFileInfoForHaName(newName);
@@ -987,6 +1015,7 @@ public class FileSystemHa
     @Override
     public boolean setReadOnly(String fileName)
     {
+	fileName = fileName.replace('\\', '/');
 	log.debug("setReadOnly " + fileName);
 	FileInfo fileInfo = getFileInfoForHaName(fileName);
 	if (baseFileSystem.setReadOnly(fileInfo.getLocalName())) {
@@ -1009,6 +1038,7 @@ public class FileSystemHa
     @Override
     public String unwrap(String fileName)
     {
+	log.debug("unwrap " + fileName);
 	return fileName;
     }
 

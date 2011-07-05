@@ -107,7 +107,11 @@ public class ProcessUtils
     public static ExecResult exec(String command)
     throws IOException, InterruptedException
     {
-        return exec(Arrays.asList("/bin/sh", "-c", command));
+	if (System.getProperty("os.name").toLowerCase().contains("windows")) {
+	    return exec(Arrays.asList("cmd", "/c", command));
+	} else {
+	    return exec(Arrays.asList("/bin/sh", "-c", command));
+	}
     }
     
     /**

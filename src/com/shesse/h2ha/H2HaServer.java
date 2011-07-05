@@ -726,6 +726,7 @@ public class H2HaServer
     public void startDbServer(FailoverState oldState, Event event, FailoverState newState, Object parameter)
     {
 	try {
+	    log.info("creating H2 TCP server with args: "+serverArgs);
 	    tcpDatabaseServer = Server.createTcpServer(serverArgs.toArray(new String[serverArgs.size()])).start();
 	    log.info("DB server is ready to accept connections");
 	    applyEvent(Event.MASTER_STARTED, null, null);

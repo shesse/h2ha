@@ -80,7 +80,6 @@ public class JdbcXAConnectionWrapper
 	}
 
 	protected synchronized void checkClosed(boolean write)
-	    throws SQLException
 	{
 	    if (isClosed) {
 		throw DbException.get(ErrorCode.OBJECT_CLOSED);
