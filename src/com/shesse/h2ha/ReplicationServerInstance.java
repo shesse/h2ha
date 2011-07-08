@@ -103,18 +103,21 @@ extends ServerSideProtocolInstance
     // Constructors
     // /////////////////////////////////////////////////////////
     /**
-     * @throws IOException 
+     * @throws IOException
      */
-    public ReplicationServerInstance(String instanceName, int maxQueueSize, long maxEnqueueWait, int maxWaitingMessages, H2HaServer haServer, FileSystemHa fileSystem, Socket socket)
-    throws IOException
+    public ReplicationServerInstance(String instanceName, int maxQueueSize, long maxEnqueueWait,
+				     int maxWaitingMessages, long statisticsInterval,
+				     H2HaServer haServer, FileSystemHa fileSystem, Socket socket)
+	throws IOException
     {
-        super(instanceName, maxQueueSize, maxEnqueueWait, maxWaitingMessages, haServer, fileSystem);
-        
-        haServer.registerServer(this);
-        
-        setSocket(socket);
-        
-        log.debug("ReplicationServerInstance()");
+	super(instanceName, maxQueueSize, maxEnqueueWait, maxWaitingMessages, haServer, fileSystem);
+
+	haServer.registerServer(this);
+
+	setSocket(socket);
+	setParameters(statisticsInterval);
+
+	log.debug("ReplicationServerInstance()");
     }
 
     // /////////////////////////////////////////////////////////

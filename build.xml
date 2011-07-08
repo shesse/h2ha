@@ -1,79 +1,72 @@
 <?xml version="1.0" encoding="iso-8859-1" ?>
 <project name="h2ha" default="dist" basedir=".">
-  
-  <property name="product" value="h2ha"/>
-  <property name="version" value="1.0"/>
 
-  <property environment="env"/>
-  <property name="src"      value="${basedir}/src"/>
-  <property name="class"    value="${basedir}/class"/>
-  <property name="dist"     value="${basedir}/dist"/>
-  <property name="lib"      value="${basedir}/lib"/>
+  <property name="product" value="h2ha" />
+  <property name="version" value="1.0" />
 
-  
+  <property environment="env" />
+  <property name="src" value="${basedir}/src" />
+  <property name="class" value="${basedir}/class" />
+  <property name="dist" value="${basedir}/dist" />
+  <property name="lib" value="${basedir}/lib" />
+
+
   <path id="classpath.base">
     <pathelement location="${class}" />
     <fileset dir="${lib}">
-      <include name="*.jar"/>
-      <exclude name="one-jar*"/>
+      <include name="*.jar" />
+      <exclude name="one-jar*" />
     </fileset>
   </path>
 
   <target name="init">
-    <tstamp/>
-    <mkdir dir="${dist}"/>
-    <mkdir dir="${class}"/>
+    <tstamp />
+    <mkdir dir="${dist}" />
+    <mkdir dir="${class}" />
 
     <tstamp>
-      <format property="bin.stamp" pattern="yyyy-MM-dd HH:mm:ss"/>
+      <format property="bin.stamp" pattern="yyyy-MM-dd HH:mm:ss" />
     </tstamp>
   </target>
 
   <target name="clean">
-    <delete dir="${class}"/>
+    <delete dir="${class}" />
   </target>
 
   <target name="compile" depends="init">
-    <javac destdir="${class}"
-	   classpathref="classpath.base"
-	   deprecation="on"
-           optimize="on"
-	   debug="on"
-	   Encoding="iso-8859-15"
-	   source="1.6"
-	   target="1.6"
-	   includeantruntime="false">
-      <src path="${src}"/>
-      <compilerarg value="-Xlint:unchecked"/>
+    <javac destdir="${class}" classpathref="classpath.base"
+      deprecation="on" optimize="on" debug="on" Encoding="iso-8859-15"
+      source="1.6" target="1.6" includeantruntime="false">
+      <src path="${src}" />
+      <compilerarg value="-Xlint:unchecked" />
     </javac>
 
     <copy todir="${class}">
-      <fileset dir="${src}" excludes="**/*.java,**/*~"/>
+      <fileset dir="${src}" excludes="**/*.java,**/*~" />
     </copy>
   </target>
 
-  <taskdef name="one-jar" classname="com.simontuffs.onejar.ant.OneJarTask" 
-	   classpath="${basedir}/lib/one-jar-ant-task-0.97.jar"
-	   onerror="report"/>
+  <taskdef name="one-jar" classname="com.simontuffs.onejar.ant.OneJarTask"
+    classpath="${basedir}/lib/one-jar-ant-task-0.97.jar" onerror="report" />
 
   <target name="dist" depends="compile">
     <one-jar destfile="${dist}/${product}-${version}.jar">
       <manifest>
-	<attribute name="One-Jar-Main-Class" value="com.shesse.h2ha.H2HaServer"/>
-      	<attribute name="Built-By" value="${user.name}"/>
-      	<attribute name="Implementation-Vendor" value="DICOS GmbH"/>
-    	<attribute name="Implementation-Version" value="${version}"/> 
-	<attribute name="Implementation-Timestamp" value="${bin.stamp}"/>
+        <attribute name="One-Jar-Main-Class" value="com.shesse.h2ha.H2HaServer" />
+        <attribute name="Built-By" value="${user.name}" />
+        <attribute name="Implementation-Vendor" value="DICOS GmbH" />
+        <attribute name="Implementation-Version" value="${version}" />
+        <attribute name="Implementation-Timestamp" value="${bin.stamp}" />
       </manifest>
 
       <main>
-	<fileset dir="${class}"/>
+        <fileset dir="${class}" />
       </main>
 
       <lib>
-	<fileset dir="${basedir}/lib">
-	  <exclude name="one-jar*"/>
-	</fileset>
+        <fileset dir="${basedir}/lib">
+          <exclude name="one-jar*" />
+        </fileset>
       </lib>
 
     </one-jar>

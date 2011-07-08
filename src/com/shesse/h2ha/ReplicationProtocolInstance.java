@@ -106,16 +106,37 @@ public class ReplicationProtocolInstance
     private boolean connectionCanceled = false;
 
     /** */
+    private long totalMessagesEnqueued = 0;
+
+    /** */
+    private long totalMessagesDequeued = 0;
+
+    /** */
     private long totalBytesTransmitted = 0;
+
+    /** */
+    private long totalBytesReceived = 0;
 
     /** */
     private long lastStatisticsTimestamp = 0L;
 
     /** */
+    private long lastStatisticsMessagesEnqueued = 0L;
+
+    /** */
+    private long lastStatisticsMessagesDequeued = 0L;
+
+    /** */
     private long lastStatisticsBytesTransmitted = 0L;
 
     /** */
+    private long lastStatisticsBytesReceived = 0L;
+
+    /** */
     private long nextStatisticsTimestamp = 0L;
+    
+    /** */
+    private long statisticsInterval = 0L;
 
     /** */
     private long nextHeartbeatToSend = 0L;
@@ -179,6 +200,14 @@ public class ReplicationProtocolInstance
     protected void setInstanceName(String instanceName)
     {
 	this.instanceName = instanceName;
+    }
+    
+    /**
+     * 
+     */
+    public void setParameters(long statisticsInterval)
+    {
+	this.statisticsInterval = statisticsInterval;
     }
 
     /**
@@ -300,6 +329,7 @@ public class ReplicationProtocolInstance
 	    // if they require this.
 	    ReplicationMessage message;
 	    while ((message = messageQueue.poll()) != null) {
+		totalMessagesDequeued++;
 		if (!message.callOnlyIfConnected()) {
 		    try {
 			message.process(this);
@@ -339,22 +369,44 @@ public class ReplicationProtocolInstance
 	try {
 	    for (;;) {
 		long now = System.currentTimeMillis();
-		if (now >= nextStatisticsTimestamp) {
+		if (now >= nextStatisticsTimestamp && statisticsInterval > 0) {
 		    if (lastStatisticsTimestamp != 0L) {
+			double enqueuedMessagesPerSecond =
+			    (totalMessagesEnqueued - lastStatisticsMessagesEnqueued) /
+				((now - lastStatisticsTimestamp) / 1000.);
+
+			double dequeuedMessagesPerSecond =
+			    (totalMessagesDequeued - lastStatisticsMessagesDequeued) /
+				((now - lastStatisticsTimestamp) / 1000.);
+
 			double transmittedBytesPerSecond =
 			    (totalBytesTransmitted - lastStatisticsBytesTransmitted) /
 				((now - lastStatisticsTimestamp) / 1000.);
 
+			double receivedBytesPerSecond =
+			    (totalBytesReceived - lastStatisticsBytesReceived) /
+				((now - lastStatisticsTimestamp) / 1000.);
+
 			log.info(instanceName +
-			    String.format(": transmit rate = %7.1f KB/sec",
-				transmittedBytesPerSecond / 1000));
+			    String.format(": transmit/receive rate = %7.1f/%7.1f KB/sec",
+				transmittedBytesPerSecond / 1000,
+				receivedBytesPerSecond / 1000));
+
+			log.info(instanceName +
+			    String.format(": enqueue/dequeue rate  = %7.2f/%7.2f Msg/sec",
+				enqueuedMessagesPerSecond / 1000,
+				dequeuedMessagesPerSecond / 1000));
+			
 			log.info(instanceName +
 			    String.format(": queue size    = %5d", messageQueue.size()));
 		    }
 
+		    lastStatisticsMessagesEnqueued = totalMessagesEnqueued;
+		    lastStatisticsMessagesDequeued = totalMessagesDequeued;
 		    lastStatisticsBytesTransmitted = totalBytesTransmitted;
+		    lastStatisticsBytesReceived = totalBytesReceived;
 		    lastStatisticsTimestamp = now;
-		    nextStatisticsTimestamp = now + 300000;
+		    nextStatisticsTimestamp = now + statisticsInterval;
 		}
 
 		if (now >= nextHeartbeatToSend) {
@@ -375,6 +427,8 @@ public class ReplicationProtocolInstance
 		ReplicationMessage message = messageQueue.poll(delta, TimeUnit.MILLISECONDS);
 
 		if (message != null) {
+		    totalMessagesDequeued++;
+		    
 		    if (message == terminateMessage)
 			break;
 
@@ -502,15 +556,21 @@ public class ReplicationProtocolInstance
 
 	try {
 	    if (maxEnqueueWait > 0) {
-		if (!messageQueue.offer(message, maxEnqueueWait, TimeUnit.MILLISECONDS)) {
+		if (messageQueue.offer(message, maxEnqueueWait, TimeUnit.MILLISECONDS)) {
+		    totalMessagesEnqueued++;
+		    
+		} else {
 		    log.error(instanceName +
-			": replication connection is too slow - it will be terminated. Queue size is "+messageQueue.size());
+			": replication connection is too slow - it will be terminated.");
+		    log.error(instanceName +
+			": we could not enqueue within "+maxEnqueueWait+" ms when at a queue size of "+messageQueue.size());
 		    //logStacksOfAllThreads(log);
 		    cancelConnection();
 		}
 		
 	    } else {
 		messageQueue.put(message);
+		totalMessagesEnqueued++;
 	    }
 	    
 	} catch (InterruptedException e) {
@@ -580,8 +640,15 @@ public class ReplicationProtocolInstance
     protected void processReceivedMessage(Object message)
     {
 	if (message instanceof ReplicationMessage) {
-	    log.debug(instanceName + ": got from protocol connection: " + message);
-	    enqueue((ReplicationMessage) message);
+	    if (log.isDebugEnabled()) {
+		log.debug(instanceName + ": got from protocol connection: " + message);
+	    }
+	    
+	    
+	    ReplicationMessage repmsg = (ReplicationMessage)message;
+	    int estimatedSize = repmsg.getSizeEstimate();
+	    totalBytesReceived += estimatedSize;
+	    enqueue(repmsg);
 
 	} else {
 	    log.debug(instanceName + ": got unexpected object from protocol connection: " +

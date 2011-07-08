@@ -35,6 +35,7 @@ extends ReplicationProtocolInstance
     {
 	super("serverStatus", 0, 0, 0);
 	
+	setParameters(0);
         log.debug("ReplicationServerStatus()");
 
     }

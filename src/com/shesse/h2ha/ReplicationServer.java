@@ -45,6 +45,9 @@ public class ReplicationServer
     /** */
     private int maxWaitingMessages = 0;
     
+    /** */
+    private long statisticsInterval = 300000;
+    
     // /////////////////////////////////////////////////////////
     // Constructors
     // /////////////////////////////////////////////////////////
@@ -87,6 +90,13 @@ public class ReplicationServer
                 } catch (NumberFormatException x) {
                     log.error("inhalid haMaxWaitingMessages: "+x);
                 }
+                
+            } else if (args[i].equals("-statisticsInterval")) {
+                try {
+                    statisticsInterval = Integer.parseInt(args[i+1]);
+                } catch (NumberFormatException x) {
+                    log.error("inhalid statisticsInterval: "+x);
+                }
             }
         }        
     }
@@ -125,7 +135,9 @@ public class ReplicationServer
             Socket connSocket = serverSocket.accept();
             log.debug("accepted incoming replication connection");
             String instanceName = "replServer-"+String.valueOf(connSocket.getRemoteSocketAddress());
-            new Thread(new ReplicationServerInstance(instanceName, maxQueueSize, maxEnqueueWait, maxWaitingMessages, haServer, fileSystem, connSocket), "ha-server-conn").start();
+	    new Thread(new ReplicationServerInstance(instanceName, maxQueueSize, maxEnqueueWait,
+		maxWaitingMessages, statisticsInterval, haServer, fileSystem, connSocket),
+		"ha-server-conn").start();
             
         }
     }

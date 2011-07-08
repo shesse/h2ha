@@ -93,6 +93,7 @@ extends ServerSideProtocolInstance
         log.debug("ReplicationClientInstance()");
 
         dirtyFlagUrl = FileSystemHa.getRoot()+dirtyFlagFile;
+        long statisticsInterval = 300000L;
 
         for (int i = 0; i < args.length-1; i++) {
             if (args[i].equals("-haPeerHost")) {
@@ -115,6 +116,14 @@ extends ServerSideProtocolInstance
                     log.error("inhalid haConnectTimeout: "+x);
                 }
                 
+            } else if (args[i].equals("-statisticsInterval")) {
+                try {
+                    statisticsInterval = Integer.parseInt(args[i+1]);
+                    i++;
+                } catch (NumberFormatException x) {
+                    log.error("inhalid statisticsInterval: "+x);
+                }
+                
             } else if (args[i].equals("-connectRetry")) {
                 try {
                     maxConnectRetries = Integer.parseInt(args[++i]);
@@ -125,6 +134,7 @@ extends ServerSideProtocolInstance
         }
         
         setInstanceName("replClient-"+peerHost+":"+peerPort);
+        setParameters(statisticsInterval);
     }
 
     // /////////////////////////////////////////////////////////

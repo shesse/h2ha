@@ -25,7 +25,10 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 import org.apache.log4j.Logger;
 import org.h2.store.fs.FileSystem;
+import org.h2.tools.Console;
+import org.h2.tools.RunScript;
 import org.h2.tools.Server;
+import org.h2.tools.Shell;
 import org.h2.tools.SimpleResultSet;
 
 /**
@@ -203,12 +206,79 @@ public class H2HaServer
     public static void main(String[] args) 
     throws InterruptedException
     {
-	try {
-	    new H2HaServer(args).run();
+	// prüfen: soll ein server gestartet werden oder RunScript
+	// aufgerufen werden?
+	boolean startServer = false;
+	for (String arg: args) {
+	    if ("-haBaseDir".equals(arg)) {
+		startServer = true;
+	    }
+	}
+	
+	if (startServer) {
+	    try {
+		new H2HaServer(args).run();
+
+	    } catch (Throwable x) {
+		log.fatal("unexpected exception within HA server main thread", x);
+		System.exit(1);
+	    }
 	    
-	} catch (Throwable x) {
-	    log.fatal("unexpected exception within HA server main thread", x);
-	    System.exit(1);
+	} else {
+	    try {
+		new Shell(){
+
+		    @Override
+		    protected void showUsage()
+		    {
+			String url = String.valueOf(H2HaServer.class.getResource("H2HaServer.class"));
+			int bang = url.indexOf('!');
+			if (bang >= 0) {
+			    url = url.substring(0, bang);
+			}
+			
+			if (url.startsWith("jar:")) {
+			    url = url.substring(4);
+			}
+			
+			if (url.startsWith("file:")) {
+			    url = url.substring(5);
+			}
+			
+			int pdel = url.lastIndexOf('/');
+			if (pdel >= 0) {
+			    url = url.substring(pdel+1);
+			}
+			
+			System.err.println("usage: java -jar "+url+" [option ...]");
+			System.err.println("with option:");
+			System.err.println("    -help or -?");
+			System.err.println("        Print the list of options");
+			System.err.println("    -url <url>");
+			System.err.println("        The database URL (jdbc:...)");
+			System.err.println("    -user <user>");
+			System.err.println("        The user name (default: sa)");
+			System.err.println("    -password <pwd>");
+			System.err.println("        The password");
+			System.err.println("    -driver <class>");
+			System.err.println("        The JDBC driver class to use (not required in most cases)");
+			System.err.println("    -sql <statements>");
+			System.err.println("        Execute the SQL statements and exit");
+			System.err.println("    -properties <dir>");
+			System.err.println("        Load the server properties from this directory");
+			System.err.println("");
+			System.err.println("If special characters don't work as expected, you may need to use");
+			System.err.println("-Dfile.encoding=UTF-8 (Mac OS X) or CP850 (Windows).");
+			
+			System.exit(1);
+		    }
+		    
+		}.runTool(args);
+		
+	    } catch (Throwable x) {
+		log.fatal("unexpected exception within RunScript main thread", x);
+		System.exit(1);
+	    }
 	}
     }
 
