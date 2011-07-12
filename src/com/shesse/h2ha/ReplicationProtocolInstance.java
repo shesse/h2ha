@@ -393,9 +393,9 @@ public class ReplicationProtocolInstance
 				receivedBytesPerSecond / 1000));
 
 			log.info(instanceName +
-			    String.format(": enqueue/dequeue rate  = %7.2f/%7.2f Msg/sec",
-				enqueuedMessagesPerSecond / 1000,
-				dequeuedMessagesPerSecond / 1000));
+			    String.format(": enqueue/dequeue rate  = %7.1f/%7.1f Msg/sec",
+				enqueuedMessagesPerSecond,
+				dequeuedMessagesPerSecond));
 			
 			log.info(instanceName +
 			    String.format(": queue size    = %5d", messageQueue.size()));

@@ -65,7 +65,8 @@
 
       <lib>
         <fileset dir="${basedir}/lib">
-          <exclude name="one-jar*" />
+            <exclude name="one-jar*" />
+            <exclude name="mysql-conn*" />
         </fileset>
       </lib>
 
