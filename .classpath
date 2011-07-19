@@ -4,8 +4,8 @@
 	<classpathentry kind="src" output="class-test" path="test"/>
 	<classpathentry kind="lib" path="lib/log4j-1.2.9.jar"/>
 	<classpathentry kind="lib" path="lib/junit-4.8.2.jar"/>
+	<classpathentry kind="lib" path="lib/h2-1.3.158.jar" sourcepath="C:/Users/sth/libraries/h2-2011-07-17/h2/src/main"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
-	<classpathentry kind="lib" path="lib/h2-1.3.157.jar"/>
 	<classpathentry kind="lib" path="lib/mysql-connector-java-5.1.12-bin.jar"/>
 	<classpathentry kind="output" path="class"/>
 </classpath>

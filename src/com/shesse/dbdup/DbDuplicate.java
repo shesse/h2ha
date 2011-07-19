@@ -44,6 +44,7 @@ public class DbDuplicate
 	    new DbDuplicate().run(args);
 	} catch (SQLException x) {
 	    System.err.println("SQL error: "+x.getMessage());
+	    x.printStackTrace(System.err);
 	    System.exit(1);
 	}
     }
@@ -66,10 +67,16 @@ public class DbDuplicate
 	    try {
 		dupSchema(fromConn, toConn);
 	    } finally {
-		toConn.close();
+		try {
+		    toConn.close();
+		} catch (SQLException x) {
+		}
 	    }
 	} finally {
-	    fromConn.close();
+	    try {
+		fromConn.close();
+	    } catch (SQLException x) {
+	    }
 	}
     }
 

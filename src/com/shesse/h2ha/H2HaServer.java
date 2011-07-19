@@ -7,12 +7,16 @@
 package com.shesse.h2ha;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.RandomAccessFile;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -120,6 +124,8 @@ public class H2HaServer
     /** */
     private volatile FailoverState failoverState = FailoverState.INITIAL;
     
+    /** */
+    private static LockHandle staticBaseLock = null;
     
     // /////////////////////////////////////////////////////////
     // Constructors
@@ -214,6 +220,11 @@ public class H2HaServer
 	} catch (Throwable x) {
 	    log.fatal("unexpected exception within main thread", x);
 	    System.exit(1);
+	    
+	} finally {
+	    if (staticBaseLock != null) {
+		staticBaseLock.release();
+	    }
 	}
     }
 
@@ -369,7 +380,9 @@ public class H2HaServer
         	    creArgs.add(args[++i]);
         	}
             }
-        }   
+        }
+        
+        args = creArgs.toArray(new String[creArgs.size()]);
 
         if (script == null) {
             System.err.println("mandatory parameter -script is missing");
@@ -396,15 +409,19 @@ public class H2HaServer
             showCreateUsage();
         }
 
-	new RunScript(){
-	    @Override
-	    protected void showUsage()
-	    {
-		showCreateUsage();
-	    }
+        if (!new File(haBaseDir).exists()) {
+            System.err.println("HA base dir "+haBaseDir+" does not exist");
+            System.exit(1);
+        }
+        
+        new RunScript(){
+            @Override
+            protected void showUsage()
+            {
+        	showCreateUsage();
+            }
 
-	}.runTool(createUrl(args));
-
+        }.runTool(createUrl(args));
     }
 
     /**
@@ -512,7 +529,17 @@ public class H2HaServer
         	
             } else if (haBaseDir != null) {
         	url = "jdbc:h2:file:"+new File(haBaseDir).getAbsolutePath()+"/"+database;
-        	
+                if (!new File(haBaseDir).exists()) {
+                    System.err.println("HA base dir "+haBaseDir+" does not exist");
+                    System.exit(1);
+                }
+                
+                staticBaseLock = acquireHaBaseLock(haBaseDir);
+                if (staticBaseLock == null) {
+                    System.err.println("could not get lock for "+haBaseDir+" - some other process is probably using it");
+                    System.exit(1);
+                }
+
             } else {
         	url = "jdbc:h2:tcp://localhost/"+database;
             }
@@ -564,23 +591,67 @@ public class H2HaServer
             System.exit(1);
         }
 
+        if (!new File(haBaseDir).exists()) {
+            System.err.println("HA base dir "+haBaseDir+" does not exist");
+            System.exit(1);
+        }
         
-        fileSystem = new FileSystemHa(this, args);
-        server = new ReplicationServer(this, fileSystem, args);
-        server.start();
+        LockHandle baseLock = acquireHaBaseLock(haBaseDir);
+        if (baseLock == null) {
+            System.err.println("could not get lock for "+haBaseDir+" - some other process is probably using it");
+            System.exit(1);
+        }
         
-        if (peerHost == null) {
-            log.warn("no haPeerHost specified - running in master only mode!");
-            applyEvent(Event.NO_PEER, null, null);
+        try {
+            fileSystem = new FileSystemHa(this, args);
+            server = new ReplicationServer(this, fileSystem, args);
+            server.start();
+
+            if (peerHost == null) {
+        	log.warn("no haPeerHost specified - running in master only mode!");
+        	applyEvent(Event.NO_PEER, null, null);
+
+            } else {
+        	applyEvent(Event.HA_STARTUP, null, null);
+            }
+
+            while (!shutdownRequested) {
+        	Runnable queueEntry = controlQueue.take();
+        	queueEntry.run();
+            }
             
-        } else {
-            applyEvent(Event.HA_STARTUP, null, null);
+        } finally {
+            baseLock.release();
         }
-        
-        while (!shutdownRequested) {
-            Runnable queueEntry = controlQueue.take();
-            queueEntry.run();
-        }
+    }
+    
+    /**
+     * Fordert eine Sperre für den Zugriff auf die haBaseDir
+     * an. Liefert ein Handle für die Sperre, über das sie
+     * wieder freigegeben werden kann oder null, wenn das Sperren
+     * nicht möglich war
+     */
+    private static LockHandle acquireHaBaseLock(String haBaseDir)
+    {
+	File dir = new File(haBaseDir);
+	File lockfile = new File(dir, "h2ha.lock");
+
+	FileChannel channel;
+	try {
+	    channel = new RandomAccessFile(lockfile, "rw").getChannel();
+	} catch (FileNotFoundException x) {
+	    log.error("could not create HA lock file: "+x);
+	    return null;
+	}
+	
+	try {
+	    FileLock lock = channel.tryLock();
+	    return new LockHandle(channel, lock);
+	    
+	} catch (IOException x) {
+	    log.error("could not acquire HA lock: "+x);
+	    return null;
+	}
     }
     
     /**
@@ -1140,6 +1211,33 @@ public class H2HaServer
     // /////////////////////////////////////////////////////////
     // Inner Classes
     // /////////////////////////////////////////////////////////
-
+    /**
+     * 
+     */
+    private static class LockHandle
+    {
+	private FileLock lock;
+	private FileChannel channel;
+	
+	public LockHandle(FileChannel channel, FileLock lock)
+	{
+	    this.channel = channel;
+	    this.lock = lock;
+	}
+	
+	public void release()
+	{
+	    try {
+		lock.release();
+	    } catch (IOException x) {
+	    }
+	    
+	    try {
+		channel.close();
+	    } catch (IOException x) {
+	    }
+	}
+	
+    }
 
 }
