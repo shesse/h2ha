@@ -29,7 +29,7 @@ public class Driver
     private static Logger log = Logger.getLogger(Driver.class);
     
     /** */
-    private org.h2.Driver h2Driver = new org.h2.Driver();
+    private static org.h2.Driver h2Driver = new org.h2.Driver();
     
     /** */
     private static Driver instance = new Driver();
@@ -42,9 +42,6 @@ public class Driver
 	}
     }
     
-
-
-
     // /////////////////////////////////////////////////////////
     // Constructors
     // /////////////////////////////////////////////////////////
@@ -84,11 +81,10 @@ public class Driver
     public Connection connect(String url, Properties info)
 	throws SQLException
     {
-	JdbcConnection h2Conn = (JdbcConnection)h2Driver.connect(url, info);
+	JdbcConnection h2Conn = AlternatingConnectionFactory.getFactory(url, info).getConnection();
 	return new HaConnection(h2Conn);
     }
-
-
+    
     /**
      * {@inheritDoc}
      *

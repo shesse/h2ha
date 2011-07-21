@@ -7,6 +7,7 @@
 package com.shesse.jdbcproxy;
 
 import java.util.Hashtable;
+import java.util.Properties;
 
 import javax.naming.Context;
 import javax.naming.Name;
@@ -56,16 +57,18 @@ public class HaDataSourceFactory
         if (obj instanceof Reference) {
             Reference ref = (Reference) obj;
             if (ref.getClassName().equals(HaDataSource.class.getName())) {
-                JdbcDataSource h2DataSource = new JdbcDataSource();
-                
-                h2DataSource.setURL((String) ref.get("url").getContent());
-                h2DataSource.setUser((String) ref.get("user").getContent());
-                h2DataSource.setPassword((String) ref.get("password").getContent());
-                h2DataSource.setDescription((String) ref.get("description").getContent());
-                String s = (String) ref.get("loginTimeout").getContent();
-                h2DataSource.setLoginTimeout(Integer.parseInt(s));
-
-                return new HaDataSource(h2DataSource);
+        	String url = (String) ref.get("url").getContent();
+        	Properties props = new Properties();
+        	for (String propName: new String[]{
+        	    "user", "password", "description", "loginTimeout"})
+        	{
+        	    String propValue = (String)ref.get(propName).getContent();
+        	    if (propValue != null) {
+        		props.setProperty(propName, propValue);
+        	    }
+        	}
+        	
+               return new HaDataSource(url, props);
             }
         }
         return null;

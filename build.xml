@@ -71,5 +71,16 @@
       </lib>
 
     </one-jar>
+
+    <jar jarfile="${dist}/${product}-driver-${version}.jar">
+      <manifest>
+        <attribute name="Built-By" value="${user.name}" />
+        <attribute name="Implementation-Vendor" value="DICOS GmbH" />
+        <attribute name="Implementation-Version" value="${version}" />
+        <attribute name="Implementation-Timestamp" value="${bin.stamp}" />
+      </manifest>
+
+      <fileset dir="${basedir}/class"/>
+    </jar>
   </target>
 </project>

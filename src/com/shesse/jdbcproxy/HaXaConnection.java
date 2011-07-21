@@ -9,7 +9,9 @@ package com.shesse.jdbcproxy;
 import java.sql.Connection;
 import java.sql.SQLException;
 
+import javax.sql.ConnectionEvent;
 import javax.sql.ConnectionEventListener;
+import javax.sql.StatementEvent;
 import javax.sql.StatementEventListener;
 import javax.sql.XAConnection;
 import javax.transaction.xa.XAException;
@@ -75,22 +77,49 @@ public class HaXaConnection
 
 
     /**
-     * @param paramConnectionEventListener
+     * @param evl
      * @see org.h2.jdbcx.JdbcXAConnection#addConnectionEventListener(javax.sql.ConnectionEventListener)
      */
-    public void addConnectionEventListener(ConnectionEventListener paramConnectionEventListener)
+    public void addConnectionEventListener(final ConnectionEventListener evl)
     {
-	h2Connection.addConnectionEventListener(paramConnectionEventListener);
+	h2Connection.addConnectionEventListener(new ConnectionEventListener() {
+
+	    public void connectionClosed(ConnectionEvent pev)
+	    {
+		ConnectionEvent ev = new ConnectionEvent(HaXaConnection.this, pev.getSQLException());
+		evl.connectionClosed(ev);
+	    }
+
+	    public void connectionErrorOccurred(ConnectionEvent pev)
+	    {
+		ConnectionEvent ev = new ConnectionEvent(HaXaConnection.this, pev.getSQLException());
+		evl.connectionErrorOccurred(ev);
+	    }
+	});
     }
 
 
     /**
-     * @param paramStatementEventListener
+     * @param evl
      * @see javax.sql.PooledConnection#addStatementEventListener(javax.sql.StatementEventListener)
      */
-    public void addStatementEventListener(StatementEventListener paramStatementEventListener)
+    public void addStatementEventListener(final StatementEventListener evl)
     {
-	h2Connection.addStatementEventListener(paramStatementEventListener);
+	h2Connection.addStatementEventListener(new StatementEventListener() {
+
+	    public void statementClosed(StatementEvent pev)
+	    {
+		StatementEvent ev = new StatementEvent(HaXaConnection.this, pev.getStatement(), pev.getSQLException());
+		evl.statementClosed(ev);
+	    }
+
+	    public void statementErrorOccurred(StatementEvent pev)
+	    {
+		StatementEvent ev = new StatementEvent(HaXaConnection.this, pev.getStatement(), pev.getSQLException());
+		evl.statementErrorOccurred(ev);
+	    }
+	    
+	});
     }
 
 

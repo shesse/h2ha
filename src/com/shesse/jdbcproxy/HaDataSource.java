@@ -12,6 +12,7 @@ import java.io.PrintWriter;
 import java.io.Serializable;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Properties;
 
 import javax.naming.NamingException;
 import javax.naming.Reference;
@@ -24,8 +25,6 @@ import javax.sql.XAConnection;
 import javax.sql.XADataSource;
 
 import org.apache.log4j.Logger;
-import org.h2.jdbc.JdbcConnection;
-import org.h2.jdbcx.JdbcDataSource;
 import org.h2.jdbcx.JdbcXAConnection;
 
 /**
@@ -46,9 +45,14 @@ public class HaDataSource
     private static Logger log = Logger.getLogger(HaDataSource.class);
 
     /** */
-    private JdbcDataSource h2DataSource;
-
-
+    private String url;
+    
+    /** */
+    private Properties props;
+    
+    /** */
+    private PrintWriter logWriter = null;
+    
 
     // /////////////////////////////////////////////////////////
     // Constructors
@@ -58,15 +62,17 @@ public class HaDataSource
     public HaDataSource()
     {
 	log.debug("HaDataSource()");
-	h2DataSource = new JdbcDataSource();
+	url = null;
+	props = new Properties();
     }
 
     /**
      */
-    public HaDataSource(JdbcDataSource h2DataSource)
+    public HaDataSource(String url, Properties props)
     {
 	log.debug("HaDataSource()");
-	this.h2DataSource = h2DataSource;
+	this.url = url;
+	this.props = props;
     }
 
 
@@ -85,11 +91,13 @@ public class HaDataSource
     }
 
     /**
+     * @throws SQLException 
      * 
      */
-    public JdbcDataSource getH2DataSource()
+    public AlternatingConnectionFactory getBaseConnectionFactory()
+    throws SQLException
     {
-	return h2DataSource;
+	return AlternatingConnectionFactory.getFactory(url, props);
     }
     
     /**
@@ -100,7 +108,7 @@ public class HaDataSource
     public PrintWriter getLogWriter()
 	throws SQLException
     {
-	return h2DataSource.getLogWriter();
+	return logWriter;
     }
 
 
@@ -112,7 +120,11 @@ public class HaDataSource
     public int getLoginTimeout()
 	throws SQLException
     {
-	return h2DataSource.getLoginTimeout();
+	try {
+	    return Integer.parseInt(props.getProperty("loginTimeout", "0"));
+	} catch (NumberFormatException x) {
+	    return 0;
+	}
     }
 
 
@@ -124,7 +136,7 @@ public class HaDataSource
     public void setLogWriter(PrintWriter writer)
 	throws SQLException
     {
-	h2DataSource.setLogWriter(writer);
+	this.logWriter = writer;
     }
 
 
@@ -136,7 +148,7 @@ public class HaDataSource
     public void setLoginTimeout(int timeout)
 	throws SQLException
     {
-	h2DataSource.setLoginTimeout(timeout);
+	props.setProperty("loginTimeout", String.valueOf(timeout));
     }
 
 
@@ -148,7 +160,7 @@ public class HaDataSource
     public boolean isWrapperFor(Class<?> iface)
 	throws SQLException
     {
-	return h2DataSource.isWrapperFor(iface);
+	return false;
     }
 
 
@@ -160,7 +172,7 @@ public class HaDataSource
     public <T> T unwrap(Class<T> iface)
 	throws SQLException
     {
-	return h2DataSource.unwrap(iface);
+	throw new SQLException("cannot unwrap a "+getClass().getName()+" to a "+iface.getName());
     }
 
 
@@ -174,11 +186,11 @@ public class HaDataSource
     {
         String factoryClassName = HaDataSourceFactory.class.getName();
         Reference ref = new Reference(getClass().getName(), factoryClassName, null);
-        ref.add(new StringRefAddr("url", h2DataSource.getURL()));
-        ref.add(new StringRefAddr("user", h2DataSource.getUser()));
-        ref.add(new StringRefAddr("password", h2DataSource.getPassword()));
-        ref.add(new StringRefAddr("loginTimeout", String.valueOf(h2DataSource.getLoginTimeout())));
-        ref.add(new StringRefAddr("description", h2DataSource.getDescription()));
+        ref.add(new StringRefAddr("url", url));
+        ref.add(new StringRefAddr("user", props.getProperty("user")));
+        ref.add(new StringRefAddr("password", props.getProperty("password")));
+        ref.add(new StringRefAddr("loginTimeout", props.getProperty("loginTimeout")));
+        ref.add(new StringRefAddr("description", props.getProperty("description")));
         return ref;
     }
 
@@ -191,7 +203,8 @@ public class HaDataSource
     public PooledConnection getPooledConnection()
 	throws SQLException
     {
-	return new HaXaConnection((JdbcXAConnection)h2DataSource.getPooledConnection());
+	JdbcXAConnection h2xac = AlternatingConnectionFactory.getFactory(url, props).getXaConnection();
+	return new HaXaConnection(h2xac);
     }
 
 
@@ -203,7 +216,11 @@ public class HaDataSource
     public PooledConnection getPooledConnection(String user, String password)
 	throws SQLException
     {
-	return new HaXaConnection((JdbcXAConnection)h2DataSource.getPooledConnection(user, password));
+	Properties modprops = new Properties(props);
+	modprops.setProperty("user", user);
+	modprops.setProperty("password", password);
+	JdbcXAConnection h2xac = AlternatingConnectionFactory.getFactory(url, modprops).getXaConnection();
+	return new HaXaConnection(h2xac);
     }
 
 
@@ -215,7 +232,8 @@ public class HaDataSource
     public Connection getConnection()
 	throws SQLException
     {
-	return new HaConnection((JdbcConnection)h2DataSource.getConnection());
+	Connection h2c = AlternatingConnectionFactory.getFactory(url, props).getConnection();
+	return new HaConnection(h2c);
     }
 
 
@@ -227,8 +245,11 @@ public class HaDataSource
     public Connection getConnection(String user, String password)
 	throws SQLException
     {
-	return new HaConnection((JdbcConnection)h2DataSource.getConnection(user, password));
-    }
+	Properties modprops = new Properties(props);
+	modprops.setProperty("user", user);
+	modprops.setProperty("password", password);
+	Connection h2c = AlternatingConnectionFactory.getFactory(url, modprops).getConnection();
+	return new HaConnection(h2c);    }
 
 
     /**
@@ -239,7 +260,8 @@ public class HaDataSource
     public XAConnection getXAConnection()
 	throws SQLException
     {
-	return new HaXaConnection((JdbcXAConnection)h2DataSource.getXAConnection());
+	JdbcXAConnection h2xac = AlternatingConnectionFactory.getFactory(url, props).getXaConnection();
+	return new HaXaConnection(h2xac);
     }
 
 
@@ -251,7 +273,11 @@ public class HaDataSource
     public XAConnection getXAConnection(String user, String password)
 	throws SQLException
     {
-	return new HaXaConnection((JdbcXAConnection)h2DataSource.getXAConnection(user, password));
+	Properties modprops = new Properties(props);
+	modprops.setProperty("user", user);
+	modprops.setProperty("password", password);
+	JdbcXAConnection h2xac = AlternatingConnectionFactory.getFactory(url, modprops).getXaConnection();
+	return new HaXaConnection(h2xac);
     }
 
 
