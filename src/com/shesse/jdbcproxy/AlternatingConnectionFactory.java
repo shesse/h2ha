@@ -143,9 +143,14 @@ public class AlternatingConnectionFactory
 	    return new URI[]{uri};
 
 	} else if (uri.isOpaque()) {
+	    String scheme = uri.getScheme();
+	    if ("h2ha".equals(scheme)) {
+		scheme = "h2";
+	    }
+	    
 	    URI[] subs = splitUris(uri.getSchemeSpecificPart());
 	    for (int i = 0; i < subs.length; i++) {
-		subs[i] = new URI(uri.getScheme(), subs[i].toString(), uri.getFragment());
+		subs[i] = new URI(scheme, subs[i].toString(), uri.getFragment());
 	    }
 	    return subs;
 
