@@ -15,7 +15,6 @@ import javax.naming.Reference;
 import javax.naming.spi.ObjectFactory;
 
 import org.apache.log4j.Logger;
-import org.h2.jdbcx.JdbcDataSource;
 
 /**
  *
