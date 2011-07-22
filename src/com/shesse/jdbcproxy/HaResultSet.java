@@ -28,8 +28,6 @@ import java.sql.Timestamp;
 import java.util.Calendar;
 import java.util.Map;
 
-import org.apache.log4j.Logger;
-
 /**
  *
  * @author sth
@@ -41,7 +39,7 @@ public class HaResultSet
     // Class Members
     // /////////////////////////////////////////////////////////
     /** */
-    private static Logger log = Logger.getLogger(HaResultSet.class);
+    //private static Logger log = Logger.getLogger(HaResultSet.class);
 
     /** */
     private HaConnection haConnection;
@@ -62,7 +60,6 @@ public class HaResultSet
      */
     public HaResultSet(HaConnection haConnection, HaStatement haStatement, ResultSet base)
     {
-	log.debug("HaResultSet()");
 	this.haConnection = haConnection;
 	this.haStatement = haStatement;
 	this.base = base;

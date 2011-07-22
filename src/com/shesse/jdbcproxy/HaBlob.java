@@ -11,7 +11,6 @@ import java.io.OutputStream;
 import java.sql.Blob;
 import java.sql.SQLException;
 
-import org.apache.log4j.Logger;
 
 /**
  *
@@ -24,7 +23,7 @@ public class HaBlob
     // Class Members
     // /////////////////////////////////////////////////////////
     /** */
-    private static Logger log = Logger.getLogger(HaBlob.class);
+    //private static Logger log = Logger.getLogger(HaBlob.class.getName());
 
     /** */
     @SuppressWarnings("unused")
@@ -43,7 +42,6 @@ public class HaBlob
      */
     public HaBlob(HaConnection haConnection, Blob base)
     {
-	log.debug("HaBlob()");
 	this.haConnection = haConnection;
 	this.base = base;
     }

@@ -27,8 +27,6 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.Calendar;
 
-import org.apache.log4j.Logger;
-
 /**
  * 
  * @author sth
@@ -41,7 +39,7 @@ public class HaPreparedStatement
     // Class Members
     // /////////////////////////////////////////////////////////
     /** */
-    private static Logger log = Logger.getLogger(HaPreparedStatement.class);
+    //private static Logger log = Logger.getLogger(HaPreparedStatement.class);
 
     /** */
     private PreparedStatement base;
@@ -57,8 +55,6 @@ public class HaPreparedStatement
     public HaPreparedStatement(HaConnection haConnection, PreparedStatement base)
     {
 	super(haConnection, base);
-	
-	log.debug("HaPreparedStatement()");
 	
 	this.base = base;
     }

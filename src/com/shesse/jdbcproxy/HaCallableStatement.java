@@ -25,7 +25,6 @@ import java.sql.Timestamp;
 import java.util.Calendar;
 import java.util.Map;
 
-import org.apache.log4j.Logger;
 
 /**
  *
@@ -39,7 +38,7 @@ implements CallableStatement
     // Class Members
     // /////////////////////////////////////////////////////////
     /** */
-    private static Logger log = Logger.getLogger(HaCallableStatement.class);
+    //private static Logger log = Logger.getLogger(HaCallableStatement.class.getName());
 
     /** */
     private CallableStatement base;
@@ -56,7 +55,6 @@ implements CallableStatement
     {
 	super(haConnection, base);
 	
-	log.debug("HaCallableStatement()");
 	this.base = base;
     }
 

@@ -18,7 +18,6 @@ import java.util.concurrent.Executors;
 import javax.sql.ConnectionEvent;
 import javax.sql.ConnectionEventListener;
 
-import org.apache.log4j.Logger;
 import org.h2.jdbc.JdbcConnection;
 import org.h2.jdbcx.JdbcDataSource;
 import org.h2.jdbcx.JdbcXAConnection;
@@ -33,7 +32,7 @@ public class AlternatingConnectionFactory
     // Class Members
     // /////////////////////////////////////////////////////////
     /** */
-    private static Logger log = Logger.getLogger(AlternatingConnectionFactory.class);
+    //private static Logger log = Logger.getLogger(AlternatingConnectionFactory.class.getName());
 
     /** */
     private JdbcDataSource[] dataSources;
@@ -59,8 +58,6 @@ public class AlternatingConnectionFactory
      */
     public AlternatingConnectionFactory(JdbcDataSource... dataSources)
     {
-	log.debug("AlternatingConnectionFactory()");
-	
 	this.dataSources = dataSources;
     }
 

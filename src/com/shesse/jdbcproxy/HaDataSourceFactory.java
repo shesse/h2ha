@@ -14,8 +14,6 @@ import javax.naming.Name;
 import javax.naming.Reference;
 import javax.naming.spi.ObjectFactory;
 
-import org.apache.log4j.Logger;
-
 /**
  *
  * @author sth
@@ -27,7 +25,7 @@ public class HaDataSourceFactory
     // Class Members
     // /////////////////////////////////////////////////////////
     /** */
-    private static Logger log = Logger.getLogger(HaDataSourceFactory.class);
+    //private static Logger log = Logger.getLogger(HaDataSourceFactory.class);
 
 
     // /////////////////////////////////////////////////////////
@@ -37,7 +35,6 @@ public class HaDataSourceFactory
      */
     public HaDataSourceFactory()
     {
-	log.debug("HaDataSourceFactory()");
     }
 
 

@@ -12,8 +12,6 @@ import java.sql.ResultSet;
 import java.sql.RowIdLifetime;
 import java.sql.SQLException;
 
-import org.apache.log4j.Logger;
-
 /**
  *
  * @author sth
@@ -25,7 +23,7 @@ public class HaDatabaseMetaData
     // Class Members
     // /////////////////////////////////////////////////////////
     /** */
-    private static Logger log = Logger.getLogger(HaDatabaseMetaData.class);
+    //private static Logger log = Logger.getLogger(HaDatabaseMetaData.class);
 
     /** */
     private HaConnection haConnection;
@@ -43,7 +41,6 @@ public class HaDatabaseMetaData
      */
     public HaDatabaseMetaData(HaConnection haConnection, DatabaseMetaData base)
     {
-	log.debug("HaDatabaseMetaData()");
 	this.haConnection = haConnection;
 	this.base = base;
     }

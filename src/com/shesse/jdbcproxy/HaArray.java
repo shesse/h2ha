@@ -11,7 +11,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Map;
 
-import org.apache.log4j.Logger;
 
 /**
  *
@@ -24,7 +23,7 @@ public class HaArray
     // Class Members
     // /////////////////////////////////////////////////////////
     /** */
-    private static Logger log = Logger.getLogger(HaArray.class);
+    //private static Logger log = Logger.getLogger(HaArray.class.getName());
     
     /** */
     private HaConnection haConnection;
@@ -42,7 +41,6 @@ public class HaArray
      */
     public HaArray(HaConnection haConnection, Array base)
     {
-	log.debug("HaArray()");
 	this.haConnection = haConnection;
 	this.base = base;
     }

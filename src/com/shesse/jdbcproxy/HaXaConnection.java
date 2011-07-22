@@ -18,7 +18,6 @@ import javax.transaction.xa.XAException;
 import javax.transaction.xa.XAResource;
 import javax.transaction.xa.Xid;
 
-import org.apache.log4j.Logger;
 import org.h2.jdbcx.JdbcXAConnection;
 
 /**
@@ -32,7 +31,7 @@ public class HaXaConnection
     // Class Members
     // /////////////////////////////////////////////////////////
     /** */
-    private static Logger log = Logger.getLogger(HaXaConnection.class);
+    //private static Logger log = Logger.getLogger(HaXaConnection.class);
 
     /** */
     private JdbcXAConnection h2Connection;
@@ -45,8 +44,6 @@ public class HaXaConnection
      */
     public HaXaConnection(JdbcXAConnection h2Connection)
     {
-	log.debug("HaXaConnection()");
-	
 	this.h2Connection = h2Connection;
     }
 

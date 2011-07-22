@@ -24,7 +24,6 @@ import javax.sql.PooledConnection;
 import javax.sql.XAConnection;
 import javax.sql.XADataSource;
 
-import org.apache.log4j.Logger;
 import org.h2.jdbcx.JdbcXAConnection;
 
 /**
@@ -42,7 +41,7 @@ public class HaDataSource
     private static final long serialVersionUID = 1L;
 
     /** */
-    private static Logger log = Logger.getLogger(HaDataSource.class);
+    //private static Logger log = Logger.getLogger(HaDataSource.class);
 
     /** */
     private String url;
@@ -61,7 +60,6 @@ public class HaDataSource
      */
     public HaDataSource()
     {
-	log.debug("HaDataSource()");
 	url = null;
 	props = new Properties();
     }
@@ -70,7 +68,6 @@ public class HaDataSource
      */
     public HaDataSource(String url, Properties props)
     {
-	log.debug("HaDataSource()");
 	this.url = url;
 	this.props = props;
     }

@@ -9,8 +9,6 @@ package com.shesse.jdbcproxy;
 import java.sql.ParameterMetaData;
 import java.sql.SQLException;
 
-import org.apache.log4j.Logger;
-
 /**
  *
  * @author sth
@@ -22,7 +20,7 @@ public class HaParameterMetaData
     // Class Members
     // /////////////////////////////////////////////////////////
     /** */
-    private static Logger log = Logger.getLogger(HaParameterMetaData.class);
+    //private static Logger log = Logger.getLogger(HaParameterMetaData.class);
 
     /** */
     @SuppressWarnings("unused")
@@ -41,7 +39,6 @@ public class HaParameterMetaData
      */
     public HaParameterMetaData(HaConnection haConnection, ParameterMetaData base)
     {
-	log.debug("HaParameterMetaData()");
 	this.haConnection = haConnection;
 	this.base = base;
     }

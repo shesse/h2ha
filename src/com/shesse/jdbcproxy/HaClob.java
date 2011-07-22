@@ -13,8 +13,6 @@ import java.io.Writer;
 import java.sql.Clob;
 import java.sql.SQLException;
 
-import org.apache.log4j.Logger;
-
 /**
  *
  * @author sth
@@ -26,7 +24,7 @@ public class HaClob
     // Class Members
     // /////////////////////////////////////////////////////////
     /** */
-    private static Logger log = Logger.getLogger(HaClob.class);
+    //private static Logger log = Logger.getLogger(HaClob.class);
 
     /** */
     @SuppressWarnings("unused")
@@ -46,7 +44,6 @@ public class HaClob
      */
     public HaClob(HaConnection haConnection, Clob base)
     {
-	log.debug("HaClob()");
 	this.haConnection = haConnection;
 	this.base = base;
     }

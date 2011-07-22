@@ -10,8 +10,6 @@ import java.sql.SQLException;
 import java.sql.Struct;
 import java.util.Map;
 
-import org.apache.log4j.Logger;
-
 /**
  *
  * @author sth
@@ -23,7 +21,7 @@ public class HaStruct
     // Class Members
     // /////////////////////////////////////////////////////////
     /** */
-    private static Logger log = Logger.getLogger(HaStruct.class);
+    //private static Logger log = Logger.getLogger(HaStruct.class);
 
     /** */
     @SuppressWarnings("unused")
@@ -42,7 +40,6 @@ public class HaStruct
      */
     public HaStruct(HaConnection haConnection, Struct base)
     {
-	log.debug("HaStruct()");
 	this.haConnection = haConnection;
 	this.base = base;
     }

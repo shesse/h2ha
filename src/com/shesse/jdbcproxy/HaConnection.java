@@ -24,8 +24,6 @@ import java.sql.Struct;
 import java.util.Map;
 import java.util.Properties;
 
-import org.apache.log4j.Logger;
-
 /**
  *
  * @author sth
@@ -37,7 +35,7 @@ public class HaConnection
     // Class Members
     // /////////////////////////////////////////////////////////
     /** */
-    private static Logger log = Logger.getLogger(HaConnection.class);
+    //private static Logger log = Logger.getLogger(HaConnection.class);
 
     /** */
     private Connection h2Connection;
@@ -50,8 +48,6 @@ public class HaConnection
      */
     public HaConnection(Connection h2Connection)
     {
-	log.debug("HaConnection()");
-	
 	this.h2Connection = h2Connection;
     }
 

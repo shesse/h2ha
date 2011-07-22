@@ -10,8 +10,6 @@ import java.sql.Ref;
 import java.sql.SQLException;
 import java.util.Map;
 
-import org.apache.log4j.Logger;
-
 /**
  *
  * @author sth
@@ -23,7 +21,7 @@ public class HaRef
     // Class Members
     // /////////////////////////////////////////////////////////
     /** */
-    private static Logger log = Logger.getLogger(HaRef.class);
+    //private static Logger log = Logger.getLogger(HaRef.class);
 
     /** */
     @SuppressWarnings("unused")
@@ -43,7 +41,6 @@ public class HaRef
      */
     public HaRef(HaConnection haConnection, Ref base)
     {
-	log.debug("HaRef()");
 	this.haConnection = haConnection;
 	this.base = base;
     }

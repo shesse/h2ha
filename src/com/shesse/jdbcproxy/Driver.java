@@ -12,7 +12,6 @@ import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
 import java.util.Properties;
 
-import org.apache.log4j.Logger;
 import org.h2.jdbc.JdbcConnection;
 
 /**
@@ -26,7 +25,7 @@ public class Driver
     // Class Members
     // /////////////////////////////////////////////////////////
     /** */
-    private static Logger log = Logger.getLogger(Driver.class);
+    //private static Logger log = Logger.getLogger(Driver.class.getName());
     
     /** */
     private static org.h2.Driver h2Driver = new org.h2.Driver();
@@ -38,7 +37,7 @@ public class Driver
 	try {
 	    DriverManager.registerDriver(instance);
 	} catch (SQLException x) {
-	    log.error("SQLException", x);
+	    x.printStackTrace();
 	}
     }
     
@@ -49,7 +48,6 @@ public class Driver
      */
     public Driver()
     {
-	log.debug("Driver()");
     }
 
 

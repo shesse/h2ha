@@ -16,8 +16,6 @@ import java.sql.SQLXML;
 import javax.xml.transform.Result;
 import javax.xml.transform.Source;
 
-import org.apache.log4j.Logger;
-
 /**
  *
  * @author sth
@@ -29,7 +27,7 @@ public class HaSQLXML
     // Class Members
     // /////////////////////////////////////////////////////////
     /** */
-    private static Logger log = Logger.getLogger(HaSQLXML.class);
+    //private static Logger log = Logger.getLogger(HaSQLXML.class);
 
     /** */
     @SuppressWarnings("unused")
@@ -49,7 +47,6 @@ public class HaSQLXML
      */
     public HaSQLXML(HaConnection haConnection, SQLXML base)
     {
-	log.debug("HaSQLXML()");
 	this.haConnection = haConnection;
 	this.base = base;
     }

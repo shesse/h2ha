@@ -9,8 +9,6 @@ package com.shesse.jdbcproxy;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 
-import org.apache.log4j.Logger;
-
 /**
  *
  * @author sth
@@ -22,7 +20,7 @@ public class HaResultSetMetaData
     // Class Members
     // /////////////////////////////////////////////////////////
     /** */
-    private static Logger log = Logger.getLogger(HaResultSetMetaData.class);
+    //private static Logger log = Logger.getLogger(HaResultSetMetaData.class);
 
     /** */
     @SuppressWarnings("unused")
@@ -41,7 +39,6 @@ public class HaResultSetMetaData
      */
     public HaResultSetMetaData(HaConnection haConnection, ResultSetMetaData base)
     {
-	log.debug("HaResultSetMetaData()");
 	this.haConnection = haConnection;
 	this.base = base;
     }

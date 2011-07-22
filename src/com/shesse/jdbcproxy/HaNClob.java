@@ -14,8 +14,6 @@ import java.sql.Clob;
 import java.sql.NClob;
 import java.sql.SQLException;
 
-import org.apache.log4j.Logger;
-
 /**
  *
  * @author sth
@@ -27,7 +25,7 @@ public class HaNClob
     // Class Members
     // /////////////////////////////////////////////////////////
     /** */
-    private static Logger log = Logger.getLogger(HaNClob.class);
+    //private static Logger log = Logger.getLogger(HaNClob.class);
 
     /** */
     @SuppressWarnings("unused")
@@ -46,7 +44,6 @@ public class HaNClob
      */
     public HaNClob(HaConnection haConnection, NClob base)
     {
-	log.debug("HaNClob()");
 	this.haConnection = haConnection;
 	this.base = base;
     }

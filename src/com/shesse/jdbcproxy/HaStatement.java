@@ -12,8 +12,6 @@ import java.sql.SQLException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
 
-import org.apache.log4j.Logger;
-
 /**
  *
  * @author sth
@@ -25,7 +23,7 @@ public class HaStatement
     // Class Members
     // /////////////////////////////////////////////////////////
     /** */
-    private static Logger log = Logger.getLogger(HaStatement.class);
+    //private static Logger log = Logger.getLogger(HaStatement.class);
 
     /** */
     protected HaConnection haConnection;
@@ -43,8 +41,6 @@ public class HaStatement
      */
     public HaStatement(HaConnection haConnection, Statement base)
     {
-	log.debug("HaStatement()");
-	
 	this.haConnection = haConnection;
 	this.base = base;
     }
