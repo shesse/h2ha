@@ -242,6 +242,40 @@ public class H2HaServer
 		new H2HaServer(args).runHaServer();
 	}
 
+	/**
+	 * 
+	 */
+	private static void showConsoleUsage()
+	{
+		System.err.println("usage: java -jar "+getJarname()+" console [option ...]");
+		System.err.println("with option:");
+		System.err.println("    -help or -?");
+		System.err.println("        Print the list of options");
+		System.err.println("    -server hostname[:port][hostname[:port]]");
+		System.err.println("        The database server address(es)");
+		System.err.println("    -haBaseDir <directory>");
+		System.err.println("        Base directory of HA database");
+		System.err.println("    -database <database-name>");
+		System.err.println("        The database name");
+		System.err.println("    -user <user>");
+		System.err.println("        The user name (default: sa)");
+		System.err.println("    -password <pwd>");
+		System.err.println("        The password");
+		System.err.println("    -sql <statements>");
+		System.err.println("        Execute the SQL statements and exit");
+		System.err.println("    -url <url>");
+		System.err.println("        Expliciat spec of database URL (jdbc:...)");
+		System.err.println("    -driver <class>");
+		System.err.println("        The JDBC driver class to use (not required in most cases)");
+		System.err.println("    -properties <dir>");
+		System.err.println("        Load the server properties from this directory");
+		System.err.println("");
+		System.err.println("If special characters don't work as expected, you may need to use");
+		System.err.println("-Dfile.encoding=UTF-8 (Mac OS X) or CP850 (Windows).");
+
+		System.exit(1);
+
+	}
 
 	/**
 	 * @param args2
@@ -249,42 +283,60 @@ public class H2HaServer
 	private static void startShell(String[] args)
 	throws SQLException
 	{
+		try {
+			args = createUrl(args);
+		} catch (SQLException x) {
+			System.err.println(x.getMessage()+"\n");
+			showConsoleUsage();
+		}
+
 		new Shell(){
 			@Override
 			protected void showUsage()
 			{
-				System.err.println("usage: java -jar "+getJarname()+" console [option ...]");
-				System.err.println("with option:");
-				System.err.println("    -help or -?");
-				System.err.println("        Print the list of options");
-				System.err.println("    -server hostname[:port][hostname[:port]]");
-				System.err.println("        The database server address(es)");
-				System.err.println("    -haBaseDir <directory>");
-				System.err.println("        Base directory of HA database");
-				System.err.println("    -database <database-name>");
-				System.err.println("        The database name");
-				System.err.println("    -user <user>");
-				System.err.println("        The user name (default: sa)");
-				System.err.println("    -password <pwd>");
-				System.err.println("        The password");
-				System.err.println("    -sql <statements>");
-				System.err.println("        Execute the SQL statements and exit");
-				System.err.println("    -url <url>");
-				System.err.println("        Expliciat spec of database URL (jdbc:...)");
-				System.err.println("    -driver <class>");
-				System.err.println("        The JDBC driver class to use (not required in most cases)");
-				System.err.println("    -properties <dir>");
-				System.err.println("        Load the server properties from this directory");
-				System.err.println("");
-				System.err.println("If special characters don't work as expected, you may need to use");
-				System.err.println("-Dfile.encoding=UTF-8 (Mac OS X) or CP850 (Windows).");
-
-				System.exit(1);
+				showConsoleUsage();
 			}
 
-		}.runTool(createUrl(args));
+		}.runTool(args);
 	}
 
+	/**
+	 *
+	 */
+	private static void showScriptUsage()
+	{
+		System.err.println("usage: java -jar "+getJarname()+" script [option ...]");
+		System.err.println("with option:");
+		System.err.println("    -help or -?");
+		System.err.println("        Print the list of options");
+		System.err.println("    -server hostname[:port][hostname[:port]]");
+		System.err.println("        The database server address(es)");
+		System.err.println("    -haBaseDir <directory>");
+		System.err.println("        Base directory of HA database");
+		System.err.println("    -database <database-name>");
+		System.err.println("        The database name");
+		System.err.println("    -user <user>");
+		System.err.println("        The user name (default: sa)");
+		System.err.println("    -password <pwd>");
+		System.err.println("        The password");
+		System.err.println("    -script <file>;");
+		System.err.println("        The script file to run (default: backup.sql)");
+		System.err.println("    -showResults");
+		System.err.println("        Show the statements and the results of queries");
+		System.err.println("    -checkResults");
+		System.err.println("        Check if the query results match the expected results");
+		System.err.println("    -continueOnError");
+		System.err.println("        Continue even if the script contains errors");
+		System.err.println("    -url <url>");
+		System.err.println("        Expliciat spec of database URL (jdbc:...)");
+		System.err.println("    -driver <class>");
+		System.err.println("        The JDBC driver class to use (not required in most cases)");
+		System.err.println("");
+
+		System.exit(1);
+
+	}
+	
 	/**
 	 * @param args2
 	 * @throws SQLException 
@@ -292,42 +344,21 @@ public class H2HaServer
 	private static void startScript(String[] args)
 	throws SQLException
 	{
+		try {
+			args = createUrl(args);
+		} catch (SQLException x) {
+			System.err.println(x.getMessage()+"\n");
+			showScriptUsage();
+		}
+
 		new RunScript(){
 			@Override
 			protected void showUsage()
 			{
-				System.err.println("usage: java -jar "+getJarname()+" script [option ...]");
-				System.err.println("with option:");
-				System.err.println("    -help or -?");
-				System.err.println("        Print the list of options");
-				System.err.println("    -server hostname[:port][hostname[:port]]");
-				System.err.println("        The database server address(es)");
-				System.err.println("    -haBaseDir <directory>");
-				System.err.println("        Base directory of HA database");
-				System.err.println("    -database <database-name>");
-				System.err.println("        The database name");
-				System.err.println("    -user <user>");
-				System.err.println("        The user name (default: sa)");
-				System.err.println("    -password <pwd>");
-				System.err.println("        The password");
-				System.err.println("    -script <file>;");
-				System.err.println("        The script file to run (default: backup.sql)");
-				System.err.println("    -showResults");
-				System.err.println("        Show the statements and the results of queries");
-				System.err.println("    -checkResults");
-				System.err.println("        Check if the query results match the expected results");
-				System.err.println("    -continueOnError");
-				System.err.println("        Continue even if the script contains errors");
-				System.err.println("    -url <url>");
-				System.err.println("        Expliciat spec of database URL (jdbc:...)");
-				System.err.println("    -driver <class>");
-				System.err.println("        The JDBC driver class to use (not required in most cases)");
-				System.err.println("");
-
-				System.exit(1);
+				showScriptUsage();
 			}
 
-		}.runTool(createUrl(args));
+		}.runTool(args);
 	}
 
 
@@ -418,6 +449,13 @@ public class H2HaServer
 			System.exit(1);
 		}
 
+		try {
+			args = createUrl(args);
+		} catch (SQLException x) {
+			System.err.println(x.getMessage()+"\n");
+			showCreateUsage();
+		}
+		
 		new RunScript(){
 			@Override
 			protected void showUsage()
@@ -425,7 +463,7 @@ public class H2HaServer
 				showCreateUsage();
 			}
 
-		}.runTool(createUrl(args));
+		}.runTool(args);
 	}
 
 	/**
@@ -493,9 +531,10 @@ public class H2HaServer
 
 
 	private static String[] createUrl(String[] args)
+	throws SQLException
 	{
 		String server = null;
-		String database = "unspecified-database";
+		String database = null;
 		String haBaseDir = null;
 		String url = null;
 
@@ -526,6 +565,10 @@ public class H2HaServer
 		if (url == null) {
 			if (server == null && haBaseDir == null) {
 				server = "localhost";
+			}
+			
+			if (database == null) {
+				throw new SQLException("either -database dbname or -url jdbc-url is needed");
 			}
 
 			if (server != null) {
