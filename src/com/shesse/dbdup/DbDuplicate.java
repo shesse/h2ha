@@ -42,10 +42,15 @@ public class DbDuplicate
 	{
 		try {
 			new DbDuplicate().run(args);
+			
 		} catch (SQLException x) {
 			System.err.println("SQL error: "+x.getMessage());
-			x.printStackTrace(System.err);
 			System.exit(1);
+
+		} catch (Throwable x) {
+			log.fatal("unexpected exception within main thread", x);
+			System.exit(1);
+
 		}
 	}
 
@@ -57,6 +62,14 @@ public class DbDuplicate
 	throws SQLException
 	{
 		if (args.length != 6) {
+			/*
+			System.err.println("got args:");
+			for (int i = 0; i < args.length; i++) {
+				System.err.println(" args["+i+"] = "+args[i]);
+			}
+			System.err.println("\n");
+			*/
+			
 			System.err.println("usage: DbDuplicate from-url from-user from-password to-url to-user to-password");
 			System.exit(1);
 		}
@@ -148,7 +161,7 @@ public class DbDuplicate
 
 			try {
 				sql = genDdl(tableName, srcRecords.getMetaData());
-				log.debug(sql);
+				log.info(sql);
 				toStmnt.executeUpdate(sql);
 				toConn.commit();
 
@@ -250,13 +263,15 @@ public class DbDuplicate
 			if ("DATETIME".equals(columnTypeName) && p == 19) {
 				sb.append("TIMESTAMP");
 
-			} else if ("TEXT".equals(columnTypeName) && p < 65536) {
-				sb.append("VARCHAR("+p+")");
-
+			} else if ("TEXT".equals(columnTypeName)) {
+				sb.append("VARCHAR");
+				if (p < 65536 && p > 0) {
+					sb.append("("+p+")");
+				}
 			} else {
 				sb.append(columnTypeName);
 
-				if (p > 0) {
+				if (p > 0 && p < 65536) {
 					sb.append("(").append(p);
 					int s = meta.getScale(c);
 					if (s > 0) sb.append(", ").append(s);

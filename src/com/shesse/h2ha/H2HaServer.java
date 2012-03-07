@@ -36,6 +36,8 @@ import org.h2.tools.Server;
 import org.h2.tools.Shell;
 import org.h2.tools.SimpleResultSet;
 
+import com.shesse.dbdup.DbDuplicate;
+
 /**
  *
  * @author sth
@@ -200,6 +202,9 @@ public class H2HaServer
 
 			} else if ("create".equals(command)) {
 				createDatabase(args);
+
+			} else if ("dbdup".equals(command)) {
+				DbDuplicate.main(args);
 
 			} else {
 				System.err.println("usage: java -jar "+getJarname()+" <command> [option ...]");
