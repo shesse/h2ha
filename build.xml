@@ -44,13 +44,19 @@
     <copy todir="${class}">
       <fileset dir="${src}" excludes="**/*.java,**/*~" />
     </copy>
+  	
+    <echoproperties destfile="${class}/version.properties">
+  	  <propertyset>
+  	    <propertyref name="version"/>
+  	  </propertyset>
+  	</echoproperties>
   </target>
 
   <taskdef name="one-jar" classname="com.simontuffs.onejar.ant.OneJarTask"
     classpath="${basedir}/lib/one-jar-ant-task-0.97.jar" onerror="report" />
 
   <target name="dist" depends="compile">
-    <one-jar destfile="${dist}/${product}-${version}.jar">
+    <one-jar destfile="${dist}/${product}.jar">
       <manifest>
         <attribute name="One-Jar-Main-Class" value="com.shesse.h2ha.H2HaServer" />
         <attribute name="Built-By" value="${user.name}" />
@@ -72,7 +78,7 @@
 
     </one-jar>
 
-    <jar jarfile="${dist}/${product}-driver-${version}.jar">
+    <jar jarfile="${dist}/${product}-driver.jar">
       <manifest>
         <attribute name="Built-By" value="${user.name}" />
         <attribute name="Implementation-Vendor" value="DICOS GmbH" />

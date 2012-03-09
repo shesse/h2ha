@@ -23,6 +23,7 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Properties;
 import java.util.UUID;
@@ -54,13 +55,13 @@ public class H2HaServer
 	private String[] args;
 
 	/** */
-	private List<String> serverArgs = new ArrayList<String>();
-
-	/** */
 	private FileSystemHa fileSystem;
 
 	/** */
 	private ReplicationServer server;
+
+	/** */
+	private List<String> serverArgs = new ArrayList<String>();
 
 	/** */
 	private Server tcpDatabaseServer;
@@ -206,6 +207,9 @@ public class H2HaServer
 			} else if ("dbdup".equals(command)) {
 				DbDuplicate.main(args);
 
+			} else if ("version".equals(command)) {
+				printVersionInfo(args);
+
 			} else {
 				System.err.println("usage: java -jar "+getJarname()+" <command> [option ...]");
 				System.err.println("with command:");
@@ -217,6 +221,8 @@ public class H2HaServer
 				System.err.println("        Submit a SQL script to the database");
 				System.err.println("    create");
 				System.err.println("        Create a new database");
+				System.err.println("    version");
+				System.err.println("        print version info");
 
 				System.exit(1);
 
@@ -688,6 +694,38 @@ public class H2HaServer
 	}
 
 	/**
+	 * @param args2
+	 */
+	private static void printVersionInfo(String[] args2)
+	{
+		System.err.println("H2HA Server "+getVersionInfo());
+	}
+
+	/**
+	 * 
+	 */
+	private static String getVersionInfo()
+	{
+		InputStream versionStream = H2HaServer.class.getClassLoader().getResourceAsStream("version.properties");
+		if (versionStream == null) {
+			return "unknown";
+		} else {
+			try {
+				Properties versionProps = new Properties();
+				versionProps.load(versionStream);
+				return versionProps.getProperty("version", "unknown");
+			} catch (IOException x) {
+				return "unknown";
+			} finally {
+				try {
+					versionStream.close();
+				} catch (IOException x) {
+				}
+			}
+		}
+	}
+
+	/**
 	 * 
 	 */
 	private void showServerUsage()
@@ -981,6 +1019,89 @@ public class H2HaServer
 	}
 
 
+	/**
+	 * Returns the name of a directory to be used for storing backup
+	 * files. This directory can be defined by setting the system property
+	 * h2ha.backupdir when starting the H2HA server.
+	 * 
+	 * @param conn
+	 * @return null if no backup directory is defined or if it cannot be used.
+	 * 
+	 * @throws SQLException
+	 * @throws IOException 
+	 */
+	public static ResultSet getBackupDirectory(Connection conn)
+	throws SQLException, IOException
+	{
+		String backupDir = System.getProperty("h2ha.backupdir");
+		if (backupDir != null) {
+			File bdf = new File(backupDir);
+			backupDir = bdf.getCanonicalPath();
+			if (!bdf.isDirectory()) {
+				if (!bdf.mkdir()) {
+					backupDir = null;
+				}
+			}
+		}
+		
+		SimpleResultSet rs = new SimpleResultSet();
+		rs.addColumn("BACKUP_DIRECTORY", Types.VARCHAR, 1000, 0);
+
+		String url = conn.getMetaData().getURL();
+		if (url.equals("jdbc:columnlist:connection")) {
+			return rs;
+		}
+
+		rs.addRow(backupDir);
+
+		return rs;
+	}
+	
+	/**
+	 * Removes all files in the backup directory except the noToKeep
+	 * newest ones.
+	 */
+	public static void cleanupBackupDirectory(int noToKeep)
+	{
+		String backupDir = System.getProperty("h2ha.backupdir");
+		if (backupDir == null) {
+			return;
+		}
+
+		File bdf = new File(backupDir);
+		File[] backupFiles = bdf.listFiles();
+		if (backupFiles == null) {
+			return;
+		}
+		
+		Arrays.sort(backupFiles, new Comparator<File>() {
+			public int compare(File o1, File o2)
+			{
+				long lm1 = o1.lastModified();
+				long lm2 = o2.lastModified();
+				
+				if (lm1 < lm2) {
+					return 1;
+				} else if (lm1 > lm2) {
+					return -1;
+				} else {
+					return 0;
+				}
+			}
+		});
+		
+		// descending sort -> the youngest ones come first
+		for (File backupFile: backupFiles) {
+			if (backupFile.isFile()) {
+				if (noToKeep > 0) {
+					noToKeep--;
+				} else {
+					backupFile.delete();
+				}
+			}
+		}
+	}
+	
 	/**
 	 * computes deterministic role assignment depending on
 	 * current local role, local and remote master priority and
