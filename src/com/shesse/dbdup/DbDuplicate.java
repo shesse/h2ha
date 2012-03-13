@@ -268,6 +268,12 @@ public class DbDuplicate
 				if (p < 65536 && p > 0) {
 					sb.append("("+p+")");
 				}
+			} else if ("SMALLINT UNSIGNED".equals(columnTypeName)) {
+				sb.append("SMALLINT");
+				if (p < 65536 && p > 0) {
+					sb.append("("+p+")");
+				}
+				sb.append(" UNSIGNED");
 			} else {
 				sb.append(columnTypeName);
 
