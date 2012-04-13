@@ -740,6 +740,8 @@ public class H2HaServer
 		System.err.println("        host name of HA peer");
 		System.err.println("    -haPeerPort");
 		System.err.println("        peer HA port (default = 8234)");
+		System.err.println("    -haRestrictPeer");
+		System.err.println("        restrict incoming HA connections to those coming from -haPeerHost");
 		System.err.println("    -haBaseDir");
 		System.err.println("        base directory for replicated DB files");
 		System.err.println("    -masterPriority");
@@ -772,10 +774,10 @@ public class H2HaServer
 
 
 	/**
-	 * Fordert eine Sperre für den Zugriff auf die haBaseDir
-	 * an. Liefert ein Handle für die Sperre, über das sie
+	 * Fordert eine Sperre fï¿½r den Zugriff auf die haBaseDir
+	 * an. Liefert ein Handle fï¿½r die Sperre, ï¿½ber das sie
 	 * wieder freigegeben werden kann oder null, wenn das Sperren
-	 * nicht möglich war
+	 * nicht mï¿½glich war
 	 */
 	private static LockHandle acquireHaBaseLock(String haBaseDir)
 	{
