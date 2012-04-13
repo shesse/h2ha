@@ -114,13 +114,18 @@ public class ReplicationServer
 				}
 			}
 		}
-		
-		if (restrictPeer && peerHost != null) {
+
+		if (restrictPeer) {
+			String restrictHost = peerHost;
+			if (restrictHost == null) {
+				restrictHost = "127.0.0.1";
+			}
+			
 			try {
-				peerRestriction = InetAddress.getByName(peerHost);
-				
+				peerRestriction = InetAddress.getByName(restrictHost);
+
 			} catch (UnknownHostException x) {
-				log.error("unknown host name: "+peerHost);
+				log.error("unknown host name: "+restrictHost);
 				System.exit(1);
 			}
 		}
