@@ -747,6 +747,9 @@ public class H2HaServer
 		System.err.println("    -masterPriority");
 		System.err.println("        priority to become a master. Integer value.");
 		System.err.println("        Default is 10. Higher values are higher priorities.");
+		System.err.println("    -autoFailback");
+		System.err.println("        automatically transfer master role if configured master");
+		System.err.println("        comes back again afetr a failure.");
 		System.err.println("    -haMaxQueueSize");
 		System.err.println("        Queue size for HA replication (default = 5000)");
 		System.err.println("    -haMaxEnqueueWait");
@@ -1387,6 +1390,15 @@ public class H2HaServer
 			log.error("SQLException when starting database server", x);
 			System.exit(1);
 		}
+	}
+
+	/**
+	 * 
+	 */
+	public void failbackMasterRole(FailoverState oldState, Event event, FailoverState newState, Object parameter)
+	{
+		log.info("configured master is ready again - transfering the master role");
+		stopDbServer(oldState, event, newState, parameter);
 	}
 
 	/**

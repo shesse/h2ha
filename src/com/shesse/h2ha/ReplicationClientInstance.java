@@ -81,6 +81,9 @@ extends ServerSideProtocolInstance
     /** */
     private String peerUuid = "-";
     
+    /** */
+    private boolean autoFailback = false;
+    
     // /////////////////////////////////////////////////////////
     // Constructors
     // /////////////////////////////////////////////////////////
@@ -130,6 +133,9 @@ extends ServerSideProtocolInstance
                 } catch (NumberFormatException x) {
                     log.error("inhalid connectRetry: "+x);
                 }
+                
+            } else if (args[i].equals("-autoFailback")) {
+                autoFailback = true;
             }
         }
         
@@ -274,21 +280,27 @@ extends ServerSideProtocolInstance
 	}
     }
 
-    /**
+	/**
      * 
      */
-    public void issuePeerEvent()
-    {
-	String eventParam = peerState.toString();
-	String optParam;
-	if (haServer.weAreConfiguredMaster(peerMasterPriority, peerUuid)) {
-	    optParam = "local";
-	} else {
-	    optParam = "peer";
-	}
+	public void issuePeerEvent()
+	{
+		String eventParam = peerState.toString();
+		String optParam;
+		if (haServer.weAreConfiguredMaster(peerMasterPriority, peerUuid)) {
+			// local system is configured master
+			optParam = "local";
+		} else if (autoFailback) {
+			// local sytem is configured slave and autoFailback selected
+			optParam = "xfer";
+			
+		} else {
+			// local system is configured slave - no autoFailback configured
+			optParam = "peer";
+		}
 
-	haServer.applyEvent(Event.PEER_STATE, eventParam, optParam);
-    }
+		haServer.applyEvent(Event.PEER_STATE, eventParam, optParam);
+	}
 
     /**
      * 
@@ -331,23 +343,24 @@ extends ServerSideProtocolInstance
 	sendStatus();
     }
 
-    /**
-     * {@inheritDoc}
-     *
-     * @see com.shesse.h2ha.ReplicationProtocolInstance#peerStatusReceived(int, java.lang.String)
-     */
-    @Override
-    protected void peerStatusReceived(FailoverState peerState, int peerMasterPriority, String peerUuid)
-    {
-	this.peerState = peerState;
-	this.peerMasterPriority = peerMasterPriority;
-	this.peerUuid = peerUuid;
-	
-	super.peerStatusReceived(peerState, peerMasterPriority, peerUuid);
-	
-	issuePeerEvent();
-    }
+	/**
+	 * {@inheritDoc}
+	 * 
+	 * @see com.shesse.h2ha.ReplicationProtocolInstance#peerStatusReceived(int,
+	 *      java.lang.String)
+	 */
+	@Override
+	protected void peerStatusReceived(FailoverState peerState, int peerMasterPriority,
+									  String peerUuid)
+	{
+		this.peerState = peerState;
+		this.peerMasterPriority = peerMasterPriority;
+		this.peerUuid = peerUuid;
 
+		super.peerStatusReceived(peerState, peerMasterPriority, peerUuid);
+
+		issuePeerEvent();
+	}
     
 
     /**
