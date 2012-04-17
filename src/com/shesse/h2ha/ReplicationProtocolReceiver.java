@@ -22,102 +22,102 @@ import org.apache.log4j.Logger;
 public class ReplicationProtocolReceiver
 extends Thread
 {
-    // /////////////////////////////////////////////////////////
-    // Class Members
-    // /////////////////////////////////////////////////////////
-    /** */
-    private static Logger log = Logger.getLogger(ReplicationProtocolReceiver.class);
-    
-    /** */
-    private ReplicationProtocolInstance sender;
-    
-    /** */
-    private Socket socket;
-    
-    /** */
-    private String instanceName;
-   
-    /** */
-    private volatile boolean terminationRequested = false;
-    
+	// /////////////////////////////////////////////////////////
+	// Class Members
+	// /////////////////////////////////////////////////////////
+	/** */
+	private static Logger log = Logger.getLogger(ReplicationProtocolReceiver.class);
 
-    // /////////////////////////////////////////////////////////
-    // Constructors
-    // /////////////////////////////////////////////////////////
-    /**
-     * @throws IOException 
-     */
-    public ReplicationProtocolReceiver(ReplicationProtocolInstance sender, Socket socket) throws IOException
-    {
-        super("replClientRecv");
-        log.debug("ReplicationProtocolReceiver()");
+	/** */
+	private ReplicationProtocolInstance sender;
 
-        this.sender = sender;
-        this.socket = socket;
-        
-        instanceName="recv:"+sender.getInstanceName();
-    }
+	/** */
+	private Socket socket;
 
-    // /////////////////////////////////////////////////////////
-    // Methods
-    // /////////////////////////////////////////////////////////
-    /**
-     * 
-     */
-    public void run()
-    {
-        try {
-            body();
-            
-        } catch (SocketException x) {
-            if (x.getMessage().contains("reset")) {
-        	// treat like EOF
-            } else {
-        	log.warn(instanceName+": caught socket exception on replication connection: "+x.getMessage());
-            }
-            
-        } catch (EOFException x) {
-            
-        } catch (Throwable x) {
-            log.fatal(instanceName+": unexpected error within replication client receiver", x);
+	/** */
+	private String instanceName;
 
-        } finally {
-            log.info(instanceName+": got end of connection");
-            //ReplicationServerInstance.logStacksOfAllThreads(log);
-            sender.terminate();
-        }
-    }
-    
-    /**
-     * @throws ClassNotFoundException 
-     * @throws IOException 
-     * 
-     */
-    private void body() throws IOException, ClassNotFoundException
-    {
-        ObjectInputStream ois = new ObjectInputStream(new BufferedInputStream(socket.getInputStream()));
-        Object messageObject;
-        while (!terminationRequested && (messageObject = ois.readObject()) != null) {
-            sender.processReceivedMessage(messageObject);
-        }
-    }
-    
-    /**
-     * 
-     */
-    public void terminate()
-    {
-        terminationRequested = true;
-        try {
-            socket.close();
-        } catch (IOException x) {
-        }
-    }
-    
+	/** */
+	private volatile boolean terminationRequested = false;
 
-    // /////////////////////////////////////////////////////////
-    // Inner Classes
-    // /////////////////////////////////////////////////////////
+
+	// /////////////////////////////////////////////////////////
+	// Constructors
+	// /////////////////////////////////////////////////////////
+	/**
+	 * @throws IOException 
+	 */
+	public ReplicationProtocolReceiver(ReplicationProtocolInstance sender, Socket socket) throws IOException
+	{
+		super("replClientRecv");
+		log.debug("ReplicationProtocolReceiver()");
+
+		this.sender = sender;
+		this.socket = socket;
+
+		instanceName="recv:"+sender.getInstanceName();
+	}
+
+	// /////////////////////////////////////////////////////////
+	// Methods
+	// /////////////////////////////////////////////////////////
+	/**
+	 * 
+	 */
+	public void run()
+	{
+		try {
+			body();
+
+		} catch (SocketException x) {
+			if (x.getMessage().contains("reset")) {
+				// treat like EOF
+			} else {
+				log.warn(instanceName+": caught socket exception on replication connection: "+x.getMessage());
+			}
+
+		} catch (EOFException x) {
+
+		} catch (Throwable x) {
+			log.fatal(instanceName+": unexpected error within replication client receiver", x);
+
+		} finally {
+			log.info(instanceName+": got end of connection");
+			//ReplicationServerInstance.logStacksOfAllThreads(log);
+			sender.terminate();
+		}
+	}
+
+	/**
+	 * @throws ClassNotFoundException 
+	 * @throws IOException 
+	 * 
+	 */
+	private void body() throws IOException, ClassNotFoundException
+	{
+		ObjectInputStream ois = new ObjectInputStream(new BufferedInputStream(socket.getInputStream()));
+		Object messageObject;
+		while (!terminationRequested && (messageObject = ois.readObject()) != null) {
+			sender.processReceivedMessage(messageObject);
+		}
+	}
+
+	/**
+	 * 
+	 */
+	public void terminate()
+	{
+		terminationRequested = true;
+		try {
+			socket.close();
+		} catch (IOException x) {
+		}
+	}
+
+
+	// /////////////////////////////////////////////////////////
+	// Inner Classes
+	// /////////////////////////////////////////////////////////
 
 
 }

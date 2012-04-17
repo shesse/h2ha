@@ -255,6 +255,7 @@ extends ServerSideProtocolInstance
         long fileSize = fo.length();
         byte[] buffer = new byte[4096];
         long offset = 0;
+        fo.seek(offset);
         syncInfo.setEndIgnore(fileSize);
         while (offset < fileSize) {
             try {
@@ -267,7 +268,7 @@ extends ServerSideProtocolInstance
                 }
 
                 syncInfo.setBeginIgnore(endrd);
-                 
+
                 if (fo instanceof FileObjectHa) {
                     ((FileObjectHa)fo).readFullyNocache(buffer, 0, rdlen);
                 } else {
@@ -281,6 +282,7 @@ extends ServerSideProtocolInstance
                 if (nfs < fileSize) {
                     log.debug("adjusting to shrinking random access file");
                     fileSize = nfs;
+                    fo.seek(offset);
                 } else {
                     throw x;
                 }
@@ -327,6 +329,7 @@ extends ServerSideProtocolInstance
             long fileSize = fo.length();
             byte[] buffer = new byte[4096];
             long offset = 0;
+            fo.seek(offset);
             while (offset < fileSize) {
                 try {
                     int rdlen = buffer.length;
@@ -338,7 +341,7 @@ extends ServerSideProtocolInstance
                     }
 
                     syncInfo.setBeginIgnore(endrd);
-                    
+
                     if (fo instanceof FileObjectHa) {
                         ((FileObjectHa)fo).readFullyNocache(buffer, 0, rdlen);
                     } else {
@@ -352,6 +355,7 @@ extends ServerSideProtocolInstance
                     if (nfs < fileSize) {
                         log.debug("adjusting to shrinking random access file");
                         fileSize = nfs;
+                        fo.seek(offset);
                     } else {
                         throw x;
                     }

@@ -933,6 +933,8 @@ public class H2HaServer
 		rs.addColumn("SERVER_NAME", Types.VARCHAR, 100, 0);
 		rs.addColumn("SERVER_PORT", Types.INTEGER, 5, 0);
 		rs.addColumn("LOCAL_STATUS", Types.VARCHAR, 20, 0);
+		rs.addColumn("PEER_NAME", Types.VARCHAR, 100, 0);
+		rs.addColumn("PEER_PORT", Types.INTEGER, 5, 0);
 		rs.addColumn("PEER_STATUS", Types.VARCHAR, 20, 0);
 		rs.addColumn("REPL_BYTES_RAW", Types.INTEGER, 20, 0);
 		rs.addColumn("REPL_BYTES_CROPPED", Types.INTEGER, 20, 0);
@@ -953,6 +955,8 @@ public class H2HaServer
 				serverName,//
 				listenPort,//
 				failoverState.toString(),//
+				(client == null ? null : client.getPeerHost()),//
+				(client == null ? null : client.getPeerPort()),//
 				(client == null ? null : client.getPeerState().toString()),//
 				fileSystem.getReplicationRawBytes(),//
 				fileSystem.getReplicationCroppedBytes(),//
