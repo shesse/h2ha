@@ -9,6 +9,7 @@ package com.shesse.jdbcproxy;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
 
@@ -566,6 +567,30 @@ public class HaStatement
     {
 	return base.isPoolable();
     }
+
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @see java.sql.Statement#closeOnCompletion()
+	 */
+	public void closeOnCompletion()
+		throws SQLException
+	{
+		throw new SQLFeatureNotSupportedException("");
+	}
+
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @see java.sql.Statement#isCloseOnCompletion()
+	 */
+	public boolean isCloseOnCompletion()
+		throws SQLException
+	{
+		throw new SQLFeatureNotSupportedException("");
+	}
 
 
 

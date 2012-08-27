@@ -12,7 +12,9 @@ import java.io.PrintWriter;
 import java.io.Serializable;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.util.Properties;
+import java.util.logging.Logger;
 
 import javax.naming.NamingException;
 import javax.naming.Reference;
@@ -276,6 +278,17 @@ public class HaDataSource
 	JdbcXAConnection h2xac = AlternatingConnectionFactory.getFactory(url, modprops).getXaConnection();
 	return new HaXaConnection(h2xac);
     }
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @see javax.sql.CommonDataSource#getParentLogger()
+	 */
+	public Logger getParentLogger()
+		throws SQLFeatureNotSupportedException
+	{
+		throw new SQLFeatureNotSupportedException("");
+	}
 
 
 

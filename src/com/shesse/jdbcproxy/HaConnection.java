@@ -16,6 +16,7 @@ import java.sql.NClob;
 import java.sql.PreparedStatement;
 import java.sql.SQLClientInfoException;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
 import java.sql.SQLXML;
 import java.sql.Savepoint;
@@ -23,6 +24,7 @@ import java.sql.Statement;
 import java.sql.Struct;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.Executor;
 
 /**
  *
@@ -678,6 +680,66 @@ public class HaConnection
     {
 	return h2Connection.unwrap(paramClass);
     }
+
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @see java.sql.Connection#setSchema(java.lang.String)
+	 */
+	public void setSchema(String schema)
+		throws SQLException
+	{
+		throw new SQLFeatureNotSupportedException("");
+	}
+
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @see java.sql.Connection#getSchema()
+	 */
+	public String getSchema()
+		throws SQLException
+	{
+		throw new SQLFeatureNotSupportedException("");
+	}
+
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @see java.sql.Connection#abort(java.util.concurrent.Executor)
+	 */
+	public void abort(Executor executor)
+		throws SQLException
+	{
+		throw new SQLFeatureNotSupportedException("");
+	}
+
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @see java.sql.Connection#setNetworkTimeout(java.util.concurrent.Executor, int)
+	 */
+	public void setNetworkTimeout(Executor executor, int milliseconds)
+		throws SQLException
+	{
+		throw new SQLFeatureNotSupportedException("");
+	}
+
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @see java.sql.Connection#getNetworkTimeout()
+	 */
+	public int getNetworkTimeout()
+		throws SQLException
+	{
+		throw new SQLFeatureNotSupportedException("");
+	}
 
 
 

@@ -11,6 +11,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.RowIdLifetime;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 
 /**
  *
@@ -2238,6 +2239,31 @@ public class HaDatabaseMetaData
 	return new HaResultSet(haConnection, null, base.getFunctionColumns(catalog, schemaPattern, functionNamePattern,
 	    columnNamePattern));
     }
+
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @see java.sql.DatabaseMetaData#getPseudoColumns(java.lang.String, java.lang.String, java.lang.String, java.lang.String)
+	 */
+	public ResultSet getPseudoColumns(String catalog, String schemaPattern,
+									  String tableNamePattern, String columnNamePattern)
+		throws SQLException
+	{
+		throw new SQLFeatureNotSupportedException("");
+	}
+
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @see java.sql.DatabaseMetaData#generatedKeyAlwaysReturned()
+	 */
+	public boolean generatedKeyAlwaysReturned()
+		throws SQLException
+	{
+		throw new SQLFeatureNotSupportedException("");
+	}
 
 
 

@@ -19,6 +19,7 @@ import java.sql.NClob;
 import java.sql.Ref;
 import java.sql.RowId;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLXML;
 import java.sql.Time;
 import java.sql.Timestamp;
@@ -1550,6 +1551,54 @@ implements CallableStatement
     {
 	return base.wasNull();
     }
+
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @see java.sql.Statement#closeOnCompletion()
+	 */
+	public void closeOnCompletion()
+		throws SQLException
+	{
+		throw new SQLFeatureNotSupportedException("closeOnCompletion");
+	}
+
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @see java.sql.Statement#isCloseOnCompletion()
+	 */
+	public boolean isCloseOnCompletion()
+		throws SQLException
+	{
+		return false;
+	}
+
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @see java.sql.CallableStatement#getObject(int, java.lang.Class)
+	 */
+	public <T> T getObject(int parameterIndex, Class<T> type)
+		throws SQLException
+	{
+		throw new SQLFeatureNotSupportedException("getObject");
+	}
+
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @see java.sql.CallableStatement#getObject(java.lang.String, java.lang.Class)
+	 */
+	public <T> T getObject(String parameterName, Class<T> type)
+		throws SQLException
+	{
+		throw new SQLFeatureNotSupportedException("getObject");
+	}
 
 
 
