@@ -1,92 +1,89 @@
 <?xml version="1.0" encoding="iso-8859-1" ?>
 <project name="h2ha" default="dist" basedir=".">
 
-  <property name="product" value="h2ha" />
-  <property name="version" value="1.1" />
+	<property name="product" value="h2ha" />
+	<property name="version" value="1.1" />
 
-  <property environment="env" />
-  <property name="src" value="${basedir}/src" />
-  <property name="class" value="${basedir}/class" />
-  <property name="dist" value="${basedir}/dist" />
-  <property name="lib" value="${basedir}/lib" />
+	<property environment="env" />
+	<property name="src" value="${basedir}/src" />
+	<property name="class" value="${basedir}/class" />
+	<property name="dist" value="${basedir}/dist" />
+	<property name="lib" value="${basedir}/lib" />
 
 
-  <path id="classpath.base">
-    <pathelement location="${class}" />
-    <fileset dir="${lib}">
-      <include name="*.jar" />
-      <exclude name="one-jar*" />
-    </fileset>
-  </path>
+	<path id="classpath.base">
+		<pathelement location="${class}" />
+	    <pathelement location="${lib}/log4j-1.2.9.jar" />
+	    <pathelement location="${lib}/junit-4.8.2.jar" />
+	    <pathelement location="${lib}/h2-1.3.158.jar" />
+	    <pathelement location="${lib}/mysql-connector-java-5.1.12-bin.jar" />
+	</path>
 
-  <target name="init">
-    <tstamp />
-    <mkdir dir="${dist}" />
-    <mkdir dir="${class}" />
+	<target name="init">
+		<tstamp />
+		<mkdir dir="${dist}" />
+		<mkdir dir="${class}" />
 
-    <tstamp>
-      <format property="bin.stamp" pattern="yyyy-MM-dd HH:mm:ss" />
-    </tstamp>
-  </target>
+		<tstamp>
+			<format property="bin.stamp" pattern="yyyy-MM-dd HH:mm:ss" />
+		</tstamp>
+	</target>
 
-  <target name="clean">
-    <delete dir="${class}" />
-  </target>
+	<target name="clean">
+		<delete dir="${class}" />
+	</target>
 
-  <target name="compile" depends="init">
-    <javac destdir="${class}" classpathref="classpath.base"
-      deprecation="on" optimize="on" debug="on" Encoding="iso-8859-15"
-      source="1.6" target="1.6" includeantruntime="false">
-      <src path="${src}" />
-      <compilerarg value="-Xlint:unchecked" />
-    </javac>
+	<target name="compile" depends="init">
+		<javac destdir="${class}" Encoding="iso-8859-15" source="1.6" target="1.6" includeantruntime="false">
+			<src path="${src}" />
+			<classpath refid="classpath.base" />
+		</javac>
 
-    <copy todir="${class}">
-      <fileset dir="${src}" excludes="**/*.java,**/*~" />
-    </copy>
-  	
-    <echoproperties destfile="${class}/version.properties">
-  	  <propertyset>
-  	    <propertyref name="version"/>
-  	  </propertyset>
-  	</echoproperties>
-  </target>
+		<copy todir="${class}">
+			<fileset dir="${src}" excludes="**/*.java,**/*~" />
+		</copy>
 
-  <taskdef name="one-jar" classname="com.simontuffs.onejar.ant.OneJarTask"
-    classpath="${basedir}/lib/one-jar-ant-task-0.97.jar" onerror="report" />
+		<echoproperties destfile="${class}/version.properties">
+			<propertyset>
+				<propertyref name="version" />
+			</propertyset>
+		</echoproperties>
+	</target>
 
-  <target name="dist" depends="compile">
-    <one-jar destfile="${dist}/${product}.jar">
-      <manifest>
-        <attribute name="One-Jar-Main-Class" value="com.shesse.h2ha.H2HaServer" />
-        <attribute name="Built-By" value="${user.name}" />
-        <attribute name="Implementation-Vendor" value="DICOS GmbH" />
-        <attribute name="Implementation-Version" value="${version}" />
-        <attribute name="Implementation-Timestamp" value="${bin.stamp}" />
-      </manifest>
+	<taskdef name="one-jar" classname="com.simontuffs.onejar.ant.OneJarTask" classpath="${basedir}/lib/one-jar-ant-task-0.97.jar" onerror="report" />
 
-      <main>
-        <fileset dir="${class}" />
-      </main>
+	<target name="dist" depends="compile">
+		<one-jar destfile="${dist}/${product}.jar">
+			<manifest>
+				<attribute name="One-Jar-Main-Class" value="com.shesse.h2ha.H2HaServer" />
+				<attribute name="Built-By" value="${user.name}" />
+				<attribute name="Implementation-Vendor" value="DICOS GmbH" />
+				<attribute name="Implementation-Version" value="${version}" />
+				<attribute name="Implementation-Timestamp" value="${bin.stamp}" />
+			</manifest>
 
-      <lib>
-        <fileset dir="${basedir}/lib">
-            <exclude name="one-jar*" />
-            <exclude name="mysql-conn*" />
-        </fileset>
-      </lib>
+			<main>
+				<fileset dir="${class}" />
+			</main>
 
-    </one-jar>
+			<lib>
+				<fileset dir="${basedir}/lib">
+					<exclude name="one-jar*" />
+					<exclude name="mysql-conn*" />
+				</fileset>
+			</lib>
 
-    <jar jarfile="${dist}/${product}-driver.jar">
-      <manifest>
-        <attribute name="Built-By" value="${user.name}" />
-        <attribute name="Implementation-Vendor" value="DICOS GmbH" />
-        <attribute name="Implementation-Version" value="${version}" />
-        <attribute name="Implementation-Timestamp" value="${bin.stamp}" />
-      </manifest>
+		</one-jar>
 
-      <fileset dir="${basedir}/class"/>
-    </jar>
-  </target>
+		<jar jarfile="${dist}/${product}-driver.jar">
+			<manifest>
+				<attribute name="Built-By" value="${user.name}" />
+				<attribute name="Implementation-Vendor" value="DICOS GmbH" />
+				<attribute name="Implementation-Version" value="${version}" />
+				<attribute name="Implementation-Timestamp" value="${bin.stamp}" />
+			</manifest>
+
+			<fileset dir="${basedir}/class" />
+		</jar>
+	</target>
 </project>

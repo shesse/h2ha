@@ -102,7 +102,9 @@ public class HaXaConnection
      */
     public void addStatementEventListener(final StatementEventListener evl)
     {
-	h2Connection.addStatementEventListener(new StatementEventListener() {
+    	//TODO: aktivieren, wenn H2 Version für Java 1.6 Basis wird
+    	/*
+    	h2Connection.addStatementEventListener(new StatementEventListener() {
 
 	    public void statementClosed(StatementEvent pev)
 	    {
@@ -117,6 +119,7 @@ public class HaXaConnection
 	    }
 	    
 	});
+	*/
     }
 
 
@@ -230,7 +233,10 @@ public class HaXaConnection
      */
     public void removeStatementEventListener(StatementEventListener paramStatementEventListener)
     {
+    	//TODO: aktivieren, wenn H2 Version für Java 1.6 Basis wird
+    	/*
 	h2Connection.removeStatementEventListener(paramStatementEventListener);
+	*/
     }
 
 
