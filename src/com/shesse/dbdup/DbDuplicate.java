@@ -540,17 +540,30 @@ public class DbDuplicate
 		ResultSet crefs = dbMeta.getImportedKeys(fromConn.getCatalog(), "", tableName);
 		try {
 			String currentPkTable = null;
+			String currentFkName = null;
 			List<String> pcolumns = new ArrayList<String>();
 			List<String> fcolumns = new ArrayList<String>();
 			short updateRule = 0;
 			short deleteRule = 0;
 			while (crefs.next()) {
 				String pkTable = crefs.getString("PKTABLE_NAME");
+				String fkName = crefs.getString("FK_NAME");
+				if (fkName == null) {
+					fkName = "";
+				}
 				//log.debug("index "+indexName+", col="+indexes.getString("COLUMN_NAME")+", nuniq="+indexes.getBoolean("NON_UNIQUE"));
-
-				if (!pkTable.equals(currentPkTable)) {
+				log.debug("fk "+tableName+" PKTABLE_NAME="+pkTable+
+					", PKCOLUMN_NAME="+crefs.getString("PKCOLUMN_NAME")+
+					", FKCOLUMN_NAME="+crefs.getString("FKCOLUMN_NAME")+
+					", KEY_SEQ="+crefs.getString("KEY_SEQ")+
+					", FK_NAME="+crefs.getString("FK_NAME")+
+					", PK_NAME="+crefs.getString("PK_NAME")
+					);
+				
+				if (!pkTable.equals(currentPkTable) || !fkName.equals(currentFkName)) {
 					buildForeignKeyConstraint(toConn, tableName, currentPkTable, pcolumns, fcolumns, updateRule, deleteRule);
 					currentPkTable = pkTable;
+					currentFkName = fkName;
 					pcolumns.clear();
 					fcolumns.clear();
 				}

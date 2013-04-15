@@ -2,7 +2,7 @@
 <project name="h2ha" default="dist" basedir=".">
 
   <property name="product" value="h2ha" />
-  <property name="version" value="1.0" />
+  <property name="version" value="1.1" />
 
   <property environment="env" />
   <property name="src" value="${basedir}/src" />
