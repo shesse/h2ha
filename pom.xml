@@ -7,7 +7,11 @@
 	<packaging>pom</packaging>
 	<name>h2ha</name>
 	<description>High Availability for H2 database server by filesystem replication</description>
-
+	<parent>
+		<groupId>org.sonatype.oss</groupId>
+		<artifactId>oss-parent</artifactId>
+		<version>7</version>
+	</parent>
 	<url>https://github.com/shesse/h2ha</url>
 
 	<licenses>
@@ -28,7 +32,6 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-release-plugin</artifactId>
-				<version>2.4.2</version>
 				<executions>
 					<execution>
 						<id>default</id>
@@ -45,7 +48,7 @@
 			</plugin>
 		</plugins>
 	</build>
-	
+
 	<dependencies>
 
 	</dependencies>
