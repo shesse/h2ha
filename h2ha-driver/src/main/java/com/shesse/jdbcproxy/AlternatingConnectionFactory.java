@@ -276,8 +276,8 @@ public class AlternatingConnectionFactory
 	}
 	
 	if (rc.firstConnection == null) {
-	    // wir haben bei keiner der Möglichkeiten Verbindung bekommen.
-	    // Daher müssen wir eine SQLException werfen
+	    // wir haben bei keiner der MÃ¶glichkeiten Verbindung bekommen.
+	    // Daher mÃ¼ssen wir eine SQLException werfen
 	    SQLException cause = rc.firstException;
 	    if (cause == null) {
 		// Die Exceptions ware alles keine SQLException

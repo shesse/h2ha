@@ -92,10 +92,17 @@ public class ServerProcess
             testcfg += "/sec";
         }
         
+        List<String> cmd = new ArrayList<String>();
+        
+        String l4j = testcfg+"/log4j.properties";
+        if (new File(l4j).canRead()) {
+        	cmd.add("-Dlog4j.configuration=file:///"+l4j);
+        }
+        
         String[] serverCommand = {//
-            "-Dlog4j.configuration=file:///"+testcfg+"/log4j.properties",
-            "-DhaTestProc="+instName,
+            "-DhaTestProc="+instName, //
             "com.shesse.h2ha.H2HaServer",//
+            "server",//
             "-haPeerHost", "localhost",//
             "-haPeerPort", String.valueOf(peerSyncPort), //
             "-haListenPort", String.valueOf(localSyncPort),//
@@ -105,7 +112,7 @@ public class ServerProcess
             "-masterPriority", (isPrimary ? "20" : "10"),//
         };
         
-        List<String> cmd = new ArrayList<String>(Arrays.asList(serverCommand));
+        cmd.addAll(Arrays.asList(serverCommand));
         
         if (haCacheSize >= 0) {
             cmd.add("-haCacheSize");
@@ -113,6 +120,7 @@ public class ServerProcess
         }
         
         log.info("starting up instance "+instName);
+        log.info("arguments="+cmd);
         dbProcess = ProcessUtils.startJavaProcess(instName, cmd);
 
         log.info("instance "+instName+" has been started");

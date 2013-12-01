@@ -183,7 +183,7 @@ public class ServerProcessPair
     public void createDatabaseA() 
     throws IOException, InterruptedException, SQLException
     {
-        processA.createDatabase("test", "sth", "sth");
+        processA.createDatabase("test", "sa", "sa");
     }
     
     /**
@@ -194,7 +194,7 @@ public class ServerProcessPair
     public void createDatabaseB()
     throws IOException, InterruptedException, SQLException
     {
-        processB.createDatabase("test", "sth", "sth");
+        processB.createDatabase("test", "sa", "sa");
     }
     
     /**

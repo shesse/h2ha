@@ -11,7 +11,6 @@ import java.sql.SQLException;
 
 import javax.sql.ConnectionEvent;
 import javax.sql.ConnectionEventListener;
-import javax.sql.StatementEvent;
 import javax.sql.StatementEventListener;
 import javax.sql.XAConnection;
 import javax.transaction.xa.XAException;
@@ -102,7 +101,7 @@ public class HaXaConnection
      */
     public void addStatementEventListener(final StatementEventListener evl)
     {
-    	//TODO: aktivieren, wenn H2 Version für Java 1.6 Basis wird
+    	//TODO: activate this as soon as H2 supports it (H2 version for Java >= 1.6)
     	/*
     	h2Connection.addStatementEventListener(new StatementEventListener() {
 
@@ -233,7 +232,7 @@ public class HaXaConnection
      */
     public void removeStatementEventListener(StatementEventListener paramStatementEventListener)
     {
-    	//TODO: aktivieren, wenn H2 Version für Java 1.6 Basis wird
+    	//TODO: activate this as soon as H2 supports it (H2 version for Java >= 1.6)
     	/*
 	h2Connection.removeStatementEventListener(paramStatementEventListener);
 	*/

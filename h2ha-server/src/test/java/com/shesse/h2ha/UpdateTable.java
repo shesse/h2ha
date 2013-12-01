@@ -112,9 +112,8 @@ public class UpdateTable
     private Connection makeConnection() 
     throws SQLException
     {
-        Connection conn = DriverManager.getConnection("jdbc:h2:tcp://localhost/test;LOCK_TIMEOUT=30000", "sth", "sth");
-        //Connection conn = DriverManager.getConnection("jdbc:h2:ha:~/config/h2/test;LOCK_TIMEOUT=30000", "sth", "sth");
-        conn.setAutoCommit(false);
+        Connection conn = DriverManager.getConnection("jdbc:h2:tcp://localhost/test;LOCK_TIMEOUT=30000", "sa", "sa");
+         conn.setAutoCommit(false);
         
         return conn;
     }
