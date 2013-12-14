@@ -13,6 +13,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.UnknownHostException;
+import java.util.List;
 
 import javax.net.ServerSocketFactory;
 
@@ -60,7 +61,7 @@ public class ReplicationServer
     // /////////////////////////////////////////////////////////
 	/**
      */
-	public ReplicationServer(H2HaServer haServer, FileSystemHa fileSystem, String[] args)
+	public ReplicationServer(H2HaServer haServer, FileSystemHa fileSystem, List<String> args)
 	{
 		super("ReplicationServer");
 
@@ -71,49 +72,13 @@ public class ReplicationServer
 		boolean restrictPeer = false;
 		String peerHost = null;
 		
-		for (int i = 0; i < args.length - 1; i++) {
-			if (args[i].equals("-haListenPort")) {
-				try {
-					listenPort = Integer.parseInt(args[i + 1]);
-				} catch (NumberFormatException x) {
-					log.error("inhalid haListenPort: " + x);
-				}
-
-			} else if (args[i].equals("-haPeerHost")) {
-				peerHost = args[++i];
-
-			} else if (args[i].equals("-haRestrictPeer")) {
-				restrictPeer = true;
-
-			} else if (args[i].equals("-haMaxQueueSize")) {
-				try {
-					maxQueueSize = Integer.parseInt(args[i + 1]);
-				} catch (NumberFormatException x) {
-					log.error("inhalid haMaxQueueSize: " + x);
-				}
-
-			} else if (args[i].equals("-haMaxEnqueueWait")) {
-				try {
-					maxEnqueueWait = Long.parseLong(args[i + 1]);
-				} catch (NumberFormatException x) {
-					log.error("inhalid haMaxEnqueueWait: " + x);
-				}
-
-			} else if (args[i].equals("-haMaxWaitingMessages")) {
-				try {
-					maxWaitingMessages = Integer.parseInt(args[i + 1]);
-				} catch (NumberFormatException x) {
-					log.error("inhalid haMaxWaitingMessages: " + x);
-				}
-
-			} else if (args[i].equals("-statisticsInterval")) {
-				try {
-					statisticsInterval = Integer.parseInt(args[i + 1]);
-				} catch (NumberFormatException x) {
-					log.error("inhalid statisticsInterval: " + x);
-				}
-			}
-		}
+		listenPort = H2HaServer.findOptionWithInt(args, "-haListenPort", 8234);
+		peerHost = H2HaServer.findOptionWithValue(args, "-haPeerHost", null);
+		restrictPeer = H2HaServer.findOption(args, "-haRestrictPeer");
+		maxQueueSize = H2HaServer.findOptionWithInt(args, "-haMaxQueueSize", 5000);
+		maxEnqueueWait = H2HaServer.findOptionWithInt(args, "-haMaxEnqueueWait", 60000);
+		maxWaitingMessages = H2HaServer.findOptionWithInt(args, "-haMaxWaitingMessages", 0);
+		statisticsInterval = H2HaServer.findOptionWithInt(args, "-statisticsInterval", 300000);
 
 		if (restrictPeer) {
 			String restrictHost = peerHost;

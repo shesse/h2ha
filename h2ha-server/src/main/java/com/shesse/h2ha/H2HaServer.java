@@ -31,7 +31,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import org.apache.log4j.Logger;
-import org.h2.store.fs.FileSystem;
+import org.h2.store.fs.FilePath;
 import org.h2.tools.RunScript;
 import org.h2.tools.Server;
 import org.h2.tools.Shell;
@@ -52,7 +52,7 @@ public class H2HaServer
 	private static Logger log = Logger.getLogger(H2HaServer.class);
 
 	/** */
-	private String[] args;
+	private List<String> args;
 
 	/** */
 	private FileSystemHa fileSystem;
@@ -135,7 +135,7 @@ public class H2HaServer
 	// /////////////////////////////////////////////////////////
 	/**
 	 */
-	public H2HaServer(String[] args)
+	public H2HaServer(List<String> args)
 	{
 		log.debug("H2HaServer()");
 
@@ -182,14 +182,15 @@ public class H2HaServer
 	 * @param args
 	 * @throws InterruptedException 
 	 */
-	public static void main(String[] args) 
+	public static void main(String[] argsArray) 
 	throws InterruptedException
 	{
+		List<String> args = new ArrayList<String>(Arrays.asList(argsArray));
+		
 		try {
 			String command = "";
-			if (args.length > 0) {
-				command = args[0];
-				args = Arrays.copyOfRange(args, 1, args.length);
+			if (args.size() > 0) {
+				command = args.remove(0);
 			}
 
 			if ("server".equals(command)) {
@@ -244,10 +245,113 @@ public class H2HaServer
 	}
 
 	/**
+	 * locates the named option within the argument
+	 * list and removes it from the  list. The option is exepcted to have
+	 * a value which also will be removed.
+	 * @return the value or the value of dflt if the option was not present
+	 */
+	public static String removeOptionWithValue(List<String> args, String optName, String dflt)
+	{
+		for (int i = 0; i < args.size()-1; i++) {
+			if (args.get(i).equals(optName)) {
+				args.remove(i);
+				return args.remove(i);
+			}
+		}
+		return null;
+	}
+	
+	/**
+	 * locates the named option within the argument
+	 * list and returns its value. The list will remain unchanged.
+	 * @return the value or the value of dflt if the option was not present
+	 */
+	public static String findOptionWithValue(List<String> args, String optName, String dflt)
+	{
+		for (int i = 0; i < args.size()-1; i++) {
+			if (args.get(i).equals(optName)) {
+				return args.get(i+1);
+			}
+		}
+		return null;
+	}
+	
+	/**
+	 * locates the named option within the argument
+	 * list and removes it from the  list. The option is exepcted to have
+	 * a value which also will be removed.
+	 * @return the value or the value of dflt if the option was not present
+	 */
+	public static int removeOptionWithInt(List<String> args, String optName, int dflt)
+	{
+		String sval = removeOptionWithValue(args, optName, null);
+		if (sval == null) {
+			return dflt;
+		} else {
+			try {
+				return Integer.parseInt(sval);
+			} catch (NumberFormatException x) {
+				return dflt;
+			}
+		}
+	}
+	
+	/**
+	 * locates the named option within the argument
+	 * list and returns its value. The list will remain unchanged.
+	 * @return the value or the value of dflt if the option was not present
+	 */
+	public static int findOptionWithInt(List<String> args, String optName, int dflt)
+	{
+		String sval = findOptionWithValue(args, optName, null);
+		if (sval == null) {
+			return dflt;
+		} else {
+			try {
+				return Integer.parseInt(sval);
+			} catch (NumberFormatException x) {
+				return dflt;
+			}
+		}
+	}
+	
+	/**
+	 * locates the named option within the argument
+	 * list and removes it from the list. 
+	 * @return true if the option was found
+	 */
+	public static boolean removeOption(List<String> args, String optName)
+	{
+		for (int i = 0; i < args.size(); i++) {
+			if (args.get(i).equals(optName)) {
+				args.remove(i);
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	/**
+	 * locates the named option within the argument
+	 * list and returns true if it could be found. 
+	 * The list will remain unchanged.
+	 * @return true if the option was found
+	 */
+	public static boolean findOption(List<String> args, String optName)
+	{
+		for (int i = 0; i < args.size(); i++) {
+			if (args.get(i).equals(optName)) {
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	/**
 	 * @param args
 	 * @throws InterruptedException 
 	 */
-	private static void startServer(String[] args)
+	private static void startServer(List<String> args)
 	throws InterruptedException
 	{
 		new H2HaServer(args).runHaServer();
@@ -291,11 +395,11 @@ public class H2HaServer
 	/**
 	 * @param args2
 	 */
-	private static void startShell(String[] args)
+	private static void startShell(List<String> args)
 	throws SQLException
 	{
 		try {
-			args = createUrl(args);
+			createUrl(args);
 		} catch (SQLException x) {
 			System.err.println(x.getMessage()+"\n");
 			showConsoleUsage();
@@ -308,7 +412,7 @@ public class H2HaServer
 				showConsoleUsage();
 			}
 
-		}.runTool(args);
+		}.runTool(args.toArray(new String[0]));
 	}
 
 	/**
@@ -352,11 +456,11 @@ public class H2HaServer
 	 * @param args2
 	 * @throws SQLException 
 	 */
-	private static void startScript(String[] args)
+	private static void startScript(List<String> args)
 	throws SQLException
 	{
 		try {
-			args = createUrl(args);
+			createUrl(args);
 		} catch (SQLException x) {
 			System.err.println(x.getMessage()+"\n");
 			showScriptUsage();
@@ -369,7 +473,7 @@ public class H2HaServer
 				showScriptUsage();
 			}
 
-		}.runTool(args);
+		}.runTool(args.toArray(new String[0]));
 	}
 
 
@@ -377,59 +481,18 @@ public class H2HaServer
 	 * @param args2
 	 * @throws SQLException 
 	 */
-	private static void createDatabase(String[] args)
+	private static void createDatabase(List<String> args)
 	throws SQLException
 	{
-		String script = null;
-		String user = null;
-		String password = null;
-		String haBaseDir = null;
-		String database = null;
+		String script = findOptionWithValue(args, "-script", null);
+		String user = findOptionWithValue(args, "-user", null);
+		String password = findOptionWithValue(args, "-password", null);
+		String haBaseDir = findOptionWithValue(args, "-haBaseDir", null);
+		String database = findOptionWithValue(args, "-database", null);
 
-		List<String> creArgs = new ArrayList<String>();
-
-		for (int i = 0; i < args.length-1; i++) {
-			if (args[i].equals("-script")) {
-				creArgs.add(args[i]);
-				script = args[++i];
-				creArgs.add(args[i]);
-
-			} else if (args[i].equals("-user")) {
-				creArgs.add(args[i]);
-				user = args[++i];
-				creArgs.add(args[i]);
-
-			} else if (args[i].equals("-password")) {
-				creArgs.add(args[i]);
-				password = args[++i];
-				creArgs.add(args[i]);
-
-			} else if (args[i].equals("-database")) {
-				creArgs.add(args[i]);
-				database = args[++i];
-				creArgs.add(args[i]);
-
-			} else if (args[i].equals("-haBaseDir")) {
-				creArgs.add(args[i]);
-				haBaseDir = args[++i];
-				creArgs.add(args[i]);
-
-			} else if (args[i].equals("-url")) {
-				++i;
-
-			} else if (args[i].equals("-server")) {
-				++i;
-
-			} else {
-				creArgs.add(args[i]);
-				if (args[i].startsWith("-") && !args[i+1].startsWith("-")) {
-					creArgs.add(args[++i]);
-				}
-			}
-		}
-
-		args = creArgs.toArray(new String[creArgs.size()]);
-
+		removeOption(args, "-url");
+		removeOption(args, "-server");
+			
 		if (script == null) {
 			System.err.println("mandatory parameter -script is missing");
 			showCreateUsage();
@@ -461,7 +524,7 @@ public class H2HaServer
 		}
 
 		try {
-			args = createUrl(args);
+			createUrl(args);
 		} catch (SQLException x) {
 			System.err.println(x.getMessage()+"\n");
 			showCreateUsage();
@@ -474,7 +537,7 @@ public class H2HaServer
 				showCreateUsage();
 			}
 
-		}.runTool(args);
+		}.runTool(args.toArray(new String[0]));
 	}
 
 	/**
@@ -540,38 +603,21 @@ public class H2HaServer
 		return url;
 	}
 
-
-	private static String[] createUrl(String[] args)
+	/**
+	 * ensures that a -url option is present. If it is not,
+	 * it will be built based on the -server, -database
+	 * and -haBaseDir options.
+	 * 
+	 * @param args
+	 * @throws SQLException
+	 */
+	private static void createUrl(List<String> args)
 	throws SQLException
 	{
-		String server = null;
-		String database = null;
-		String haBaseDir = null;
-		String url = null;
-
-		List<String> resArgs = new ArrayList<String>();
-
-		for (int i = 0; i < args.length-1; i++) {
-			if (args[i].equals("-server")) {
-				// angegeben als hostname[:port][hostname[:port]]
-				server = args[++i];
-
-			} else if (args[i].equals("-database")) {
-				database = args[++i];
-
-			} else if (args[i].equals("-haBaseDir")) {
-				haBaseDir = args[++i];
-
-			} else if (args[i].equals("-url")) {
-				url = args[++i];
-
-			} else {
-				resArgs.add(args[i]);
-				if (args[i].startsWith("-") && !args[i+1].startsWith("-")) {
-					resArgs.add(args[++i]);
-				}
-			}
-		}   
+		String server = removeOptionWithValue(args, "-server", null);
+		String database = removeOptionWithValue(args, "-database", null);
+		String haBaseDir = removeOptionWithValue(args, "-haBaseDir", null);
+		String url = removeOptionWithValue(args, "-url", null);
 
 		if (url == null) {
 			if (server == null && haBaseDir == null) {
@@ -603,10 +649,8 @@ public class H2HaServer
 			}
 		}
 
-		resArgs.add(0, "-url");
-		resArgs.add(1, url);
-
-		return resArgs.toArray(new String[resArgs.size()]);
+		args.add(0, "-url");
+		args.add(1, url);
 	}
 
 
@@ -617,40 +661,42 @@ public class H2HaServer
 	private void runHaServer() 
 	throws InterruptedException
 	{
+		serverArgs = new ArrayList<String>();
+		
 		serverArgs.add("-tcpAllowOthers");
 		serverArgs.add("-baseDir");
-		serverArgs.add("ha://");
+		serverArgs.add("ha:///");
 		serverArgs.add("-ifExists");
-
-		for (int i = 0; i < args.length-1; i++) {
-			if (args[i].equals("-haPeerHost")) {
-				peerHost = args[++i];
-
-			} else if (args[i].equals("-haBaseDir")) {
-				haBaseDir = args[++i];
-
-			} else if (args[i].equals("-masterPriority")) {
-				try {
-					masterPriority = Integer.parseInt(args[++i]);
-				} catch (NumberFormatException x) {
-					log.error("inhalid masterPriority: "+x);
-				}
-
-			} else if (args[i].equals("-help")) {
-				showServerUsage();
-				System.exit(1);
-
-			} else if (args[i].equals("-?")) {
-				showServerUsage();
-				System.exit(1);
-
-			} else {
-				serverArgs.add(args[i]);
-				if (args[i].startsWith("-") && !args[i+1].startsWith("-")) {
-					serverArgs.add(args[++i]);
-				}
-			}
-		}        
+		
+		serverArgs.addAll(args);
+		
+		peerHost = removeOptionWithValue(serverArgs, "-haPeerHost", null);
+		haBaseDir = removeOptionWithValue(serverArgs, "-haBaseDir", null);
+		masterPriority = removeOptionWithInt(serverArgs, "-masterPriority", 10);
+		
+		removeOptionWithValue(serverArgs, "-haPeerPort", null);
+		removeOptionWithValue(serverArgs, "-haCacheSize", null);
+		removeOptionWithValue(serverArgs, "-haConnectTimeout", null);
+		removeOptionWithValue(serverArgs, "-statisticsInterval", null);
+		removeOptionWithValue(serverArgs, "-connectRetry", null);
+		removeOptionWithValue(serverArgs, "-haListenPort", null);
+		removeOptionWithValue(serverArgs, "-haMaxQueueSize", null);
+		removeOptionWithValue(serverArgs, "-haMaxEnqueueWait", null);
+		removeOptionWithValue(serverArgs, "-haMaxWaitingMessages", null);
+		removeOptionWithValue(serverArgs, "-statisticsInterval", null);
+		removeOption(serverArgs, "-autoFailback");
+		removeOption(serverArgs, "-haRestrictPeer");
+		
+		
+		if (findOption(serverArgs, "-?")) {
+			showServerUsage();
+			System.exit(1);
+		}
+		if (findOption(serverArgs, "-help")) {
+			showServerUsage();
+			System.exit(1);
+		}
+		
 
 		if (haBaseDir == null) {
 			System.err.println("mandatory flag -haBaseDir is missing");
@@ -688,6 +734,9 @@ public class H2HaServer
 				queueEntry.run();
 			}
 
+		} catch (TerminateThread x) {
+			System.err.println(x.getMessage());
+
 		} finally {
 			baseLock.release();
 		}
@@ -696,7 +745,7 @@ public class H2HaServer
 	/**
 	 * @param args2
 	 */
-	private static void printVersionInfo(String[] args2)
+	private static void printVersionInfo(List<String> args)
 	{
 		System.err.println("H2HA Server "+getVersionInfo());
 	}
@@ -777,10 +826,10 @@ public class H2HaServer
 
 
 	/**
-	 * Fordert eine Sperre f�r den Zugriff auf die haBaseDir
-	 * an. Liefert ein Handle f�r die Sperre, �ber das sie
-	 * wieder freigegeben werden kann oder null, wenn das Sperren
-	 * nicht m�glich war
+	 * Acquires a lock for accessing haBaseDir. 
+	 * Returns a handle for this lock which can be used
+	 * to release the lock. Returns null if it was not possible
+	 * to acquire the lock. 
 	 */
 	private static LockHandle acquireHaBaseLock(String haBaseDir)
 	{
@@ -843,12 +892,7 @@ public class H2HaServer
 	 */
 	public static void pushToAllReplicators()
 	{
-		FileSystem fs = FileSystem.getInstance("ha://");
-		if (fs instanceof FileSystemHa) {
-			((FileSystemHa)fs).flushAll();
-		} else {
-			throw new IllegalStateException("did not get a FileSystemHa for url ha://");
-		}
+		findFileSystem().flushAll();
 	}
 
 	/**
@@ -858,12 +902,7 @@ public class H2HaServer
 	public static void syncWithAllReplicators()
 	{
 		log.debug("syncWithAllReplicators has been called");
-		FileSystem fs = FileSystem.getInstance("ha://");
-		if (fs instanceof FileSystemHa) {
-			((FileSystemHa)fs).syncAll();
-		} else {
-			throw new IllegalStateException("did not get a FileSystemHa for url ha://");
-		}
+		findFileSystem().syncAll();
 	}
 
 	/**
@@ -873,12 +912,21 @@ public class H2HaServer
 	public static void transferMasterRole()
 	throws SQLException
 	{
-		FileSystem fs = FileSystem.getInstance("ha://");
-		if (fs instanceof FileSystemHa) {
-			((FileSystemHa)fs).getHaServer().transferMasterRoleImpl();
+		findFileSystem().getHaServer().transferMasterRoleImpl();
+	}
+	
+	/**
+	 * 
+	 */
+	private static FileSystemHa findFileSystem()
+	{
+		FilePath fp = FilePath.get("ha:///");
+		if (fp instanceof FilePathHa) {
+			return ((FilePathHa)fp).getFileSystem();
 		} else {
-			throw new IllegalStateException("did not get a FileSystemHa for url ha://");
+			throw new IllegalStateException("did not get a FilePathHa for url ha:///");
 		}
+
 	}
 
 	/**
@@ -909,16 +957,9 @@ public class H2HaServer
 	public static ResultSet getServerInfo(Connection conn)
 	throws SQLException
 	{
-		FileSystem fs = FileSystem.getInstance("ha://");
-		H2HaServer server;
-		if (fs instanceof FileSystemHa) {
-			server = ((FileSystemHa)fs).getHaServer();
-		} else {
-			throw new IllegalStateException("did not get a FileSystemHa for url ha://");
-		}
-
-		return server.getServerInfoImpl(conn);
+		return findFileSystem().getHaServer().getServerInfoImpl(conn);
 	}
+	
 	/**
 	 * 
 	 * @param conn
@@ -984,15 +1025,7 @@ public class H2HaServer
 	public static ResultSet getReplicationInfo(Connection conn)
 	throws SQLException
 	{
-		FileSystem fs = FileSystem.getInstance("ha://");
-		H2HaServer server;
-		if (fs instanceof FileSystemHa) {
-			server = ((FileSystemHa)fs).getHaServer();
-		} else {
-			throw new IllegalStateException("did not get a FileSystemHa for url ha://");
-		}
-
-		return server.getReplicationInfoImpl(conn);
+		return findFileSystem().getHaServer().getReplicationInfoImpl(conn);
 	}
 	/**
 	 * 

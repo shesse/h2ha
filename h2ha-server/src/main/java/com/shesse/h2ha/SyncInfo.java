@@ -21,7 +21,7 @@ public class SyncInfo
     private static Logger log = Logger.getLogger(SyncInfo.class);
 
     /** */
-    private FileInfo fileInfo;
+    private FilePathHa filePath;
     
     /** */
     private volatile long beginIgnore = 0L;
@@ -34,22 +34,22 @@ public class SyncInfo
     // /////////////////////////////////////////////////////////
     /**
      */
-    public SyncInfo(FileInfo fileInfo)
+    public SyncInfo(FilePathHa filePath)
     {
         log.debug("SyncInfo()");
         
-        this.fileInfo = fileInfo;
+        this.filePath = filePath;
     }
 
     // /////////////////////////////////////////////////////////
     // Methods
     // /////////////////////////////////////////////////////////
     /**
-     * @return the fileInfo
+     * @return the filePath
      */
-    public FileInfo getFileInfo()
+    public FilePathHa getFilePath()
     {
-        return fileInfo;
+        return filePath;
     }
 
     /**

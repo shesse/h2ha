@@ -8,6 +8,8 @@ package com.shesse.h2ha;
 
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.security.InvalidKeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -17,7 +19,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.log4j.Logger;
-import org.h2.store.fs.FileObject;
+import org.h2.store.fs.FilePath;
 
 import com.shesse.h2ha.H2HaServer.FailoverState;
 
@@ -45,7 +47,9 @@ extends ReplicationProtocolInstance
     private MessageDigest md5Digest;
     
     /** */
-    private Map<String, FileObject> openFiles = new HashMap<String, FileObject>();
+    private Map<FilePathHa, FileChannel> openFiles = new HashMap<FilePathHa, FileChannel>();
+    
+    
     
     // /////////////////////////////////////////////////////////
     // Constructors
@@ -128,12 +132,12 @@ extends ReplicationProtocolInstance
     /**
      * 
      */
-    protected Set<FileInfo> discoverExistingFiles()
+    protected Set<FilePathHa> discoverExistingFiles()
     {
-        Set<FileInfo> existingFiles = new HashSet<FileInfo>();
+        Set<FilePathHa> existingFiles = new HashSet<FilePathHa>();
 
         synchronized (fileSystem) {
-            discoverFilesWithinDirectory(existingFiles, FileSystemHa.getRoot());
+            discoverFilesWithinDirectory(existingFiles, fileSystem.getHaBaseDir());
         }
         
         return existingFiles;
@@ -142,16 +146,17 @@ extends ReplicationProtocolInstance
     /**
      * 
      */
-    private void discoverFilesWithinDirectory(Set<FileInfo> existingFiles, String directory)
+    private void discoverFilesWithinDirectory(Set<FilePathHa> existingFiles, FilePathHa directory)
     {
         log.debug("discovering local files within "+directory);
-        for (FileInfo sub: fileSystem.listFileInfos(directory)) {
-            String haName = sub.getHaName();
-            if (fileSystem.isDirectory(haName)) {
+        for (FilePath subPath: directory.newDirectoryStream()) {
+        	FilePathHa sub = (FilePathHa)subPath;
+            String haName = sub.getNormalizedHaName();
+            if (sub.isDirectory()) {
                 log.debug("file "+haName+" is a subdirectory");
-                discoverFilesWithinDirectory(existingFiles, haName);
+                discoverFilesWithinDirectory(existingFiles, sub);
                 
-            } else if (fileSystem.exists(haName)) {
+            } else if (sub.exists()) {
                 if (sub.isDatabaseFile()) {
                     existingFiles.add(sub);
                 }
@@ -161,49 +166,83 @@ extends ReplicationProtocolInstance
    }
 
     /**
-     *  Berechnet die MD5 Quersumme aus den übergebenen Bytes
+     *  Berechnet die MD5 Quersumme aus dem übergebenen Buffer
      * @param in
      * @return
      * @throws NoSuchAlgorithmException
      * @throws InvalidKeyException
      */
-    protected byte[] computeMd5(byte[] in, int offset, int len)
+    protected byte[] computeMd5(ByteBuffer buffer)
     {
-        md5Digest.reset();
-        md5Digest.update(in, offset, len);
-        return md5Digest.digest();
+    	if (buffer.hasArray()) {
+     		md5Digest.reset();
+    		md5Digest.update(buffer.array(), buffer.arrayOffset()+buffer.position(),
+    			buffer.limit()-buffer.position());
+    		return md5Digest.digest();
+    	} else {
+    		throw new IllegalArgumentException("only array based buffers are supported");
+    	}
     }
 
+    /**
+     * 
+     */
+    protected FilePathHa getFilePath(String haName)
+    {
+    	return new FilePathHa(fileSystem, haName, false);
+    }
+    
     /**
      * @throws IOException 
      * 
      */
-    protected FileObject getFileObject(String haName)
+    protected FileChannel getFileChannel(String haName)
     throws IOException
     {
-        FileObject fo = openFiles.get(haName);
-        if (fo == null) {
-            fo = fileSystem.openFileObject(haName, "rw");
-            openFiles.put(haName, fo);
-        }
+		return getFileChannel(getFilePath(haName));
+	}
 
-        return fo;
-    }
+	/**
+	 * @throws IOException
+	 * 
+	 */
+	protected FileChannel getFileChannel(FilePathHa fp)
+		throws IOException
+	{
+		FileChannel fc = openFiles.get(fp);
+		if (fc == null) {
+			fc = fp.open("rw");
+			openFiles.put(fp, fc);
+		}
+
+		return fc;
+	}
 
     /**
      * 
      * @param haName
      * @throws IOException
      */
-    protected void closeFileObject(String haName, long lastModified)
+    protected void closeFileChannel(String haName, long lastModified)
     throws IOException
     {
-        FileObject fo = openFiles.remove(haName);
-        if (fo != null) {
-            fo.close();
+    	closeFileObject(getFilePath(haName), lastModified);
+    }
+    
+    /**
+     * 
+     * @param haName
+     * @throws IOException
+     */
+    protected void closeFileObject(FilePathHa filePath, long lastModified)
+    throws IOException
+    {
+        FileChannel fc = openFiles.remove(filePath);
+        if (fc != null) {
+            fc.close();
         }
-        if (fileSystem.exists(haName)) {
-            fileSystem.setLastModified(haName, lastModified);
+        if (filePath.exists()) {
+        	filePath.lastModified(lastModified);
         }
     }
     
@@ -212,7 +251,7 @@ extends ReplicationProtocolInstance
      */
     protected void closeAllFileObjects()
     {
-        for (FileObject fo: openFiles.values()) {
+        for (FileChannel fo: openFiles.values()) {
             try {
                 fo.close();
             } catch (IOException x) {

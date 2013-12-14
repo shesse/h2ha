@@ -10,7 +10,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 
 import org.apache.log4j.Logger;
-import org.h2.store.fs.FileObject;
+import org.h2.store.fs.FilePath;
 
 /**
  *
@@ -26,15 +26,16 @@ public class OutputStreamHa
     private static Logger log = Logger.getLogger(OutputStreamHa.class);
  
     /** */
-    @SuppressWarnings("unused")
     private FileSystemHa fileSystem;
 
     /** */
-    @SuppressWarnings("unused")
-    private String haName;
+    private FilePathHa filePath;
     
     /** */
-    private FileObject baseFileObject;
+    private OutputStream baseOutputStream;
+    
+    /** */
+    private long filePtr = 0;
     
     /** */
     private byte[] singleByteBuffer = new byte[1];
@@ -46,19 +47,22 @@ public class OutputStreamHa
     /**
      * @throws IOException 
      */
-    public OutputStreamHa(FileSystemHa fileSystem, String haName, FileObject baseFileObject, boolean append) throws IOException
+    public OutputStreamHa(FileSystemHa fileSystem, FilePathHa filePath, OutputStream baseOutputStream, boolean append) throws IOException
     {
         log.debug("OutputStreamHa()");
         
         this.fileSystem = fileSystem;
-        this.haName = haName;
-        this.baseFileObject = baseFileObject;
+        this.filePath = filePath;
+        this.baseOutputStream = baseOutputStream;
         
         if (append) {
-            baseFileObject.seek(baseFileObject.length());
-        } else {
-            baseFileObject.setFileLength(0L);
+        	FilePath basePath = filePath.getBasePath();
+        	if (basePath.exists()) {
+        		filePtr = basePath.size();
+        	}
         }
+        
+        fileSystem.sendTruncate(filePath, filePtr);
     }
 
 
@@ -74,7 +78,8 @@ public class OutputStreamHa
     public void close()
         throws IOException
     {
-        baseFileObject.close();
+    	baseOutputStream.close();
+    	fileSystem.sendClose(filePath);
     }
 
 
@@ -87,6 +92,7 @@ public class OutputStreamHa
     public void flush()
         throws IOException
     {
+    	baseOutputStream.flush();
     }
 
 
@@ -99,7 +105,14 @@ public class OutputStreamHa
     public void write(byte[] buffer, int offset, int length)
         throws IOException
     {
-        baseFileObject.write(buffer, offset, length);
+    	if (length == 0) {
+    	    return;
+    	}
+    	
+    	baseOutputStream.write(buffer, offset, length);
+
+    	fileSystem.compressAndSendWrite(filePath, filePtr, buffer, offset, length);
+    	filePtr += length;
     }
 
 
@@ -112,7 +125,14 @@ public class OutputStreamHa
     public void write(byte[] buffer)
         throws IOException
     {
-        baseFileObject.write(buffer, 0, buffer.length);
+      	if (buffer.length == 0) {
+    	    return;
+    	}
+    	
+      	baseOutputStream.write(buffer);
+
+    	fileSystem.compressAndSendWrite(filePath, filePtr, buffer, 0, buffer.length);
+    	filePtr += buffer.length;
     }
 
     /**
@@ -125,7 +145,10 @@ public class OutputStreamHa
         throws IOException
     {
         singleByteBuffer[0] = (byte)i;
-        baseFileObject.write(singleByteBuffer, 0, 1);
+        baseOutputStream.write(i);
+
+    	fileSystem.compressAndSendWrite(filePath, filePtr, singleByteBuffer, 0, 1);
+    	filePtr += 1;
     }
 
     // /////////////////////////////////////////////////////////

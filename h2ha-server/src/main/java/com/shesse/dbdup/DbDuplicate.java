@@ -38,7 +38,7 @@ public class DbDuplicate
 	/**
 	 * 
 	 */
-	public static void main(String[] args)
+	public static void main(List<String> args)
 	{
 		try {
 			new DbDuplicate().run(args);
@@ -58,10 +58,10 @@ public class DbDuplicate
 	 * @param args
 	 * @throws SQLException 
 	 */
-	private void run(String[] args)
+	private void run(List<String> args)
 	throws SQLException
 	{
-		if (args.length != 6) {
+		if (args.size() != 6) {
 			/*
 			System.err.println("got args:");
 			for (int i = 0; i < args.length; i++) {
@@ -74,9 +74,9 @@ public class DbDuplicate
 			System.exit(1);
 		}
 
-		Connection fromConn = openDbConnection(args[0], args[1], args[2]);
+		Connection fromConn = openDbConnection(args.get(0), args.get(1), args.get(2));
 		try {
-			Connection toConn = openDbConnection(args[3], args[4], args[5]);
+			Connection toConn = openDbConnection(args.get(3), args.get(4), args.get(5));
 			try {
 				dupSchema(fromConn, toConn);
 				toConn.commit();

@@ -6,15 +6,16 @@
 
 package com.shesse.h2ha;
 
-import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
 import org.apache.log4j.Logger;
-import org.h2.store.fs.FileObject;
+import org.h2.store.fs.FilePath;
 
 import com.shesse.h2ha.H2HaServer.Event;
 import com.shesse.h2ha.H2HaServer.FailoverState;
@@ -25,7 +26,7 @@ import com.shesse.h2ha.H2HaServer.FailoverState;
  * @author sth
  */
 public class ReplicationClientInstance
-extends ServerSideProtocolInstance
+	extends ServerSideProtocolInstance
 {
 	// /////////////////////////////////////////////////////////
 	// Class Members
@@ -46,7 +47,7 @@ extends ServerSideProtocolInstance
 	private static final String dirtyFlagFile = "dirty.flag";
 
 	/** */
-	private String dirtyFlagUrl;
+	private FilePath dirtyFlagPath;
 
 	/** */
 	private int maxConnectRetries = 5;
@@ -88,58 +89,23 @@ extends ServerSideProtocolInstance
 	// Constructors
 	// /////////////////////////////////////////////////////////
 	/**
-	 * @param receiver 
+	 * @param receiver
 	 */
-	public ReplicationClientInstance(H2HaServer haServer, FileSystemHa fileSystem, String[] args)
+	public ReplicationClientInstance(H2HaServer haServer, FileSystemHa fileSystem, List<String> args)
 	{
 		super("replClient", 0, 0, 0, haServer, fileSystem);
 		log.debug("ReplicationClientInstance()");
 
-		dirtyFlagUrl = FileSystemHa.getRoot()+dirtyFlagFile;
+		dirtyFlagPath = fileSystem.getHaBaseDir().getPath(dirtyFlagFile);
 		long statisticsInterval = 300000L;
+		
+		peerHost = H2HaServer.findOptionWithValue(args, "-haPeerHost", "replication-peer");
+		connectTimeout = H2HaServer.findOptionWithInt(args, "-haConnectTimeout", 10000);
+		statisticsInterval = H2HaServer.findOptionWithInt(args, "-statisticsInterval", 300000);
+		maxConnectRetries = H2HaServer.findOptionWithInt(args, "-connectRetry", 5);
+		autoFailback = H2HaServer.findOption(args, "-autoFailback");
 
-		for (int i = 0; i < args.length-1; i++) {
-			if (args[i].equals("-haPeerHost")) {
-				peerHost = args[i+1];
-				i++;
-
-			} else if (args[i].equals("-haPeerPort")) {
-				try {
-					peerPort = Integer.parseInt(args[i+1]);
-					i++;
-				} catch (NumberFormatException x) {
-					log.error("inhalid haPeerPort: "+x);
-				}
-
-			} else if (args[i].equals("-haConnectTimeout")) {
-				try {
-					connectTimeout = Integer.parseInt(args[i+1]);
-					i++;
-				} catch (NumberFormatException x) {
-					log.error("inhalid haConnectTimeout: "+x);
-				}
-
-			} else if (args[i].equals("-statisticsInterval")) {
-				try {
-					statisticsInterval = Integer.parseInt(args[i+1]);
-					i++;
-				} catch (NumberFormatException x) {
-					log.error("inhalid statisticsInterval: "+x);
-				}
-
-			} else if (args[i].equals("-connectRetry")) {
-				try {
-					maxConnectRetries = Integer.parseInt(args[++i]);
-				} catch (NumberFormatException x) {
-					log.error("inhalid connectRetry: "+x);
-				}
-
-			} else if (args[i].equals("-autoFailback")) {
-				autoFailback = true;
-			}
-		}
-
-		setInstanceName("replClient-"+peerHost+":"+peerPort);
+		setInstanceName("replClient-" + peerHost + ":" + peerPort);
 		setParameters(statisticsInterval);
 	}
 
@@ -148,7 +114,7 @@ extends ServerSideProtocolInstance
 	// /////////////////////////////////////////////////////////
 	/**
 	 */
-	public void run() 
+	public void run()
 	{
 		try {
 			body();
@@ -161,7 +127,7 @@ extends ServerSideProtocolInstance
 
 	/**
 	 */
-	private void body() 
+	private void body()
 	{
 		log.debug("replication client instance has been started");
 		for (;;) {
@@ -170,7 +136,7 @@ extends ServerSideProtocolInstance
 			long now = System.currentTimeMillis();
 			if (earliestNextConnect > now) {
 				try {
-					Thread.sleep(earliestNextConnect-now);
+					Thread.sleep(earliestNextConnect - now);
 				} catch (InterruptedException e) {
 					log.error("InterruptedException", e);
 				}
@@ -193,13 +159,13 @@ extends ServerSideProtocolInstance
 
 	/**
 	 */
-	private void establishAndMaintainConnection() 
+	private void establishAndMaintainConnection()
 	{
 		// we will repeat a limited number of connect attempts in quick
 		// succession to be sure that the peer is really not available
 		// and that is it not a temporary glitch that causes our
-		// connect problem 
-		// 
+		// connect problem
+		//
 		int retryCount = 0;
 		while (retryCount < maxConnectRetries && !isConnected()) {
 			if (tryToConnect()) {
@@ -232,12 +198,13 @@ extends ServerSideProtocolInstance
 
 	/**
 	 * Tries to initiate a connection connection to the peer.
+	 * 
 	 * @return true if connection was successful.
 	 */
 	private boolean tryToConnect()
 	{
 		if (tryToConnect(peerHost, peerPort, connectTimeout)) {
-			setInstanceName("replClient-"+String.valueOf(socket.getRemoteSocketAddress()));
+			setInstanceName("replClient-" + String.valueOf(socket.getRemoteSocketAddress()));
 			return true;
 
 		} else {
@@ -308,9 +275,9 @@ extends ServerSideProtocolInstance
 	public void setDirtyFlag(boolean dirtyFlag)
 	{
 		if (dirtyFlag) {
-			fileSystem.createNewFile(dirtyFlagUrl);
+			dirtyFlagPath.createFile();
 		} else {
-			fileSystem.delete(dirtyFlagUrl);
+			dirtyFlagPath.delete();
 		}
 	}
 
@@ -319,7 +286,7 @@ extends ServerSideProtocolInstance
 	 */
 	public boolean isConsistentData()
 	{
-		return !fileSystem.exists(dirtyFlagUrl);
+		return !dirtyFlagPath.exists();
 	}
 
 	/**
@@ -348,12 +315,12 @@ extends ServerSideProtocolInstance
 
 	/**
 	 * {@inheritDoc}
-	 *
+	 * 
 	 * @see com.shesse.h2ha.ReplicationProtocolInstance#sendHeartbeat()
 	 */
 	@Override
 	protected void sendHeartbeat()
-	throws IOException
+		throws IOException
 	{
 		super.sendHeartbeat();
 		sendStatus();
@@ -367,7 +334,7 @@ extends ServerSideProtocolInstance
 	 */
 	@Override
 	protected void peerStatusReceived(FailoverState peerState, int peerMasterPriority,
-	                                  String peerUuid)
+		String peerUuid)
 	{
 		this.peerState = peerState;
 		this.peerMasterPriority = peerMasterPriority;
@@ -380,16 +347,16 @@ extends ServerSideProtocolInstance
 
 
 	/**
-	 * This method may only be called from within the protocol instance
-	 * thread.
+	 * This method may only be called from within the protocol instance thread.
 	 * 
-	 * @throws IOException 
+	 * @throws IOException
 	 * 
 	 */
-	public void processListOfFilesConfirmMessage(List<String> files) 
-	throws IOException
+	public void processListOfFilesConfirmMessage(List<String> haNames)
+		throws IOException
 	{
-		if (log.isDebugEnabled()) log.debug("got ListOfFiles: "+files);
+		if (log.isDebugEnabled())
+			log.debug("got ListOfFiles: " + haNames);
 
 		setDirtyFlag(true);
 
@@ -399,35 +366,33 @@ extends ServerSideProtocolInstance
 		endOfFileReceived = 0;
 		endOfChecksumReceived = 0;
 
-		Set<FileInfo> remainingFiles = discoverExistingFiles();
-		for (String haName: files) {
-			FileInfo fi = fileSystem.getFileInfoForHaName(haName);
-
+		Set<FilePathHa> remainingFiles = discoverExistingFiles();
+		for (String haName : haNames) {
+			FilePathHa haPath = new FilePathHa(fileSystem, haName, true);
 			FileRequestData dataRequest;
-			if (remainingFiles.remove(fi)) {
-				log.debug("file "+fi+" exists - asking for delta info");
-				dataRequest = new FileRequestData(haName, 
-					FileRequestData.TransmissionMethod.DELTA,
-					fileSystem.length(haName),
-					fileSystem.getLastModified(haName));
+			if (remainingFiles.remove(haPath)) {
+				log.debug("file " + haPath + " exists - asking for delta info");
+				dataRequest =
+					new FileRequestData(haName, FileRequestData.TransmissionMethod.DELTA,
+						haPath.size(), haPath.lastModified());
 				fileDeltasRequested++;
 
 			} else {
-				log.debug("file "+fi+" does not exist - requesting full transfer");
-				dataRequest = new FileRequestData(haName, 
-					FileRequestData.TransmissionMethod.FULL, -1, -1);
+				log.debug("file " + haPath + " does not exist - requesting full transfer");
+				dataRequest =
+					new FileRequestData(haName, FileRequestData.TransmissionMethod.FULL, -1, -1);
 				fullFilesRequested++;
 			}
 
 			fileRequests.add(dataRequest);
 		}
 
-		for (FileInfo fi: remainingFiles) {
-			log.debug("file "+fi+" does not exist on server - deleting it");
-			new File(fi.getLocalName()).delete();
+		for (FilePathHa haPath : remainingFiles) {
+			log.debug("file " + haPath + " does not exist on server - deleting it");
+			haPath.delete();
 		}
 
-		log.info("HA sync: " + files.size() + " files on server - requested " +
+		log.info("HA sync: " + haNames.size() + " files on server - requested " +
 			fileDeltasRequested + " deltas and " + fullFilesRequested + " full files");
 		sendToPeer(new SendFileRequest(fileRequests));
 	}
@@ -436,54 +401,64 @@ extends ServerSideProtocolInstance
 	 * @param haName
 	 * @param offset
 	 * @param data
-	 * @throws IOException 
+	 * @throws IOException
 	 */
 	public void processFileDataMessage(String haName, long offset, byte[] data)
-	throws IOException
+		throws IOException
 	{
-		log.debug("got FileData - ha="+haName+", offset="+offset+", length="+data.length);
-		FileObject fo = getFileObject(haName);
-		fo.seek(offset);
-		fo.write(data, 0, data.length);
+		log.debug("got FileData - ha=" + haName + ", offset=" + offset + ", length=" + data.length);
+		FileChannel fc = getFileChannel(haName);
+		fc.position(offset);
+		fc.write(ByteBuffer.wrap(data, 0, data.length));
 	}
 
 
 	/**
-	 * This method may only be called from within the protocol instance
-	 * thread.
+	 * This method may only be called from within the protocol instance thread.
 	 * 
 	 * @param haName
 	 * @param offset
 	 * @param length
 	 * @param checksum
-	 * @throws IOException 
+	 * @throws IOException
 	 */
-	public void processFileChecksumMessage(String haName, long offset, int length, byte[] checksum) 
-	throws IOException
+	public void processFileChecksumMessage(String haName, long offset, int length, byte[] checksum)
+		throws IOException
 	{
-		FileObject fo = getFileObject(haName);
+		FileChannel fc = getFileChannel(haName);
 
 		boolean segmentDiffers = false;
 
-		if (offset+length > fo.length() && length > 0) {
-			log.debug("got FileChecksum - ha="+haName+", offset="+offset+", length="+length+": peer longer than local");
+		if (offset + length > fc.size() && length > 0) {
+			log.debug("got FileChecksum - ha=" + haName + ", offset=" + offset + ", length=" +
+				length + ": peer longer than local");
 			segmentDiffers = true;
 
 		} else {
-			fo.seek(offset);
-			byte[] buffer = new byte[length];
-			if (fo instanceof FileObjectHa) {
-				((FileObjectHa)fo).readFullyNocache(buffer, 0, length);
+			fc.position(offset);
+			ByteBuffer buffer = ByteBuffer.allocate(length);
+			int rlength;
+			if (fc instanceof FileChannelHa) {
+				rlength = ((FileChannelHa) fc).readNoCache(buffer);
 			} else {
-				fo.readFully(buffer, 0, length);
+				rlength = fc.read(buffer);
 			}
 
-			byte[] localMd5 = computeMd5(buffer, 0, length);
-			if (!Arrays.equals(localMd5, checksum)) {
-				log.debug("got FileChecksum - ha="+haName+", offset="+offset+", length="+length+": checksums differ");
+			if (rlength < length) {
+				log.debug("unexpected EOF when reading local file - ha=" + haName + ", offset=" +
+					offset + ", length=" + length + ": got only " + rlength);
 				segmentDiffers = true;
 			} else {
-				log.debug("got FileChecksum - ha="+haName+", offset="+offset+", length="+length+": same checksums");
+				buffer.hasArray();
+				byte[] localMd5 = computeMd5(buffer);
+				if (!Arrays.equals(localMd5, checksum)) {
+					log.debug("got FileChecksum - ha=" + haName + ", offset=" + offset +
+						", length=" + length + ": checksums differ");
+					segmentDiffers = true;
+				} else {
+					log.debug("got FileChecksum - ha=" + haName + ", offset=" + offset +
+						", length=" + length + ": same checksums");
+				}
 			}
 		}
 
@@ -494,36 +469,37 @@ extends ServerSideProtocolInstance
 
 
 	/**
-	 * This method may only be called from within the protocol instance
-	 * thread.
+	 * This method may only be called from within the protocol instance thread.
 	 * 
 	 * @param haName
 	 * @param length
 	 * @param lastModified
-	 * @throws IOException 
+	 * @throws IOException
 	 */
 	public void processEndOfChecksumsMessage(String haName)
-	throws IOException
+		throws IOException
 	{
-		log.debug("got EndOfChecksums - ha="+haName);
+		log.debug("got EndOfChecksums - ha=" + haName);
 		endOfChecksumReceived++;
 		log.info("HA sync: " + endOfChecksumReceived + " of " + fileDeltasRequested +
-		" file checksums complete");
+			" file checksums complete");
 		sendToPeer(new FileProcessed(haName));
 	}
 
 
 	/**
 	 * @param haName
-	 * @throws IOException 
+	 * @throws IOException
 	 */
 	public void processEndOfFileMessage(String haName, long length, long lastModified)
-	throws IOException
+		throws IOException
 	{
-		log.debug("got EndOfFile - ha="+haName+", length="+length+", mod="+lastModified);
-		FileObject fo = getFileObject(haName);
-		fo.setFileLength(length);
-		fileSystem.setLastModified(haName, lastModified);
+		log.debug("got EndOfFile - ha=" + haName + ", length=" + length + ", mod=" + lastModified);
+
+		FilePathHa fp = getFilePath(haName);
+		FileChannel fc = getFileChannel(fp);
+		fc.truncate(length);
+		closeFileObject(fp, lastModified);
 		endOfFileReceived++;
 		log.info("HA sync: " + endOfFileReceived + " of " +
 			(fileDeltasRequested + fullFilesRequested) + " files complete");
@@ -531,14 +507,13 @@ extends ServerSideProtocolInstance
 
 
 	/**
-	 * This method may only be called from within the protocol instance
-	 * thread.
+	 * This method may only be called from within the protocol instance thread.
 	 * 
-	 * @throws IOException 
+	 * @throws IOException
 	 * 
 	 */
 	public void processSendFileConfirmMessage()
-	throws IOException
+		throws IOException
 	{
 		log.debug("got SendFileConfirm");
 		sendToPeer(new LiveModeRequest());
@@ -568,90 +543,81 @@ extends ServerSideProtocolInstance
 	/**
 	 * @param fileName
 	 */
-	public void processCreateDirsMessage(String fileName)
+	public void processCreateDirectoryMessage(String haName)
 	{
-		fileSystem.createDirs(fileName);
+		FilePathHa fp = getFilePath(haName);
+		fp.createDirectory();
 	}
 
 	/**
 	 * @param fileName
 	 */
-	public void processCreateNewFileMessage(String fileName)
+	public void processCreateFileMessage(String haName)
 	{
-		fileSystem.createNewFile(fileName);
+		FilePathHa fp = getFilePath(haName);
+		fp.createFile();
 	}
 
 	/**
 	 * @param fileName
 	 */
-	public void processTryDeleteMessage(String fileName)
+	public void processDeleteMessage(String haName)
 	{
-		fileSystem.tryDelete(fileName);
-	}
-
-	/**
-	 * @param fileName
-	 */
-	public void processDeleteMessage(String fileName)
-	{
-		fileSystem.delete(fileName);
-	}
-
-	/**
-	 * @param directory
-	 */
-	public void processDeleteRecursiveMessage(String directory, boolean tryOnly)
-	{
-		fileSystem.deleteRecursive(directory, tryOnly);
+		FilePathHa fp = getFilePath(haName);
+		fp.delete();
 	}
 
 	/**
 	 * @param oldName
 	 */
-	public void processRenameMessage(String oldName, String newName)
+	public void processMoveToMessage(String oldName, String newName)
 	{
-		fileSystem.rename(oldName, newName);
+		FilePathHa oldFp = getFilePath(oldName);
+		FilePathHa newFp = getFilePath(newName);
+		oldFp.moveTo(newFp);
+	}
+
+	/**
+	 * @param haName
+	 * @throws IOException
+	 */
+	public void processCloseMessage(String haName, long lastModified)
+		throws IOException
+	{
+		closeFileChannel(haName, lastModified);
 	}
 
 	/**
 	 * @param fileName
 	 */
-	public void processSetReadOnlyMessage(String fileName)
+	public void processSetReadOnlyMessage(String haName)
 	{
-		fileSystem.setReadOnly(fileName);
+		FilePathHa fp = getFilePath(haName);
+		fp.setReadOnly();
 	}
 
 	/**
 	 * @param haName
-	 * @throws IOException 
+	 * @throws IOException
 	 */
-	public void processFoCloseMessage(String haName, long lastModified)
-	throws IOException
+	public void processTruncateMessage(String haName, long newLength)
+		throws IOException
 	{
-		closeFileObject(haName, lastModified);
+		FileChannel fc = getFileChannel(haName);
+		fc.truncate(newLength);
 	}
 
 	/**
 	 * @param haName
-	 * @throws IOException 
+	 * @throws IOException
 	 */
-	public void processFoSetFileLengthMessage(String haName, long newLength)
-	throws IOException
+	public void processWriteMessage(String haName, long filePointer, byte[] data)
+		throws IOException
 	{
-		FileObject fo = getFileObject(haName);
-		fo.setFileLength(newLength);
-	}
-
-	/**
-	 * @param haName
-	 * @throws IOException 
-	 */
-	public void processFoWriteMessage(String haName, long filePointer, byte[] data)
-	throws IOException
-	{
-		FileObject fo = getFileObject(haName);
-		fo.seek(filePointer);
-		fo.write(data, 0, data.length);
+		FileChannel fc = getFileChannel(haName);
+		fc.position(filePointer);
+		ByteBuffer buffer = ByteBuffer.wrap(data);
+		fc.write(buffer);
 	}
 
 	// /////////////////////////////////////////////////////////
@@ -661,7 +627,7 @@ extends ServerSideProtocolInstance
 	 * 
 	 */
 	private static class SendListOfFilesRequest
-	extends MessageToServer
+		extends MessageToServer
 	{
 		private static final long serialVersionUID = 1L;
 
@@ -671,7 +637,7 @@ extends ServerSideProtocolInstance
 
 		@Override
 		protected void processMessageToServer(ReplicationServerInstance instance)
-		throws Exception
+			throws Exception
 		{
 			instance.processSendListOfFilesRequestMessage();
 		}
@@ -693,7 +659,7 @@ extends ServerSideProtocolInstance
 	 * 
 	 */
 	private static class SendFileRequest
-	extends MessageToServer
+		extends MessageToServer
 	{
 		private static final long serialVersionUID = 1L;
 		List<FileRequestData> entries;
@@ -705,7 +671,7 @@ extends ServerSideProtocolInstance
 
 		@Override
 		protected void processMessageToServer(ReplicationServerInstance instance)
-		throws Exception
+			throws Exception
 		{
 			instance.processSendFileRequestMessage(entries);
 
@@ -714,13 +680,13 @@ extends ServerSideProtocolInstance
 		@Override
 		public int getSizeEstimate()
 		{
-			return 45*entries.size();
+			return 45 * entries.size();
 		}
 
 		@Override
 		public String toString()
 		{
-			return "send file req: nentries="+entries.size();
+			return "send file req: nentries=" + entries.size();
 		}
 	}
 
@@ -728,7 +694,7 @@ extends ServerSideProtocolInstance
 	 *
 	 */
 	private static class SendBlockRequest
-	extends MessageToServer
+		extends MessageToServer
 	{
 		private static final long serialVersionUID = 1L;
 		String haName;
@@ -745,7 +711,7 @@ extends ServerSideProtocolInstance
 
 		@Override
 		protected void processMessageToServer(ReplicationServerInstance instance)
-		throws Exception
+			throws Exception
 		{
 			instance.processSendBlockRequestMessage(haName, offset, length);
 		}
@@ -759,7 +725,7 @@ extends ServerSideProtocolInstance
 		@Override
 		public String toString()
 		{
-			return "send block req "+haName+", offs="+offset+", len="+length;
+			return "send block req " + haName + ", offs=" + offset + ", len=" + length;
 		}
 	}
 
@@ -767,7 +733,7 @@ extends ServerSideProtocolInstance
 	 *
 	 */
 	private static class FileProcessed
-	extends MessageToServer
+		extends MessageToServer
 	{
 		private static final long serialVersionUID = 1L;
 		String haName;
@@ -780,7 +746,7 @@ extends ServerSideProtocolInstance
 
 		@Override
 		protected void processMessageToServer(ReplicationServerInstance instance)
-		throws Exception
+			throws Exception
 		{
 			instance.processFileProcessedMessage(haName);
 		}
@@ -794,7 +760,7 @@ extends ServerSideProtocolInstance
 		@Override
 		public String toString()
 		{
-			return "file processed "+haName;
+			return "file processed " + haName;
 		}
 	}
 
@@ -802,7 +768,7 @@ extends ServerSideProtocolInstance
 	 *
 	 */
 	private static class LiveModeRequest
-	extends MessageToServer
+		extends MessageToServer
 	{
 		private static final long serialVersionUID = 1L;
 
@@ -813,7 +779,7 @@ extends ServerSideProtocolInstance
 
 		@Override
 		protected void processMessageToServer(ReplicationServerInstance instance)
-		throws Exception
+			throws Exception
 		{
 			instance.processLiveModeRequestMessage();
 		}
@@ -835,7 +801,7 @@ extends ServerSideProtocolInstance
 	 * 
 	 */
 	private static class StopReplicationRequest
-	extends MessageToServer
+		extends MessageToServer
 	{
 		private static final long serialVersionUID = 1L;
 
@@ -845,7 +811,7 @@ extends ServerSideProtocolInstance
 
 		@Override
 		protected void processMessageToServer(ReplicationServerInstance instance)
-		throws Exception
+			throws Exception
 		{
 			instance.processStopReplicationRequest();
 		}

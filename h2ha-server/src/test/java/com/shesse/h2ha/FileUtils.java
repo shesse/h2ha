@@ -27,7 +27,7 @@ public class FileUtils
     // /////////////////////////////////////////////////////////
     /** */
     private static Logger log = Logger.getLogger(FileUtils.class);
-
+    
 
     // /////////////////////////////////////////////////////////
     // Constructors
@@ -138,10 +138,18 @@ public class FileUtils
     {
         Set<String> entries = new HashSet<String>();
         
+        FileSystemHa dummyFileSystem;
+		try {
+			dummyFileSystem = new FileSystemHa(null, Arrays.asList("-haBaseDir", dir.getPath() ));
+		} catch (TerminateThread x) {
+			throw new IllegalStateException(x.getMessage());
+		}
+
+        
         for (String e: dir.list()) {
             File fe = new File(dir, e);
-            FileInfo fi = new FileInfo("ha://"+e, fe.getPath(), true);
-            if (fe.isDirectory() || fi.mustReplicate()) entries.add(e);
+            FilePathHa fp = new FilePathHa(dummyFileSystem, "ha:///"+e, false);
+            if (fe.isDirectory() || fp.mustReplicate()) entries.add(e);
         }
         
         return entries;
