@@ -221,6 +221,7 @@ public class FileChannelHa
 		throws IOException
 	{
 		baseChannel.force(metaData);
+		fileSystem.force();
 	}
 
 	/**

@@ -669,7 +669,7 @@ public class ReplicationProtocolInstance
 	/**
 	 * Will cause all outstanding messages to be sent. This method will wait
 	 * until the sending has been completed. Not that this does not necessarily
-	 * mean that the peer has processed all messages. The even may still get
+	 * mean that the peer has processed all messages. They even may still get
 	 * lost on network connection or peer failure.
 	 * 
 	 * @throws InterruptedException

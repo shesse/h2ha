@@ -198,6 +198,35 @@ public class FileSystemHa
 			rep.enqueue(message);
 		}
 	}
+	
+	/**
+	 * force() has been called on a FileChannelHa. This is most
+	 * probably the attempt to ensure persistency on commit.
+	 * There are different ways to deal with this with respect
+	 * to forwarding changes to replicators:
+	 * <ul>
+	 * <li>Don't delay the sender and accept loosing some
+	 * milliseconds of already commited updates. In this case we don't need
+	 * to do anything here.
+	 * <li>wait until all pending updates have been sent out to the replicators
+	 * <li>ask replicators to acknowldge that all data has been forced on their side
+	 * <ul>
+	 * The first possibility is the most performant and is in line with
+	 * H2 default beahviour (see 
+	 * http://www.h2database.com/html/advanced.html#durability_problems).
+	 * The current implementation of h2ha uses this variant.
+	 */
+	public void force()
+	{
+		// do nothing - see above
+		
+		// as an alternative it would be possible to call flushAll or
+		// syncAll from here. A small enhancement could add a boolean
+		// force argument to syncAll to do a force on the replicator's side
+	}
+
+
+
 
 	/**
 	 * flushes all replicator connections.
@@ -947,6 +976,5 @@ public class FileSystemHa
 			return "set read only " + fileName;
 		}
 	}
-
 
 }
