@@ -20,6 +20,9 @@ import javax.net.ServerSocketFactory;
 import org.apache.log4j.Logger;
 
 /**
+ * Listens for incoming control connections from other replicas.
+ * It creates a new instance of ReplicationServerInstance for each 
+ * such connection.
  *
  * @author sth
  */

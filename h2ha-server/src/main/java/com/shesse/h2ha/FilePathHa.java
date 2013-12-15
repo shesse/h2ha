@@ -10,6 +10,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.List;
@@ -239,9 +241,7 @@ public class FilePathHa
 	{
 		getBasePath().createDirectory();
 
-		if (mustReplicate()) {
-			fileSystem.sendCreateDirectory(this);
-		}
+		fileSystem.sendCreateDirectory(this);
 	}
 
 	/**
@@ -254,7 +254,7 @@ public class FilePathHa
 	{
 		boolean success = getBasePath().createFile();
 
-		if (success && mustReplicate()) {
+		if (success) {
 			fileSystem.sendCreateFile(this);
 		}
 		
@@ -271,9 +271,7 @@ public class FilePathHa
 	{
 		getBasePath().delete();
 
-		if (mustReplicate()) {
-			fileSystem.sendDelete(this);
-		}
+		fileSystem.sendDelete(this);
 	}
 
 	/**
@@ -369,7 +367,22 @@ public class FilePathHa
 	 */
 	public void lastModified(long timestamp)
 	{
-		File baseFile = new File(basePath.toString());
+		String basePathName = basePath.toString();
+		
+		File baseFile;
+		if (basePathName.startsWith("file:")) {
+			try {
+				URI uri = new URI(basePathName);
+				baseFile = new File(uri);
+				
+			} catch (URISyntaxException x) {
+				baseFile = new File(basePathName);
+			}
+		} else {
+			baseFile = new File(basePathName);
+		}
+		
+		log.debug("setting timestamp for "+baseFile);
 		if (baseFile.exists()) {
 			baseFile.setLastModified(timestamp);
 		}
@@ -435,7 +448,13 @@ public class FilePathHa
 	public OutputStream newOutputStream(boolean append)
 		throws IOException
 	{
-		return fileSystem.newOutputStream(this, append);
+		OutputStream baseOutputStream = getBasePath().newOutputStream(append);
+		if (mustReplicate()) {
+			return new OutputStreamHa(fileSystem, this, baseOutputStream, append);
+		
+		} else {
+			return baseOutputStream;
+		}
 	}
 
 	/**
@@ -447,7 +466,12 @@ public class FilePathHa
 	public FileChannel open(String accessMode)
 		throws IOException
 	{
-		return fileSystem.open(this, accessMode);
+		FileChannel baseChannel = getBasePath().open(accessMode);
+		if (mustReplicate()) {
+			return new FileChannelHa(fileSystem, this, baseChannel, accessMode);
+		} else {
+			return baseChannel;
+		}
 	}
 
 	/**
@@ -459,9 +483,7 @@ public class FilePathHa
 	public boolean setReadOnly()
 	{
 		if (basePath.setReadOnly()) {
-			if (mustReplicate()) {
-				fileSystem.sendSetReadOnly(this);
-			}
+			fileSystem.sendSetReadOnly(this);
 			return true;
 		} else {
 			return false;

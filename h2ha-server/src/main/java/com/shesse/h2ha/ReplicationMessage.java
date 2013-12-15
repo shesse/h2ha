@@ -11,69 +11,68 @@ import java.io.Serializable;
 import org.apache.log4j.Logger;
 
 /**
- *
+ * 
  * @author sth
  */
 public abstract class ReplicationMessage
-    implements Serializable
+	implements Serializable
 {
-    // /////////////////////////////////////////////////////////
-    // Class Members
-    // /////////////////////////////////////////////////////////
-    /** */
-    private static Logger log = Logger.getLogger(ReplicationMessage.class);
+	// /////////////////////////////////////////////////////////
+	// Class Members
+	// /////////////////////////////////////////////////////////
+	/** */
+	private static Logger log = Logger.getLogger(ReplicationMessage.class);
 
-    /**
+	/**
      * 
      */
-    private static final long serialVersionUID = 1L;
+	private static final long serialVersionUID = 1L;
 
-    // /////////////////////////////////////////////////////////
-    // Constructors
-    // /////////////////////////////////////////////////////////
-    /**
+	// /////////////////////////////////////////////////////////
+	// Constructors
+	// /////////////////////////////////////////////////////////
+	/**
      */
-    public ReplicationMessage()
-    {
-        log.debug("ReplicationMessage()");
-    }
+	public ReplicationMessage()
+	{
+		log.debug("ReplicationMessage()");
+	}
 
-    // /////////////////////////////////////////////////////////
-    // Methods
-    // /////////////////////////////////////////////////////////
-    /**
-     * @throws Exception 
+	// /////////////////////////////////////////////////////////
+	// Methods
+	// /////////////////////////////////////////////////////////
+	/**
+	 * @throws Exception
+	 * 
+	 */
+	protected abstract void process(ReplicationProtocolInstance instance)
+		throws Exception;
+
+	/**
      * 
      */
-    protected abstract void process(ReplicationProtocolInstance instance)
-    throws Exception;
+	protected boolean callOnlyIfConnected()
+	{
+		return true;
+	}
 
-    /**
+	/**
      * 
      */
-    protected boolean callOnlyIfConnected()
-    {
-        return true;
-    }
+	public boolean needToSend(ReplicationProtocolInstance instance)
+	{
+		return true;
+	}
 
-    /**
-     * 
-     */
-    public boolean needToSend(ReplicationProtocolInstance instance)
-    {
-	return true;
-    }
+	/**
+	 * @return estimated size of this object when serialized. This value is only
+	 *         used for statistical purposes and need not be exact.
+	 */
+	public abstract int getSizeEstimate();
 
-    /**
-     * @return estimated size of this object when serialized. 
-     * This value is only used for statistical purposes and
-     * need not be exact.
-     */
-    public abstract int getSizeEstimate();
-
-    // /////////////////////////////////////////////////////////
-    // Inner Classes
-    // /////////////////////////////////////////////////////////
+	// /////////////////////////////////////////////////////////
+	// Inner Classes
+	// /////////////////////////////////////////////////////////
 
 
 }

@@ -46,7 +46,7 @@ public class ReplicationProtocolInstance
 	private static Logger log = Logger.getLogger(ReplicationProtocolInstance.class);
 
 	/** */
-	private String instanceName;
+	protected String instanceName;
 
 	/** */
 	private long maxEnqueueWait;
@@ -388,6 +388,7 @@ public class ReplicationProtocolInstance
 							(totalBytesReceived - lastStatisticsBytesReceived) /
 								((now - lastStatisticsTimestamp) / 1000.);
 
+						logStatistics();
 						log.info(instanceName +
 							String.format(": transmit/receive rate = %7.1f/%7.1f KB/sec",
 								transmittedBytesPerSecond / 1000, receivedBytesPerSecond / 1000));
@@ -449,6 +450,14 @@ public class ReplicationProtocolInstance
 			log.debug(instanceName + ": leaving processProtocolMessages");
 		}
 	}
+
+	/**
+	 * 
+	 */
+	protected void logStatistics()
+	{
+	}
+
 
 	/**
 	 * @throws IOException

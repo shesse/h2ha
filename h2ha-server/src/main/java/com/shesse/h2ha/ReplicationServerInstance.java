@@ -29,6 +29,8 @@ import com.shesse.h2ha.H2HaServer.FailoverState;
 
 
 /**
+ * Handles an incoming connection from a single replicator.
+ * <p>
  * ReplicationServerInstance is a thread Independent from any database thread.
  * It may be blocked temporarily when writing to the communication channel.
  * <p>
@@ -76,7 +78,6 @@ import com.shesse.h2ha.H2HaServer.FailoverState;
  * and terminating FileProcessed messages. It will enter live+ mode and send
  * back a LiveModeConfirm.
  * <li>After receiving this, the client will also enter live mode.
- * <li>When a client has received all required information, it will send a
  * </ul>
  * 
  * @author sth
@@ -179,6 +180,19 @@ public class ReplicationServerInstance
 	{
 		super.sendHeartbeat();
 		sendStatus();
+	}
+	
+	
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @see com.shesse.h2ha.ReplicationProtocolInstance#logStatistics()
+	 */
+	@Override
+	protected void logStatistics()
+	{
+		log.info(instanceName +": failoverState = "+haServer.getFailoverState());
 	}
 
 	/**

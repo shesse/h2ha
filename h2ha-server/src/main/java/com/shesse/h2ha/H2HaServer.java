@@ -7,10 +7,8 @@
 package com.shesse.h2ha;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.RandomAccessFile;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.InetAddress;
@@ -252,13 +250,17 @@ public class H2HaServer
 	 */
 	public static String removeOptionWithValue(List<String> args, String optName, String dflt)
 	{
-		for (int i = 0; i < args.size()-1; i++) {
+		String ret = dflt;
+		for (int i = 0; i < args.size()-1; ) {
 			if (args.get(i).equals(optName)) {
 				args.remove(i);
-				return args.remove(i);
+				ret = args.remove(i);
+				
+			} else {
+				i++;
 			}
 		}
-		return null;
+		return ret;
 	}
 	
 	/**
@@ -268,12 +270,16 @@ public class H2HaServer
 	 */
 	public static String findOptionWithValue(List<String> args, String optName, String dflt)
 	{
-		for (int i = 0; i < args.size()-1; i++) {
+		String ret = dflt;
+		for (int i = 0; i < args.size()-1; ) {
 			if (args.get(i).equals(optName)) {
-				return args.get(i+1);
-			}
+				ret = args.get(i+1);
+				i += 2;
+			} else {
+				i++;
+			}			
 		}
-		return null;
+		return ret;
 	}
 	
 	/**
@@ -322,13 +328,16 @@ public class H2HaServer
 	 */
 	public static boolean removeOption(List<String> args, String optName)
 	{
-		for (int i = 0; i < args.size(); i++) {
+		boolean ret = false;
+		for (int i = 0; i < args.size(); ) {
 			if (args.get(i).equals(optName)) {
 				args.remove(i);
-				return true;
+				ret = true;
+			} else {
+				i++;
 			}
 		}
-		return false;
+		return ret;
 	}
 	
 	/**
@@ -655,94 +664,6 @@ public class H2HaServer
 
 
 	/**
-	 * @throws InterruptedException 
-	 * 
-	 */
-	private void runHaServer() 
-	throws InterruptedException
-	{
-		serverArgs = new ArrayList<String>();
-		
-		serverArgs.add("-tcpAllowOthers");
-		serverArgs.add("-baseDir");
-		serverArgs.add("ha:///");
-		serverArgs.add("-ifExists");
-		
-		serverArgs.addAll(args);
-		
-		peerHost = removeOptionWithValue(serverArgs, "-haPeerHost", null);
-		haBaseDir = removeOptionWithValue(serverArgs, "-haBaseDir", null);
-		masterPriority = removeOptionWithInt(serverArgs, "-masterPriority", 10);
-		
-		removeOptionWithValue(serverArgs, "-haPeerPort", null);
-		removeOptionWithValue(serverArgs, "-haCacheSize", null);
-		removeOptionWithValue(serverArgs, "-haConnectTimeout", null);
-		removeOptionWithValue(serverArgs, "-statisticsInterval", null);
-		removeOptionWithValue(serverArgs, "-connectRetry", null);
-		removeOptionWithValue(serverArgs, "-haListenPort", null);
-		removeOptionWithValue(serverArgs, "-haMaxQueueSize", null);
-		removeOptionWithValue(serverArgs, "-haMaxEnqueueWait", null);
-		removeOptionWithValue(serverArgs, "-haMaxWaitingMessages", null);
-		removeOptionWithValue(serverArgs, "-statisticsInterval", null);
-		removeOption(serverArgs, "-autoFailback");
-		removeOption(serverArgs, "-haRestrictPeer");
-		
-		
-		if (findOption(serverArgs, "-?")) {
-			showServerUsage();
-			System.exit(1);
-		}
-		if (findOption(serverArgs, "-help")) {
-			showServerUsage();
-			System.exit(1);
-		}
-		
-
-		if (haBaseDir == null) {
-			System.err.println("mandatory flag -haBaseDir is missing");
-			showServerUsage();
-			System.exit(1);
-		}
-
-		if (!new File(haBaseDir).exists()) {
-			System.err.println("HA base dir "+haBaseDir+" does not exist");
-			showServerUsage();
-			System.exit(1);
-		}
-
-		LockHandle baseLock = acquireHaBaseLock(haBaseDir);
-		if (baseLock == null) {
-			System.err.println("could not get lock for "+haBaseDir+" - some other process is probably using it");
-			System.exit(1);
-		}
-
-		try {
-			fileSystem = new FileSystemHa(this, args);
-			server = new ReplicationServer(this, fileSystem, args);
-			server.start();
-
-			if (peerHost == null) {
-				log.warn("no haPeerHost specified - running in master only mode!");
-				applyEvent(Event.NO_PEER, null, null);
-
-			} else {
-				applyEvent(Event.HA_STARTUP, null, null);
-			}
-
-			while (!shutdownRequested) {
-				Runnable queueEntry = controlQueue.take();
-				queueEntry.run();
-			}
-
-		} catch (TerminateThread x) {
-			System.err.println(x.getMessage());
-
-		} finally {
-			baseLock.release();
-		}
-	}
-
-	/**
 	 * @param args2
 	 */
 	private static void printVersionInfo(List<String> args)
@@ -771,6 +692,39 @@ public class H2HaServer
 				} catch (IOException x) {
 				}
 			}
+		}
+	}
+
+	/**
+	 * Acquires a lock for accessing haBaseDir. 
+	 * Returns a handle for this lock which can be used
+	 * to release the lock. Returns null if it was not possible
+	 * to acquire the lock. 
+	 */
+	private static LockHandle acquireHaBaseLock(String haBaseDir)
+	{
+		FilePath basePath = FilePath.get(haBaseDir+"/h2ha.lock");
+
+		FileChannel channel;
+		try {
+			channel = basePath.open("rw");
+		} catch (IOException x) {
+			log.error("could not create HA lock file: "+x);
+			return null;
+		}
+
+		try {
+			FileLock lock = channel.tryLock();
+			if (lock == null) {
+				log.error("could not acquire HA lock: it is locked by another process");
+				return null;
+			} else {
+				return new LockHandle(channel, lock);
+			}
+			
+		} catch (IOException x) {
+			log.error("could not acquire HA lock: "+x);
+			return null;
 		}
 	}
 
@@ -819,45 +773,99 @@ public class H2HaServer
 		System.err.println("    -trace");
 		System.err.println("        print additional trace information");
 		System.err.println("");
-
+	
 	
 		System.exit(1);
 	}
 
 
 	/**
-	 * Acquires a lock for accessing haBaseDir. 
-	 * Returns a handle for this lock which can be used
-	 * to release the lock. Returns null if it was not possible
-	 * to acquire the lock. 
+	 * @throws InterruptedException 
+	 * 
 	 */
-	private static LockHandle acquireHaBaseLock(String haBaseDir)
+	private void runHaServer() 
+	throws InterruptedException
 	{
-		File dir = new File(haBaseDir);
-		File lockfile = new File(dir, "h2ha.lock");
-
-		FileChannel channel;
-		try {
-			channel = new RandomAccessFile(lockfile, "rw").getChannel();
-		} catch (FileNotFoundException x) {
-			log.error("could not create HA lock file: "+x);
-			return null;
+		serverArgs = new ArrayList<String>();
+		
+		serverArgs.add("-tcpAllowOthers");
+		serverArgs.add("-baseDir");
+		serverArgs.add("ha:///");
+		serverArgs.add("-ifExists");
+		
+		serverArgs.addAll(args);
+		
+		peerHost = removeOptionWithValue(serverArgs, "-haPeerHost", null);
+		haBaseDir = removeOptionWithValue(serverArgs, "-haBaseDir", null);
+		masterPriority = removeOptionWithInt(serverArgs, "-masterPriority", 10);
+		
+		removeOptionWithValue(serverArgs, "-haPeerPort", null);
+		removeOptionWithValue(serverArgs, "-haCacheSize", null);
+		removeOptionWithValue(serverArgs, "-haConnectTimeout", null);
+		removeOptionWithValue(serverArgs, "-statisticsInterval", null);
+		removeOptionWithValue(serverArgs, "-connectRetry", null);
+		removeOptionWithValue(serverArgs, "-haListenPort", null);
+		removeOptionWithValue(serverArgs, "-haMaxQueueSize", null);
+		removeOptionWithValue(serverArgs, "-haMaxEnqueueWait", null);
+		removeOptionWithValue(serverArgs, "-haMaxWaitingMessages", null);
+		removeOption(serverArgs, "-autoFailback");
+		removeOption(serverArgs, "-haRestrictPeer");
+		
+		
+		if (findOption(serverArgs, "-?")) {
+			showServerUsage();
+			System.exit(1);
 		}
-
+		if (findOption(serverArgs, "-help")) {
+			showServerUsage();
+			System.exit(1);
+		}
+		
+	
+		if (haBaseDir == null) {
+			System.err.println("mandatory flag -haBaseDir is missing");
+			showServerUsage();
+			System.exit(1);
+		}
+	
+		if (!new File(haBaseDir).exists()) {
+			System.err.println("HA base dir "+haBaseDir+" does not exist");
+			showServerUsage();
+			System.exit(1);
+		}
+	
+		LockHandle baseLock = acquireHaBaseLock(haBaseDir);
+		if (baseLock == null) {
+			System.err.println("could not get lock for "+haBaseDir+" - some other process is probably using it");
+			System.exit(1);
+		}
+	
 		try {
-			FileLock lock = channel.tryLock();
-			if (lock == null) {
-				log.error("could not acquire HA lock: it is locked by another process");
-				return null;
+			fileSystem = new FileSystemHa(this, args);
+			server = new ReplicationServer(this, fileSystem, args);
+			server.start();
+	
+			if (peerHost == null) {
+				log.warn("no haPeerHost specified - running in master only mode!");
+				applyEvent(Event.NO_PEER, null, null);
+	
 			} else {
-				return new LockHandle(channel, lock);
+				applyEvent(Event.HA_STARTUP, null, null);
 			}
-			
-		} catch (IOException x) {
-			log.error("could not acquire HA lock: "+x);
-			return null;
+	
+			while (!shutdownRequested) {
+				Runnable queueEntry = controlQueue.take();
+				queueEntry.run();
+			}
+	
+		} catch (TerminateThread x) {
+			System.err.println(x.getMessage());
+	
+		} finally {
+			baseLock.release();
 		}
 	}
+
 
 	/**
 	 * 

@@ -100,6 +100,7 @@ public class ReplicationClientInstance
 		long statisticsInterval = 300000L;
 		
 		peerHost = H2HaServer.findOptionWithValue(args, "-haPeerHost", "replication-peer");
+		peerPort = H2HaServer.findOptionWithInt(args, "-haPeerPort", 8234);
 		connectTimeout = H2HaServer.findOptionWithInt(args, "-haConnectTimeout", 10000);
 		statisticsInterval = H2HaServer.findOptionWithInt(args, "-statisticsInterval", 300000);
 		maxConnectRetries = H2HaServer.findOptionWithInt(args, "-connectRetry", 5);

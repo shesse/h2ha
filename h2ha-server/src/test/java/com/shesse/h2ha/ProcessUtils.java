@@ -16,171 +16,175 @@ import java.util.List;
 import org.apache.log4j.Logger;
 
 /**
- *
+ * 
  * @author sth
  */
 public class ProcessUtils
 {
-    // /////////////////////////////////////////////////////////
-    // Class Members
-    // /////////////////////////////////////////////////////////
-    /** */
-    private static Logger log = Logger.getLogger(ProcessUtils.class);
+	// /////////////////////////////////////////////////////////
+	// Class Members
+	// /////////////////////////////////////////////////////////
+	/** */
+	private static Logger log = Logger.getLogger(ProcessUtils.class);
 
 
-    // /////////////////////////////////////////////////////////
-    // Constructors
-    // /////////////////////////////////////////////////////////
-    /**
+	// /////////////////////////////////////////////////////////
+	// Constructors
+	// /////////////////////////////////////////////////////////
+	/**
      */
-    public ProcessUtils()
-    {
-        log.debug("ProcessUtils()");
-    }
-
-    // /////////////////////////////////////////////////////////
-    // Methods
-    // /////////////////////////////////////////////////////////
-    /**
-     * ruft java auf und übergibt den aktuellen
-     * Classpath
-     * @return 
-     * @throws IOException 
-     */
-    public static Process startJavaProcess(final String logPrefix, List<String> command)
-    throws IOException
-    {
-        List<String> osCommand = new ArrayList<String>();
-        
-        String jhome = System.getProperty("java.home");
-        
-        osCommand.add(jhome+"/bin/java");
-        
-        String cp = System.getProperty("java.class.path");
-        osCommand.add("-cp");
-        osCommand.add(cp);
-        
-        osCommand.addAll(command);
-        
-        return startProcess(logPrefix, osCommand);
-        
-    }
-
-    /**
-     * @throws IOException 
-     * 
-     */
-    public static Process startProcess(final String logPrefix, List<String> command)
-    throws IOException
-    {
-        ProcessBuilder pb = new ProcessBuilder(command);
-        pb.redirectErrorStream(true);
-        
-        Process proc = pb.start();
-        
-        final BufferedReader procOutput = new BufferedReader(new InputStreamReader(proc.getInputStream()));
-        
-        Thread forwarder = new Thread() {
-            public void run()
-            {
-                String line;
-                try {
-                    while ((line = procOutput.readLine()) != null) {
-                        System.err.println(logPrefix+": "+line);
-                    }
-                    procOutput.close();
-                } catch (Throwable x) {
-                }
-            }
-        };
-        forwarder.start();
-        
-        return proc;
-    }
-    
-    
-    /**
-     * @throws IOException 
-     * @throws InterruptedException 
-     * 
-     */
-    public static ExecResult exec(String command)
-    throws IOException, InterruptedException
-    {
-	if (System.getProperty("os.name").toLowerCase().contains("windows")) {
-	    return exec(Arrays.asList("cmd", "/c", command));
-	} else {
-	    return exec(Arrays.asList("/bin/sh", "-c", command));
+	public ProcessUtils()
+	{
+		log.debug("ProcessUtils()");
 	}
-    }
-    
-    /**
-     * 
-     * @param command
-     * @return
-     * @throws IOException
-     * @throws InterruptedException 
-     */
-    public static ExecResult exec(List<String> command)
-    throws IOException, InterruptedException
-    {
-        ProcessBuilder pb = new ProcessBuilder(command);
-        pb.redirectErrorStream(false);
 
-        Process proc = pb.start();
+	// /////////////////////////////////////////////////////////
+	// Methods
+	// /////////////////////////////////////////////////////////
+	/**
+	 * ruft java auf und übergibt den aktuellen Classpath
+	 * 
+	 * @return
+	 * @throws IOException
+	 */
+	public static Process startJavaProcess(final String logPrefix, List<String> command)
+		throws IOException
+	{
+		List<String> osCommand = new ArrayList<String>();
+
+		String jhome = System.getProperty("java.home");
+
+		osCommand.add(jhome + "/bin/java");
+
+		String cp = System.getProperty("java.class.path");
+		osCommand.add("-cp");
+		osCommand.add(cp);
+
+		osCommand.addAll(command);
+
+		return startProcess(logPrefix, osCommand);
+
+	}
+
+	/**
+	 * @throws IOException
+	 * 
+	 */
+	public static Process startProcess(final String logPrefix, List<String> command)
+		throws IOException
+	{
+		ProcessBuilder pb = new ProcessBuilder(command);
+		pb.redirectErrorStream(true);
+
+		Process proc = pb.start();
+
+		final BufferedReader procOutput =
+			new BufferedReader(new InputStreamReader(proc.getInputStream()));
+
+		Thread forwarder = new Thread() {
+			public void run()
+			{
+				String line;
+				try {
+					while ((line = procOutput.readLine()) != null) {
+						System.err.println(logPrefix + ": " + line);
+					}
+					procOutput.close();
+				} catch (Throwable x) {
+				}
+			}
+		};
+		forwarder.start();
+
+		return proc;
+	}
 
 
-        final BufferedReader procOutput = new BufferedReader(new InputStreamReader(proc.getInputStream()));
-        final List<String> outputLines= new ArrayList<String>();
-        Thread outputReader = new Thread() {
-            public void run()
-            {
-                String line;
-                try {
-                    while ((line = procOutput.readLine()) != null) {
-                        outputLines.add(line);
-                     }
-                    procOutput.close();
-                } catch (Throwable x) {
-                }
-            }
-        };
-        outputReader.start();
-        
-        final BufferedReader procError = new BufferedReader(new InputStreamReader(proc.getErrorStream()));
-        
-        Thread forwarder = new Thread() {
-            public void run()
-            {
-                String line;
-                try {
-                    while ((line = procError.readLine()) != null) {
-                        System.err.println("exec: "+line);
-                    }
-                    procError.close();
-               } catch (Throwable x) {
-               }
-            }
-        };
-        forwarder.start();
-        
-        ExecResult result = new ExecResult();
-        result.outputLines = outputLines;
-        result.exitCode = proc.waitFor();
-        
-        outputReader.join();
-        
-        return result;
-    }
-    
-  
-    // /////////////////////////////////////////////////////////
-    // Inner Classes
-    // /////////////////////////////////////////////////////////
-    /** */
-    public static class ExecResult {
-        public List<String> outputLines;
-        public int exitCode;
-    }
+	/**
+	 * @throws IOException
+	 * @throws InterruptedException
+	 * 
+	 */
+	public static ExecResult exec(String command)
+		throws IOException, InterruptedException
+	{
+		if (System.getProperty("os.name").toLowerCase().contains("windows")) {
+			return exec(Arrays.asList("cmd", "/c", command));
+		} else {
+			return exec(Arrays.asList("/bin/sh", "-c", command));
+		}
+	}
+
+	/**
+	 * 
+	 * @param command
+	 * @return
+	 * @throws IOException
+	 * @throws InterruptedException
+	 */
+	public static ExecResult exec(List<String> command)
+		throws IOException, InterruptedException
+	{
+		ProcessBuilder pb = new ProcessBuilder(command);
+		pb.redirectErrorStream(false);
+
+		Process proc = pb.start();
+
+
+		final BufferedReader procOutput =
+			new BufferedReader(new InputStreamReader(proc.getInputStream()));
+		final List<String> outputLines = new ArrayList<String>();
+		Thread outputReader = new Thread() {
+			public void run()
+			{
+				String line;
+				try {
+					while ((line = procOutput.readLine()) != null) {
+						outputLines.add(line);
+					}
+					procOutput.close();
+				} catch (Throwable x) {
+				}
+			}
+		};
+		outputReader.start();
+
+		final BufferedReader procError =
+			new BufferedReader(new InputStreamReader(proc.getErrorStream()));
+
+		Thread forwarder = new Thread() {
+			public void run()
+			{
+				String line;
+				try {
+					while ((line = procError.readLine()) != null) {
+						System.err.println("exec: " + line);
+					}
+					procError.close();
+				} catch (Throwable x) {
+				}
+			}
+		};
+		forwarder.start();
+
+		ExecResult result = new ExecResult();
+		result.outputLines = outputLines;
+		result.exitCode = proc.waitFor();
+
+		outputReader.join();
+
+		return result;
+	}
+
+
+	// /////////////////////////////////////////////////////////
+	// Inner Classes
+	// /////////////////////////////////////////////////////////
+	/** */
+	public static class ExecResult
+	{
+		public List<String> outputLines;
+		public int exitCode;
+	}
 
 }

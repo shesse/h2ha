@@ -7,8 +7,6 @@
 package com.shesse.h2ha;
 
 import java.io.IOException;
-import java.io.OutputStream;
-import java.nio.channels.FileChannel;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -450,6 +448,10 @@ public class FileSystemHa
 	public void compressAndSendWrite(FilePathHa filePath, long filePointer, byte[] b, int off,
 		int len)
 	{
+		if (!filePath.mustReplicate()) {
+			return;
+		}
+		
 		// All writing traffic will pass through this point. So we
 		// may use the block cache to limit the amount of data sent
 		// to the peer system to only the parts that have changed.
@@ -548,6 +550,89 @@ public class FileSystemHa
 
 		sendToReplicators(new WriteMessage(filePath.getNormalizedHaName(), filePointer, dupData));
 	}
+
+	/**
+	 * @param filePath
+	 */
+	public void sendCreateDirectory(FilePathHa filePath)
+	{
+		if (filePath.mustReplicate()) {
+			sendToReplicators(new CreateDirectoryMessage(filePath.getNormalizedHaName()));
+		}
+	}
+
+
+	/**
+	 * @param filePath
+	 */
+	public void sendCreateFile(FilePathHa filePath)
+	{
+		if (filePath.mustReplicate()) {
+			sendToReplicators(new CreateFileMessage(filePath.getNormalizedHaName()));
+		}
+	}
+
+
+	/**
+	 * @param filePath
+	 */
+	public void sendDelete(FilePathHa filePath)
+	{
+		if (filePath.mustReplicate()) {
+			sendToReplicators(new DeleteMessage(filePath.getNormalizedHaName()));
+		}
+	}
+
+
+	/**
+	 * @param filePath
+	 * @param filePath2
+	 */
+	public void sendMoveTo(FilePathHa from, FilePathHa to)
+	{
+		if (from.mustReplicate() && to.mustReplicate()) {
+			sendToReplicators(new MoveToMessage(from.getNormalizedHaName(),
+				to.getNormalizedHaName()));
+	
+		} else if (from.mustReplicate() || to.mustReplicate()) {
+			log.error("attempt to rename with differing replication requirements: " + from +
+				" to " + to);
+		}
+	}
+
+
+	/**
+	 * @param filePath
+	 */
+	public void sendTruncate(FilePathHa filePath, long fileLength)
+	{
+		if (filePath.mustReplicate()) {
+			sendToReplicators(new TruncateMessage(filePath.getNormalizedHaName(), fileLength));
+		}
+	}
+
+	/**
+	 * @param filePath
+	 */
+	public void sendClose(FilePathHa filePath)
+	{
+		if (filePath.mustReplicate()) {
+			long lastModified = filePath.getBasePath().lastModified();
+			sendToReplicators(new CloseMessage(filePath.getNormalizedHaName(), lastModified));
+		}
+	}
+
+
+	/**
+	 * @param filePathHa
+	 */
+	public void sendSetReadOnly(FilePathHa filePath)
+	{
+		if (filePath.mustReplicate()) {
+			sendToReplicators(new SetReadOnlyMessage(filePath.getNormalizedHaName()));
+		}
+	}
+
 
 	/**
      * 
@@ -861,114 +946,6 @@ public class FileSystemHa
 		{
 			return "set read only " + fileName;
 		}
-	}
-
-
-	/**
-	 * @param filePath
-	 */
-	public void sendCreateDirectory(FilePathHa filePath)
-	{
-		sendToReplicators(new CreateDirectoryMessage(filePath.getNormalizedHaName()));
-	}
-
-
-	/**
-	 * @param filePath
-	 */
-	public void sendCreateFile(FilePathHa filePath)
-	{
-		sendToReplicators(new CreateFileMessage(filePath.getNormalizedHaName()));
-	}
-
-
-	/**
-	 * @param filePath
-	 */
-	public void sendDelete(FilePathHa filePath)
-	{
-		sendToReplicators(new DeleteMessage(filePath.getNormalizedHaName()));
-	}
-
-
-	/**
-	 * @param filePath
-	 * @param filePath2
-	 */
-	public void sendMoveTo(FilePathHa from, FilePathHa to)
-	{
-		if (from.mustReplicate() && to.mustReplicate()) {
-			sendToReplicators(new MoveToMessage(from.getNormalizedHaName(),
-				to.getNormalizedHaName()));
-
-		} else if (from.mustReplicate() || to.mustReplicate()) {
-			log.error("attempt to rename with differing replication requirements: " + from +
-				" to " + to);
-		}
-	}
-
-
-	/**
-	 * @param filePath
-	 * @param append
-	 * @return
-	 */
-	public OutputStream newOutputStream(FilePathHa filePath, boolean append)
-		throws IOException
-	{
-		OutputStream baseOutputStream = filePath.getBasePath().newOutputStream(append);
-		if (filePath.mustReplicate()) {
-			return new OutputStreamHa(this, filePath, baseOutputStream, append);
-
-		} else {
-			return baseOutputStream;
-		}
-	}
-
-
-	/**
-	 * @param filePath
-	 * @param accessMode
-	 * @return
-	 * @throws IOException
-	 */
-	public FileChannel open(FilePathHa filePath, String accessMode)
-		throws IOException
-	{
-		FileChannel baseChannel = filePath.getBasePath().open(accessMode);
-		if (filePath.mustReplicate()) {
-			return new FileChannelHa(this, filePath, baseChannel, accessMode);
-		} else {
-			return baseChannel;
-		}
-	}
-
-
-	/**
-	 * @param filePath
-	 */
-	public void sendTruncate(FilePathHa filePath, long fileLength)
-	{
-		sendToReplicators(new TruncateMessage(filePath.getNormalizedHaName(), fileLength));
-	}
-
-
-	/**
-	 * @param filePath
-	 */
-	public void sendClose(FilePathHa filePath)
-	{
-		long lastModified = filePath.getBasePath().lastModified();
-		sendToReplicators(new CloseMessage(filePath.getNormalizedHaName(), lastModified));
-	}
-
-
-	/**
-	 * @param filePathHa
-	 */
-	public void sendSetReadOnly(FilePathHa filePath)
-	{
-		sendToReplicators(new SetReadOnlyMessage(filePath.getNormalizedHaName()));
 	}
 
 

@@ -25,180 +25,184 @@ import com.shesse.h2ha.H2HaServer.FailoverState;
 
 
 /**
- *
+ * 
  * @author sth
  */
-public abstract class ServerSideProtocolInstance 
-extends ReplicationProtocolInstance
+public abstract class ServerSideProtocolInstance
+	extends ReplicationProtocolInstance
 {
-    // /////////////////////////////////////////////////////////
-    // Class Members
-    // /////////////////////////////////////////////////////////
-    /** */
-    private static Logger log = Logger.getLogger(ServerSideProtocolInstance.class);
+	// /////////////////////////////////////////////////////////
+	// Class Members
+	// /////////////////////////////////////////////////////////
+	/** */
+	private static Logger log = Logger.getLogger(ServerSideProtocolInstance.class);
 
-    /** */
-    protected H2HaServer haServer;
+	/** */
+	protected H2HaServer haServer;
 
-    /** */
-    protected FileSystemHa fileSystem;
-    
-    /** */
-    private MessageDigest md5Digest;
-    
-    /** */
-    private Map<FilePathHa, FileChannel> openFiles = new HashMap<FilePathHa, FileChannel>();
-    
-    
-    
-    // /////////////////////////////////////////////////////////
-    // Constructors
-    // /////////////////////////////////////////////////////////
-    /**
+	/** */
+	protected FileSystemHa fileSystem;
+
+	/** */
+	private MessageDigest md5Digest;
+
+	/** */
+	private Map<FilePathHa, FileChannel> openFiles = new HashMap<FilePathHa, FileChannel>();
+
+
+	// /////////////////////////////////////////////////////////
+	// Constructors
+	// /////////////////////////////////////////////////////////
+	/**
      */
-    public ServerSideProtocolInstance(String instanceName, int maxQueueSize, long maxEnqueueWait, int maxWaitingMessages, H2HaServer haServer, FileSystemHa fileSystem)
-    {
-	super(instanceName, maxQueueSize, maxEnqueueWait, maxWaitingMessages);
-	
-        this.haServer = haServer;
-        this.fileSystem = fileSystem;
+	public ServerSideProtocolInstance(String instanceName, int maxQueueSize, long maxEnqueueWait,
+										int maxWaitingMessages, H2HaServer haServer,
+										FileSystemHa fileSystem)
+	{
+		super(instanceName, maxQueueSize, maxEnqueueWait, maxWaitingMessages);
 
-        try {
-            md5Digest = MessageDigest.getInstance("MD5");
-        } catch (NoSuchAlgorithmException x) {
-            throw new IllegalStateException("cannot find MD5 algorithm", x);
-        }
-    }
+		this.haServer = haServer;
+		this.fileSystem = fileSystem;
 
-    // /////////////////////////////////////////////////////////
-    // Methods
-    // /////////////////////////////////////////////////////////
-    /**
-     * {@inheritDoc}
-     *
-     * @see com.shesse.h2ha.ReplicationProtocolInstance#getCurrentFailoverState()
-     */
-    @Override
-    protected FailoverState getCurrentFailoverState()
-    {
-	return haServer.getFailoverState();
-    }
-
-    /**
-     * @throws IOException 
-     * 
-     */
-    protected void sendStatus()
-    throws IOException
-    {
-	if (Thread.currentThread() == instanceThread) {
-	    // send directly if within sender thread
-	    sendToPeer(new StatusMessage(getCurrentFailoverState(), haServer.getMasterPriority(), haServer.getUuid()));
-
-	} else {
-	    // not in sender thread: enqueue message that will send a heartbeat
-	    // when processed.
-	    // The heartbeat will carry state information of the time when it
-	    // is sent out.
-	    enqueue(new ReplicationMessage() {
-		private static final long serialVersionUID = 1L;
-
-		@Override
-		protected void process(ReplicationProtocolInstance instance)
-		throws Exception
-		{
-		    try {
-			sendToPeer(new StatusMessage(getCurrentFailoverState(), haServer.getMasterPriority(), haServer.getUuid()));
-		    } catch (IOException x) {
-		    }
+		try {
+			md5Digest = MessageDigest.getInstance("MD5");
+		} catch (NoSuchAlgorithmException x) {
+			throw new IllegalStateException("cannot find MD5 algorithm", x);
 		}
-
-		@Override
-		public int getSizeEstimate()
-		{
-		    return 4;
-		}
-
-		@Override
-		public String toString()
-		{
-		    return "send hb";
-		}
-	    });
 	}
-    }
+
+	// /////////////////////////////////////////////////////////
+	// Methods
+	// /////////////////////////////////////////////////////////
+	/**
+	 * {@inheritDoc}
+	 * 
+	 * @see com.shesse.h2ha.ReplicationProtocolInstance#getCurrentFailoverState()
+	 */
+	@Override
+	protected FailoverState getCurrentFailoverState()
+	{
+		return haServer.getFailoverState();
+	}
+
+	/**
+	 * @throws IOException
+	 * 
+	 */
+	protected void sendStatus()
+		throws IOException
+	{
+		if (Thread.currentThread() == instanceThread) {
+			// send directly if within sender thread
+			sendToPeer(new StatusMessage(getCurrentFailoverState(), haServer.getMasterPriority(),
+				haServer.getUuid()));
+
+		} else {
+			// not in sender thread: enqueue message that will send a heartbeat
+			// when processed.
+			// The heartbeat will carry state information of the time when it
+			// is sent out.
+			enqueue(new ReplicationMessage() {
+				private static final long serialVersionUID = 1L;
+
+				@Override
+				protected void process(ReplicationProtocolInstance instance)
+					throws Exception
+				{
+					try {
+						sendToPeer(new StatusMessage(getCurrentFailoverState(),
+							haServer.getMasterPriority(), haServer.getUuid()));
+					} catch (IOException x) {
+					}
+				}
+
+				@Override
+				public int getSizeEstimate()
+				{
+					return 4;
+				}
+
+				@Override
+				public String toString()
+				{
+					return "send hb";
+				}
+			});
+		}
+	}
 
 
-    /**
+	/**
      * 
      */
-    protected Set<FilePathHa> discoverExistingFiles()
-    {
-        Set<FilePathHa> existingFiles = new HashSet<FilePathHa>();
+	protected Set<FilePathHa> discoverExistingFiles()
+	{
+		Set<FilePathHa> existingFiles = new HashSet<FilePathHa>();
 
-        synchronized (fileSystem) {
-            discoverFilesWithinDirectory(existingFiles, fileSystem.getHaBaseDir());
-        }
-        
-        return existingFiles;
-    }
+		synchronized (fileSystem) {
+			discoverFilesWithinDirectory(existingFiles, fileSystem.getHaBaseDir());
+		}
 
-    /**
+		return existingFiles;
+	}
+
+	/**
      * 
      */
-    private void discoverFilesWithinDirectory(Set<FilePathHa> existingFiles, FilePathHa directory)
-    {
-        log.debug("discovering local files within "+directory);
-        for (FilePath subPath: directory.newDirectoryStream()) {
-        	FilePathHa sub = (FilePathHa)subPath;
-            String haName = sub.getNormalizedHaName();
-            if (sub.isDirectory()) {
-                log.debug("file "+haName+" is a subdirectory");
-                discoverFilesWithinDirectory(existingFiles, sub);
-                
-            } else if (sub.exists()) {
-                if (sub.isDatabaseFile()) {
-                    existingFiles.add(sub);
-                }
-            }
-        }
-        log.debug("end of local files discovery within "+directory);
-   }
+	private void discoverFilesWithinDirectory(Set<FilePathHa> existingFiles, FilePathHa directory)
+	{
+		log.debug("discovering local files within " + directory);
+		for (FilePath subPath : directory.newDirectoryStream()) {
+			FilePathHa sub = (FilePathHa) subPath;
+			String haName = sub.getNormalizedHaName();
+			if (sub.isDirectory()) {
+				log.debug("file " + haName + " is a subdirectory");
+				discoverFilesWithinDirectory(existingFiles, sub);
 
-    /**
-     *  Berechnet die MD5 Quersumme aus dem übergebenen Buffer
-     * @param in
-     * @return
-     * @throws NoSuchAlgorithmException
-     * @throws InvalidKeyException
-     */
-    protected byte[] computeMd5(ByteBuffer buffer)
-    {
-    	if (buffer.hasArray()) {
-     		md5Digest.reset();
-    		md5Digest.update(buffer.array(), buffer.arrayOffset()+buffer.position(),
-    			buffer.limit()-buffer.position());
-    		return md5Digest.digest();
-    	} else {
-    		throw new IllegalArgumentException("only array based buffers are supported");
-    	}
-    }
+			} else if (sub.exists()) {
+				if (sub.isDatabaseFile()) {
+					existingFiles.add(sub);
+				}
+			}
+		}
+		log.debug("end of local files discovery within " + directory);
+	}
 
-    /**
+	/**
+	 * Berechnet die MD5 Quersumme aus dem übergebenen Buffer
+	 * 
+	 * @param in
+	 * @return
+	 * @throws NoSuchAlgorithmException
+	 * @throws InvalidKeyException
+	 */
+	protected byte[] computeMd5(ByteBuffer buffer)
+	{
+		if (buffer.hasArray()) {
+			md5Digest.reset();
+			md5Digest.update(buffer.array(), buffer.arrayOffset() + buffer.position(),
+				buffer.limit() - buffer.position());
+			return md5Digest.digest();
+		} else {
+			throw new IllegalArgumentException("only array based buffers are supported");
+		}
+	}
+
+	/**
      * 
      */
-    protected FilePathHa getFilePath(String haName)
-    {
-    	return new FilePathHa(fileSystem, haName, false);
-    }
-    
-    /**
-     * @throws IOException 
-     * 
-     */
-    protected FileChannel getFileChannel(String haName)
-    throws IOException
-    {
+	protected FilePathHa getFilePath(String haName)
+	{
+		return new FilePathHa(fileSystem, haName, false);
+	}
+
+	/**
+	 * @throws IOException
+	 * 
+	 */
+	protected FileChannel getFileChannel(String haName)
+		throws IOException
+	{
 		return getFileChannel(getFilePath(haName));
 	}
 
@@ -218,87 +222,87 @@ extends ReplicationProtocolInstance
 		return fc;
 	}
 
-    /**
-     * 
-     * @param haName
-     * @throws IOException
-     */
-    protected void closeFileChannel(String haName, long lastModified)
-    throws IOException
-    {
-    	closeFileObject(getFilePath(haName), lastModified);
-    }
-    
-    /**
-     * 
-     * @param haName
-     * @throws IOException
-     */
-    protected void closeFileObject(FilePathHa filePath, long lastModified)
-    throws IOException
-    {
-        FileChannel fc = openFiles.remove(filePath);
-        if (fc != null) {
-            fc.close();
-        }
-        if (filePath.exists()) {
-        	filePath.lastModified(lastModified);
-        }
-    }
-    
-    /**
-     * 
-     */
-    protected void closeAllFileObjects()
-    {
-        for (FileChannel fo: openFiles.values()) {
-            try {
-                fo.close();
-            } catch (IOException x) {
-                log.debug("error when trying to close a FileObject", x);
-            }
-        }
-        
-        openFiles.clear();
-    }
-    
-
-    /**
-     * 
-     */
-    protected static class StatusMessage
-    extends ReplicationMessage
-    {
-	private static final long serialVersionUID = 1L;
-
-	private FailoverState failoverState;
-	private int masterPriority;
-	private String uuid;
-
-	public StatusMessage(FailoverState failoverState, int masterPriority, String uuid)
+	/**
+	 * 
+	 * @param haName
+	 * @throws IOException
+	 */
+	protected void closeFileChannel(String haName, long lastModified)
+		throws IOException
 	{
-	    this.failoverState = failoverState;
-	    this.masterPriority = masterPriority;
-	    this.uuid = uuid;
+		closeFileObject(getFilePath(haName), lastModified);
 	}
 
-	@Override
-	protected void process(ReplicationProtocolInstance instance)
-	throws Exception
+	/**
+	 * 
+	 * @param haName
+	 * @throws IOException
+	 */
+	protected void closeFileObject(FilePathHa filePath, long lastModified)
+		throws IOException
 	{
-	    instance.peerStatusReceived(failoverState, masterPriority, uuid);
+		FileChannel fc = openFiles.remove(filePath);
+		if (fc != null) {
+			fc.close();
+		}
+		if (filePath.exists()) {
+			filePath.lastModified(lastModified);
+		}
 	}
 
-	@Override
-	public int getSizeEstimate()
+	/**
+     * 
+     */
+	protected void closeAllFileObjects()
 	{
-	    return 4;
+		for (FileChannel fo : openFiles.values()) {
+			try {
+				fo.close();
+			} catch (IOException x) {
+				log.debug("error when trying to close a FileObject", x);
+			}
+		}
+
+		openFiles.clear();
 	}
 
-	@Override
-	public String toString()
+
+	/**
+     * 
+     */
+	protected static class StatusMessage
+		extends ReplicationMessage
 	{
-	    return "status";
+		private static final long serialVersionUID = 1L;
+
+		private FailoverState failoverState;
+		private int masterPriority;
+		private String uuid;
+
+		public StatusMessage(FailoverState failoverState, int masterPriority, String uuid)
+		{
+			this.failoverState = failoverState;
+			this.masterPriority = masterPriority;
+			this.uuid = uuid;
+		}
+
+		@Override
+		protected void process(ReplicationProtocolInstance instance)
+			throws Exception
+		{
+			instance.peerStatusReceived(failoverState, masterPriority, uuid);
+		}
+
+		@Override
+		public int getSizeEstimate()
+		{
+			return 4;
+		}
+
+		@Override
+		public String toString()
+		{
+			return "status";
+		}
 	}
-    }
 }
