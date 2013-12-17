@@ -11,86 +11,84 @@ import java.sql.Struct;
 import java.util.Map;
 
 /**
- *
+ * 
  * @author sth
  */
 public class HaStruct
-    implements Struct
+	implements Struct
 {
-    // /////////////////////////////////////////////////////////
-    // Class Members
-    // /////////////////////////////////////////////////////////
-    /** */
-    //private static Logger log = Logger.getLogger(HaStruct.class);
+	// /////////////////////////////////////////////////////////
+	// Class Members
+	// /////////////////////////////////////////////////////////
+	/** */
+	// private static Logger log = Logger.getLogger(HaStruct.class);
 
-    /** */
-    @SuppressWarnings("unused")
-    private HaConnection haConnection;
-    
-    /** */
-    private Struct base;
-    
+	/** */
+	@SuppressWarnings("unused")
+	private HaConnection haConnection;
 
-    // /////////////////////////////////////////////////////////
-    // Constructors
-    // /////////////////////////////////////////////////////////
-    /**
-     * @param struct 
-     * @param haConnection 
-     */
-    public HaStruct(HaConnection haConnection, Struct base)
-    {
-	this.haConnection = haConnection;
-	this.base = base;
-    }
+	/** */
+	private Struct base;
 
 
-    // /////////////////////////////////////////////////////////
-    // Methods
-    // /////////////////////////////////////////////////////////
-
-    /**
-     * @return
-     * @throws SQLException
-     * @see java.sql.Struct#getSQLTypeName()
-     */
-    public String getSQLTypeName()
-	throws SQLException
-    {
-	return base.getSQLTypeName();
-    }
+	// /////////////////////////////////////////////////////////
+	// Constructors
+	// /////////////////////////////////////////////////////////
+	/**
+	 * @param struct
+	 * @param haConnection
+	 */
+	public HaStruct(HaConnection haConnection, Struct base)
+	{
+		this.haConnection = haConnection;
+		this.base = base;
+	}
 
 
-    /**
-     * @return
-     * @throws SQLException
-     * @see java.sql.Struct#getAttributes()
-     */
-    public Object[] getAttributes()
-	throws SQLException
-    {
-	return base.getAttributes();
-    }
+	// /////////////////////////////////////////////////////////
+	// Methods
+	// /////////////////////////////////////////////////////////
+
+	/**
+	 * @return
+	 * @throws SQLException
+	 * @see java.sql.Struct#getSQLTypeName()
+	 */
+	public String getSQLTypeName()
+		throws SQLException
+	{
+		return base.getSQLTypeName();
+	}
 
 
-    /**
-     * @param map
-     * @return
-     * @throws SQLException
-     * @see java.sql.Struct#getAttributes(java.util.Map)
-     */
-    public Object[] getAttributes(Map<String, Class<?>> map)
-	throws SQLException
-    {
-	return base.getAttributes(map);
-    }
+	/**
+	 * @return
+	 * @throws SQLException
+	 * @see java.sql.Struct#getAttributes()
+	 */
+	public Object[] getAttributes()
+		throws SQLException
+	{
+		return base.getAttributes();
+	}
 
 
- 
+	/**
+	 * @param map
+	 * @return
+	 * @throws SQLException
+	 * @see java.sql.Struct#getAttributes(java.util.Map)
+	 */
+	public Object[] getAttributes(Map<String, Class<?>> map)
+		throws SQLException
+	{
+		return base.getAttributes(map);
+	}
 
-    // /////////////////////////////////////////////////////////
-    // Inner Classes
-    // /////////////////////////////////////////////////////////
+
+	// /////////////////////////////////////////////////////////
+	// Inner Classes
+	// /////////////////////////////////////////////////////////
 
 
 }

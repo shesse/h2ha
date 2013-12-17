@@ -9,9 +9,13 @@ package com.shesse.h2ha;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Properties;
 
 import org.apache.log4j.Logger;
+import org.h2.constant.ErrorCode;
 import org.h2.jdbcx.JdbcConnectionPool;
+
+import com.shesse.jdbcproxy.HaDataSource;
 
 /**
  * 
@@ -28,8 +32,6 @@ public class DbManager
 	/** */
 	private JdbcConnectionPool cp = null;
 
-	/** */
-	private String autoReconnect = "";
 
 	// /////////////////////////////////////////////////////////
 	// Constructors
@@ -75,25 +77,47 @@ public class DbManager
 		throws SQLException
 	{
 		if (cp == null) {
-			cp =
-				JdbcConnectionPool.create("jdbc:h2:tcp://localhost:9092,localhost:9093/test" +
-					autoReconnect, "sa", "sa");
+			String url = "jdbc:h2ha:tcp://localhost:9092,localhost:9093/test";
+			
+			Properties props = new Properties();
+			props.setProperty("user", "sa");
+			props.setProperty("password", "sa");
+			HaDataSource ds = new HaDataSource(url, props);
+			cp = JdbcConnectionPool.create(ds);
 		}
-		Connection conn = cp.getConnection();
+		
+		Connection conn = null;
+		int attempts = 0;
+		while (conn == null) {
+			
+			// check if this connection still can be used
+			try {
+				attempts++;
+				conn = cp.getConnection();
+				
+				Statement stmnt = conn.createStatement();
+				stmnt.executeQuery("select 1");
+				stmnt.close();
+				
+			} catch (SQLException x) {
+				if (conn != null) {
+					conn.close();
+				}
+				
+				if (x.getErrorCode() == ErrorCode.CONNECTION_BROKEN_1 && attempts <= 4) {
+					// connection is broken - probably due to HA takeover
+					log.info("connection returned from pool is broken - trying again");
+					conn = null;
+					
+				} else {
+					// too many retries - give up!
+					throw x;
+				}
+			}
+		}
+		
 		conn.setAutoCommit(false);
 		return conn;
-	}
-
-	/**
-     * 
-     */
-	public void setAutoReconnect(boolean autoReconnect)
-	{
-		if (autoReconnect) {
-			this.autoReconnect = ";AUTO_RECONNECT=TRUE";
-		} else {
-			this.autoReconnect = "";
-		}
 	}
 
 	/**

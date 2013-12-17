@@ -13,9 +13,9 @@ import org.apache.log4j.Logger;
 
 
 /**
- * May be used to request the status from a H2HA server via
- * it's control connection. Even though this may be helpful
- * in other contexts, it is currently used for testing only. 
+ * May be used to request the status from a H2HA server via it's control
+ * connection. Even though this may be helpful in other contexts, it is
+ * currently used for testing only.
  * 
  * @author sth
  */

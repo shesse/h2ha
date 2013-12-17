@@ -13,145 +13,147 @@ import org.apache.log4j.Logger;
 import org.h2.store.fs.FilePath;
 
 /**
- *
+ * 
  * @author sth
  */
 public class OutputStreamHa
-    extends OutputStream
+	extends OutputStream
 {
-    // /////////////////////////////////////////////////////////
-    // Class Members
-    // /////////////////////////////////////////////////////////
-    /** */
-    private static Logger log = Logger.getLogger(OutputStreamHa.class);
- 
-    /** */
-    private FileSystemHa fileSystem;
+	// /////////////////////////////////////////////////////////
+	// Class Members
+	// /////////////////////////////////////////////////////////
+	/** */
+	private static Logger log = Logger.getLogger(OutputStreamHa.class);
 
-    /** */
-    private FilePathHa filePath;
-    
-    /** */
-    private OutputStream baseOutputStream;
-    
-    /** */
-    private long filePtr = 0;
-    
-    /** */
-    private byte[] singleByteBuffer = new byte[1];
+	/** */
+	private FileSystemHa fileSystem;
 
+	/** */
+	private FilePathHa filePath;
 
-    // /////////////////////////////////////////////////////////
-    // Constructors
-    // /////////////////////////////////////////////////////////
-    /**
-     * @throws IOException 
-     */
-    public OutputStreamHa(FileSystemHa fileSystem, FilePathHa filePath, OutputStream baseOutputStream, boolean append) throws IOException
-    {
-        log.debug("OutputStreamHa()");
-        
-        this.fileSystem = fileSystem;
-        this.filePath = filePath;
-        this.baseOutputStream = baseOutputStream;
-        
-        if (append) {
-        	FilePath basePath = filePath.getBasePath();
-        	if (basePath.exists()) {
-        		filePtr = basePath.size();
-        	}
-        }
-        
-        fileSystem.sendTruncate(filePath, filePtr);
-    }
+	/** */
+	private OutputStream baseOutputStream;
+
+	/** */
+	private long filePtr = 0;
+
+	/** */
+	private byte[] singleByteBuffer = new byte[1];
 
 
-    // /////////////////////////////////////////////////////////
-    // Methods
-    // /////////////////////////////////////////////////////////
-    /**
-     * {@inheritDoc}
-     *
-     * @see java.io.OutputStream#close()
-     */
-    @Override
-    public void close()
-        throws IOException
-    {
-    	baseOutputStream.close();
-    	fileSystem.sendClose(filePath);
-    }
+	// /////////////////////////////////////////////////////////
+	// Constructors
+	// /////////////////////////////////////////////////////////
+	/**
+	 * @throws IOException
+	 */
+	public OutputStreamHa(FileSystemHa fileSystem, FilePathHa filePath,
+							OutputStream baseOutputStream, boolean append)
+		throws IOException
+	{
+		log.debug("OutputStreamHa()");
+
+		this.fileSystem = fileSystem;
+		this.filePath = filePath;
+		this.baseOutputStream = baseOutputStream;
+
+		if (append) {
+			FilePath basePath = filePath.getBasePath();
+			if (basePath.exists()) {
+				filePtr = basePath.size();
+			}
+		}
+
+		fileSystem.sendTruncate(filePath, filePtr);
+	}
 
 
-    /**
-     * {@inheritDoc}
-     *
-     * @see java.io.OutputStream#flush()
-     */
-    @Override
-    public void flush()
-        throws IOException
-    {
-    	baseOutputStream.flush();
-    }
+	// /////////////////////////////////////////////////////////
+	// Methods
+	// /////////////////////////////////////////////////////////
+	/**
+	 * {@inheritDoc}
+	 * 
+	 * @see java.io.OutputStream#close()
+	 */
+	@Override
+	public void close()
+		throws IOException
+	{
+		baseOutputStream.close();
+		fileSystem.sendClose(filePath);
+	}
 
 
-    /**
-     * {@inheritDoc}
-     *
-     * @see java.io.OutputStream#write(byte[], int, int)
-     */
-    @Override
-    public void write(byte[] buffer, int offset, int length)
-        throws IOException
-    {
-    	if (length == 0) {
-    	    return;
-    	}
-    	
-    	baseOutputStream.write(buffer, offset, length);
-
-    	fileSystem.compressAndSendWrite(filePath, filePtr, buffer, offset, length);
-    	filePtr += length;
-    }
+	/**
+	 * {@inheritDoc}
+	 * 
+	 * @see java.io.OutputStream#flush()
+	 */
+	@Override
+	public void flush()
+		throws IOException
+	{
+		baseOutputStream.flush();
+	}
 
 
-    /**
-     * {@inheritDoc}
-     *
-     * @see java.io.OutputStream#write(byte[])
-     */
-    @Override
-    public void write(byte[] buffer)
-        throws IOException
-    {
-      	if (buffer.length == 0) {
-    	    return;
-    	}
-    	
-      	baseOutputStream.write(buffer);
+	/**
+	 * {@inheritDoc}
+	 * 
+	 * @see java.io.OutputStream#write(byte[], int, int)
+	 */
+	@Override
+	public void write(byte[] buffer, int offset, int length)
+		throws IOException
+	{
+		if (length == 0) {
+			return;
+		}
 
-    	fileSystem.compressAndSendWrite(filePath, filePtr, buffer, 0, buffer.length);
-    	filePtr += buffer.length;
-    }
+		baseOutputStream.write(buffer, offset, length);
 
-    /**
-     * {@inheritDoc}
-     *
-     * @see java.io.OutputStream#write(int)
-     */
-    @Override
-    public void write(int i)
-        throws IOException
-    {
-        singleByteBuffer[0] = (byte)i;
-        baseOutputStream.write(i);
+		fileSystem.compressAndSendWrite(filePath, filePtr, buffer, offset, length);
+		filePtr += length;
+	}
 
-    	fileSystem.compressAndSendWrite(filePath, filePtr, singleByteBuffer, 0, 1);
-    	filePtr += 1;
-    }
 
-    // /////////////////////////////////////////////////////////
-    // Inner Classes
-    // /////////////////////////////////////////////////////////
+	/**
+	 * {@inheritDoc}
+	 * 
+	 * @see java.io.OutputStream#write(byte[])
+	 */
+	@Override
+	public void write(byte[] buffer)
+		throws IOException
+	{
+		if (buffer.length == 0) {
+			return;
+		}
+
+		baseOutputStream.write(buffer);
+
+		fileSystem.compressAndSendWrite(filePath, filePtr, buffer, 0, buffer.length);
+		filePtr += buffer.length;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * 
+	 * @see java.io.OutputStream#write(int)
+	 */
+	@Override
+	public void write(int i)
+		throws IOException
+	{
+		singleByteBuffer[0] = (byte) i;
+		baseOutputStream.write(i);
+
+		fileSystem.compressAndSendWrite(filePath, filePtr, singleByteBuffer, 0, 1);
+		filePtr += 1;
+	}
+
+	// /////////////////////////////////////////////////////////
+	// Inner Classes
+	// /////////////////////////////////////////////////////////
 }

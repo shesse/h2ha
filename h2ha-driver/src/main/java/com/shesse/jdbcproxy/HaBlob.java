@@ -13,207 +13,205 @@ import java.sql.SQLException;
 
 
 /**
- *
+ * 
  * @author sth
  */
 public class HaBlob
-    implements Blob
+	implements Blob
 {
-    // /////////////////////////////////////////////////////////
-    // Class Members
-    // /////////////////////////////////////////////////////////
-    /** */
-    //private static Logger log = Logger.getLogger(HaBlob.class.getName());
+	// /////////////////////////////////////////////////////////
+	// Class Members
+	// /////////////////////////////////////////////////////////
+	/** */
+	// private static Logger log = Logger.getLogger(HaBlob.class.getName());
 
-    /** */
-    @SuppressWarnings("unused")
-    private HaConnection haConnection;
-    
-    /** */
-    private Blob base;
-    
+	/** */
+	@SuppressWarnings("unused")
+	private HaConnection haConnection;
 
-    // /////////////////////////////////////////////////////////
-    // Constructors
-    // /////////////////////////////////////////////////////////
-    /**
-     * @param blob 
-     * @param haConnection 
-     */
-    public HaBlob(HaConnection haConnection, Blob base)
-    {
-	this.haConnection = haConnection;
-	this.base = base;
-    }
+	/** */
+	private Blob base;
 
 
-    // /////////////////////////////////////////////////////////
-    // Methods
-    // /////////////////////////////////////////////////////////
-    /**
-     * @return
-     */
-    public Blob getBase()
-    {
-        return base;
-    }
-
-
-    /**
-     * @return
-     * @throws SQLException
-     * @see java.sql.Blob#length()
-     */
-    public long length()
-	throws SQLException
-    {
-	return base.length();
-    }
-
-
-    /**
-     * @param pos
-     * @param length
-     * @return
-     * @throws SQLException
-     * @see java.sql.Blob#getBytes(long, int)
-     */
-    public byte[] getBytes(long pos, int length)
-	throws SQLException
-    {
-	return base.getBytes(pos, length);
-    }
-
-
-    /**
-     * @return
-     * @throws SQLException
-     * @see java.sql.Blob#getBinaryStream()
-     */
-    public InputStream getBinaryStream()
-	throws SQLException
-    {
-	return base.getBinaryStream();
-    }
-
-
-    /**
-     * @param pattern
-     * @param start
-     * @return
-     * @throws SQLException
-     * @see java.sql.Blob#position(byte[], long)
-     */
-    public long position(byte[] pattern, long start)
-	throws SQLException
-    {
-	return base.position(pattern, start);
-    }
-
-
-    /**
-     * @param pattern
-     * @param start
-     * @return
-     * @throws SQLException
-     * @see java.sql.Blob#position(java.sql.Blob, long)
-     */
-    public long position(Blob pattern, long start)
-    throws SQLException
-    {
-	if (pattern instanceof HaBlob) {
-	    return base.position(((HaBlob)pattern).getBase(), start);
-	} else {
-	    return base.position(pattern, start);
+	// /////////////////////////////////////////////////////////
+	// Constructors
+	// /////////////////////////////////////////////////////////
+	/**
+	 * @param blob
+	 * @param haConnection
+	 */
+	public HaBlob(HaConnection haConnection, Blob base)
+	{
+		this.haConnection = haConnection;
+		this.base = base;
 	}
-    }
 
 
-    /**
-     * @param pos
-     * @param bytes
-     * @return
-     * @throws SQLException
-     * @see java.sql.Blob#setBytes(long, byte[])
-     */
-    public int setBytes(long pos, byte[] bytes)
-	throws SQLException
-    {
-	return base.setBytes(pos, bytes);
-    }
+	// /////////////////////////////////////////////////////////
+	// Methods
+	// /////////////////////////////////////////////////////////
+	/**
+	 * @return
+	 */
+	public Blob getBase()
+	{
+		return base;
+	}
 
 
-    /**
-     * @param pos
-     * @param bytes
-     * @param offset
-     * @param len
-     * @return
-     * @throws SQLException
-     * @see java.sql.Blob#setBytes(long, byte[], int, int)
-     */
-    public int setBytes(long pos, byte[] bytes, int offset, int len)
-	throws SQLException
-    {
-	return base.setBytes(pos, bytes, offset, len);
-    }
+	/**
+	 * @return
+	 * @throws SQLException
+	 * @see java.sql.Blob#length()
+	 */
+	public long length()
+		throws SQLException
+	{
+		return base.length();
+	}
 
 
-    /**
-     * @param pos
-     * @return
-     * @throws SQLException
-     * @see java.sql.Blob#setBinaryStream(long)
-     */
-    public OutputStream setBinaryStream(long pos)
-	throws SQLException
-    {
-	return base.setBinaryStream(pos);
-    }
+	/**
+	 * @param pos
+	 * @param length
+	 * @return
+	 * @throws SQLException
+	 * @see java.sql.Blob#getBytes(long, int)
+	 */
+	public byte[] getBytes(long pos, int length)
+		throws SQLException
+	{
+		return base.getBytes(pos, length);
+	}
 
 
-    /**
-     * @param len
-     * @throws SQLException
-     * @see java.sql.Blob#truncate(long)
-     */
-    public void truncate(long len)
-	throws SQLException
-    {
-	base.truncate(len);
-    }
+	/**
+	 * @return
+	 * @throws SQLException
+	 * @see java.sql.Blob#getBinaryStream()
+	 */
+	public InputStream getBinaryStream()
+		throws SQLException
+	{
+		return base.getBinaryStream();
+	}
 
 
-    /**
-     * @throws SQLException
-     * @see java.sql.Blob#free()
-     */
-    public void free()
-	throws SQLException
-    {
-	base.free();
-    }
+	/**
+	 * @param pattern
+	 * @param start
+	 * @return
+	 * @throws SQLException
+	 * @see java.sql.Blob#position(byte[], long)
+	 */
+	public long position(byte[] pattern, long start)
+		throws SQLException
+	{
+		return base.position(pattern, start);
+	}
 
 
-    /**
-     * @param pos
-     * @param length
-     * @return
-     * @throws SQLException
-     * @see java.sql.Blob#getBinaryStream(long, long)
-     */
-    public InputStream getBinaryStream(long pos, long length)
-	throws SQLException
-    {
-	return base.getBinaryStream(pos, length);
-    }
+	/**
+	 * @param pattern
+	 * @param start
+	 * @return
+	 * @throws SQLException
+	 * @see java.sql.Blob#position(java.sql.Blob, long)
+	 */
+	public long position(Blob pattern, long start)
+		throws SQLException
+	{
+		if (pattern instanceof HaBlob) {
+			return base.position(((HaBlob) pattern).getBase(), start);
+		} else {
+			return base.position(pattern, start);
+		}
+	}
 
 
+	/**
+	 * @param pos
+	 * @param bytes
+	 * @return
+	 * @throws SQLException
+	 * @see java.sql.Blob#setBytes(long, byte[])
+	 */
+	public int setBytes(long pos, byte[] bytes)
+		throws SQLException
+	{
+		return base.setBytes(pos, bytes);
+	}
 
 
-    // /////////////////////////////////////////////////////////
-    // Inner Classes
-    // /////////////////////////////////////////////////////////
+	/**
+	 * @param pos
+	 * @param bytes
+	 * @param offset
+	 * @param len
+	 * @return
+	 * @throws SQLException
+	 * @see java.sql.Blob#setBytes(long, byte[], int, int)
+	 */
+	public int setBytes(long pos, byte[] bytes, int offset, int len)
+		throws SQLException
+	{
+		return base.setBytes(pos, bytes, offset, len);
+	}
+
+
+	/**
+	 * @param pos
+	 * @return
+	 * @throws SQLException
+	 * @see java.sql.Blob#setBinaryStream(long)
+	 */
+	public OutputStream setBinaryStream(long pos)
+		throws SQLException
+	{
+		return base.setBinaryStream(pos);
+	}
+
+
+	/**
+	 * @param len
+	 * @throws SQLException
+	 * @see java.sql.Blob#truncate(long)
+	 */
+	public void truncate(long len)
+		throws SQLException
+	{
+		base.truncate(len);
+	}
+
+
+	/**
+	 * @throws SQLException
+	 * @see java.sql.Blob#free()
+	 */
+	public void free()
+		throws SQLException
+	{
+		base.free();
+	}
+
+
+	/**
+	 * @param pos
+	 * @param length
+	 * @return
+	 * @throws SQLException
+	 * @see java.sql.Blob#getBinaryStream(long, long)
+	 */
+	public InputStream getBinaryStream(long pos, long length)
+		throws SQLException
+	{
+		return base.getBinaryStream(pos, length);
+	}
+
+
+	// /////////////////////////////////////////////////////////
+	// Inner Classes
+	// /////////////////////////////////////////////////////////
 
 
 }

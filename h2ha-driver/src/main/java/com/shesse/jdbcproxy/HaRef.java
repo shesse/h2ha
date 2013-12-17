@@ -11,111 +11,103 @@ import java.sql.SQLException;
 import java.util.Map;
 
 /**
- *
+ * 
  * @author sth
  */
 public class HaRef
-    implements Ref
+	implements Ref
 {
-    // /////////////////////////////////////////////////////////
-    // Class Members
-    // /////////////////////////////////////////////////////////
-    /** */
-    //private static Logger log = Logger.getLogger(HaRef.class);
+	// /////////////////////////////////////////////////////////
+	// Class Members
+	// /////////////////////////////////////////////////////////
+	/** */
+	// private static Logger log = Logger.getLogger(HaRef.class);
 
-    /** */
-    @SuppressWarnings("unused")
-    private HaConnection haConnection;
-    
-    /** */
-    private Ref base;
-    
+	/** */
+	@SuppressWarnings("unused")
+	private HaConnection haConnection;
 
-
-    // /////////////////////////////////////////////////////////
-    // Constructors
-    // /////////////////////////////////////////////////////////
-    /**
-     * @param ref 
-     * @param haConnection 
-     */
-    public HaRef(HaConnection haConnection, Ref base)
-    {
-	this.haConnection = haConnection;
-	this.base = base;
-    }
+	/** */
+	private Ref base;
 
 
-
-    // /////////////////////////////////////////////////////////
-    // Methods
-    // /////////////////////////////////////////////////////////
-    /**
-     * @return
-     */
-    public Ref getBase()
-    {
-	return base;
-    }
-
-    /**
-     * @return
-     * @throws SQLException
-     * @see java.sql.Ref#getBaseTypeName()
-     */
-    public String getBaseTypeName()
-	throws SQLException
-    {
-	return base.getBaseTypeName();
-    }
+	// /////////////////////////////////////////////////////////
+	// Constructors
+	// /////////////////////////////////////////////////////////
+	/**
+	 * @param ref
+	 * @param haConnection
+	 */
+	public HaRef(HaConnection haConnection, Ref base)
+	{
+		this.haConnection = haConnection;
+		this.base = base;
+	}
 
 
+	// /////////////////////////////////////////////////////////
+	// Methods
+	// /////////////////////////////////////////////////////////
+	/**
+	 * @return
+	 */
+	public Ref getBase()
+	{
+		return base;
+	}
 
-    /**
-     * @param map
-     * @return
-     * @throws SQLException
-     * @see java.sql.Ref#getObject(java.util.Map)
-     */
-    public Object getObject(Map<String, Class<?>> map)
-	throws SQLException
-    {
-	return base.getObject(map);
-    }
-
-
-
-    /**
-     * @return
-     * @throws SQLException
-     * @see java.sql.Ref#getObject()
-     */
-    public Object getObject()
-	throws SQLException
-    {
-	return base.getObject();
-    }
+	/**
+	 * @return
+	 * @throws SQLException
+	 * @see java.sql.Ref#getBaseTypeName()
+	 */
+	public String getBaseTypeName()
+		throws SQLException
+	{
+		return base.getBaseTypeName();
+	}
 
 
-
-    /**
-     * @param value
-     * @throws SQLException
-     * @see java.sql.Ref#setObject(java.lang.Object)
-     */
-    public void setObject(Object value)
-	throws SQLException
-    {
-	base.setObject(value);
-    }
-
-
+	/**
+	 * @param map
+	 * @return
+	 * @throws SQLException
+	 * @see java.sql.Ref#getObject(java.util.Map)
+	 */
+	public Object getObject(Map<String, Class<?>> map)
+		throws SQLException
+	{
+		return base.getObject(map);
+	}
 
 
+	/**
+	 * @return
+	 * @throws SQLException
+	 * @see java.sql.Ref#getObject()
+	 */
+	public Object getObject()
+		throws SQLException
+	{
+		return base.getObject();
+	}
 
-    // /////////////////////////////////////////////////////////
-    // Inner Classes
-    // /////////////////////////////////////////////////////////
+
+	/**
+	 * @param value
+	 * @throws SQLException
+	 * @see java.sql.Ref#setObject(java.lang.Object)
+	 */
+	public void setObject(Object value)
+		throws SQLException
+	{
+		base.setObject(value);
+	}
+
+
+	// /////////////////////////////////////////////////////////
+	// Inner Classes
+	// /////////////////////////////////////////////////////////
 
 
 }

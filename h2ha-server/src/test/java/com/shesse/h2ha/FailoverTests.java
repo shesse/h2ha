@@ -60,7 +60,6 @@ public class FailoverTests
 			((AppenderSkeleton)a).setThreshold(Level.DEBUG);
 		}
 		dbManager.cleanup();
-		dbManager.setAutoReconnect(true);
 		servers.cleanup();
 		servers.start();
 		servers.waitUntilActive();

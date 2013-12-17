@@ -181,18 +181,17 @@ public class ReplicationServerInstance
 		super.sendHeartbeat();
 		sendStatus();
 	}
-	
-	
+
 
 	/**
 	 * {@inheritDoc}
-	 *
+	 * 
 	 * @see com.shesse.h2ha.ReplicationProtocolInstance#logStatistics()
 	 */
 	@Override
 	protected void logStatistics()
 	{
-		log.info(instanceName +": failoverState = "+haServer.getFailoverState());
+		log.info(instanceName + ": failoverState = " + haServer.getFailoverState());
 	}
 
 	/**
@@ -286,7 +285,7 @@ public class ReplicationServerInstance
 				} else {
 					fc.read(buffer);
 				}
-				
+
 				buffer.flip();
 				byte[] sendBuffer = new byte[buffer.limit()];
 				buffer.get(sendBuffer);
@@ -364,9 +363,9 @@ public class ReplicationServerInstance
 					} else {
 						fc.read(buffer);
 					}
-					
+
 					buffer.flip();
-					
+
 					sendToPeer(new FileChecksumMessage(haName, offset, rdlen, computeMd5(buffer)));
 					offset += rdlen;
 

@@ -84,6 +84,9 @@ public class ServerProcess
 
 		String instName = dbDir.getName();
 
+		List<String> cmd = new ArrayList<String>();
+
+		/*
 		String testcfg = System.getProperty("user.home") + "/config/h2";
 		if (isPrimary) {
 			testcfg += "/prim";
@@ -91,12 +94,12 @@ public class ServerProcess
 			testcfg += "/sec";
 		}
 
-		List<String> cmd = new ArrayList<String>();
-
 		String l4j = testcfg + "/log4j.properties";
 		if (new File(l4j).canRead()) {
 			cmd.add("-Dlog4j.configuration=file:///" + l4j);
 		}
+		*/
+		cmd.add("-Dstderr.threshold=DEBUG");
 
 		String[] serverCommand = {//
 			"-DhaTestProc=" + instName, //

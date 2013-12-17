@@ -113,27 +113,31 @@ public class SingleServerTests
 
 
 	/**
-	 * Test Purpose: verify that auto-reconnect is working.
+	 * Test Purpose: verify that connection loss detection and 
+	 * reconnect (in DbManager) is working
 	 * 
 	 * @throws SQLException
 	 * @throws InterruptedException
 	 * @throws IOException
 	 */
 	@Test
-	public void verifyAutoreconnect()
+	public void verifyReconnect()
 		throws SQLException, InterruptedException, IOException
 	{
+		log.info("cleaning up connection pool");
 		dbManager.shutdown();
-		dbManager.setAutoReconnect(true);
 
+		log.info("creating a table to force a new connection");
 		TestTable table = tr.createTable();
 		table.insertRecord();
 
+		log.info("restarting DB server");
 		servers.stop();
 
 		servers.startA();
 		servers.waitUntilAIsActive();
 
+		log.info("getting a new connection and using it");
 		Assert.assertTrue(table.getNoOfRecords() == 1);
 	}
 

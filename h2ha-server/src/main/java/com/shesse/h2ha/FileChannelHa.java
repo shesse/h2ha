@@ -15,14 +15,14 @@ import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
 
 /**
- * This class implements (by delegation) everything of the FileChannel
- * semantics - except the map() call. It seems that H2 currently (as of 1.3.74) 
- * does not use this method and we hope that if it ever starts using it, it
- * will implement a fall-back mode that works without map().
+ * This class implements (by delegation) everything of the FileChannel semantics
+ * - except the map() call. It seems that H2 currently (as of 1.3.74) does not
+ * use this method and we hope that if it ever starts using it, it will
+ * implement a fall-back mode that works without map().
  * <p>
  * The reason to not implementing is that there is no (easy) way to wrap a
- * MappedByteBuffer so that every change is recorded and can be sent to
- * the listening slaves.
+ * MappedByteBuffer so that every change is recorded and can be sent to the
+ * listening slaves.
  * 
  * @author sth
  */
@@ -33,30 +33,30 @@ public class FileChannelHa
 	// Class Members
 	// /////////////////////////////////////////////////////////
 	/** */
-	//private static Logger log = Logger.getLogger(FileChannelHa.class.getName());
-	
+	// private static Logger log =
+	// Logger.getLogger(FileChannelHa.class.getName());
+
 	/** */
 	private FileSystemHa fileSystem;
 
 	/** */
 	private FilePathHa filePath;
-	
+
 	/** */
 	private FileChannel baseChannel;
 
-	
-	
 
 	// /////////////////////////////////////////////////////////
 	// Constructors
 	// /////////////////////////////////////////////////////////
 	/**
-	 * @param accessMode 
-	 * @param baseChannel 
-	 * @param filePath 
-	 * @param fileSystemHa 
+	 * @param accessMode
+	 * @param baseChannel
+	 * @param filePath
+	 * @param fileSystemHa
 	 */
-	public FileChannelHa(FileSystemHa fileSystem, FilePathHa filePath, FileChannel baseChannel, String accessMode)
+	public FileChannelHa(FileSystemHa fileSystem, FilePathHa filePath, FileChannel baseChannel,
+							String accessMode)
 	{
 		this.fileSystem = fileSystem;
 		this.filePath = filePath;
@@ -68,7 +68,7 @@ public class FileChannelHa
 	// /////////////////////////////////////////////////////////
 	/**
 	 * {@inheritDoc}
-	 *
+	 * 
 	 * @see java.nio.channels.FileChannel#read(java.nio.ByteBuffer)
 	 */
 	@Override
@@ -77,14 +77,15 @@ public class FileChannelHa
 	{
 		if (dst.hasArray()) {
 			long pos = baseChannel.position();
-			int bpos = dst.position()+dst.arrayOffset();
+			int bpos = dst.position() + dst.arrayOffset();
 			int l = baseChannel.read(dst);
 			if (l > 0) {
 				fileSystem.cacheRead(filePath, pos, dst.array(), bpos, l);
 			}
 			return l;
 		} else {
-			throw new IllegalArgumentException("only ByteBuffers with hasArray() = true are supported");
+			throw new IllegalArgumentException(
+				"only ByteBuffers with hasArray() = true are supported");
 		}
 	}
 
@@ -96,10 +97,10 @@ public class FileChannelHa
 	{
 		return baseChannel.read(dst);
 	}
-	
+
 	/**
 	 * {@inheritDoc}
-	 *
+	 * 
 	 * @see java.nio.channels.FileChannel#read(java.nio.ByteBuffer[], int, int)
 	 */
 	@Override
@@ -120,13 +121,13 @@ public class FileChannelHa
 			offset++;
 			length--;
 		}
-		
+
 		return total;
 	}
 
 	/**
 	 * {@inheritDoc}
-	 *
+	 * 
 	 * @see java.nio.channels.FileChannel#write(java.nio.ByteBuffer)
 	 */
 	@Override
@@ -135,18 +136,19 @@ public class FileChannelHa
 	{
 		if (src.hasArray()) {
 			long pos = baseChannel.position();
-			int bpos = src.position()+src.arrayOffset();
+			int bpos = src.position() + src.arrayOffset();
 			int l = baseChannel.write(src);
 			fileSystem.compressAndSendWrite(filePath, pos, src.array(), bpos, l);
 			return l;
 		} else {
-			throw new IllegalArgumentException("only ByteBuffers with hasArray() = true are supported");
+			throw new IllegalArgumentException(
+				"only ByteBuffers with hasArray() = true are supported");
 		}
 	}
 
 	/**
 	 * {@inheritDoc}
-	 *
+	 * 
 	 * @see java.nio.channels.FileChannel#write(java.nio.ByteBuffer[], int, int)
 	 */
 	@Override
@@ -162,7 +164,7 @@ public class FileChannelHa
 
 	/**
 	 * {@inheritDoc}
-	 *
+	 * 
 	 * @see java.nio.channels.FileChannel#position()
 	 */
 	@Override
@@ -174,7 +176,7 @@ public class FileChannelHa
 
 	/**
 	 * {@inheritDoc}
-	 *
+	 * 
 	 * @see java.nio.channels.FileChannel#position(long)
 	 */
 	@Override
@@ -187,7 +189,7 @@ public class FileChannelHa
 
 	/**
 	 * {@inheritDoc}
-	 *
+	 * 
 	 * @see java.nio.channels.FileChannel#size()
 	 */
 	@Override
@@ -199,7 +201,7 @@ public class FileChannelHa
 
 	/**
 	 * {@inheritDoc}
-	 *
+	 * 
 	 * @see java.nio.channels.FileChannel#truncate(long)
 	 */
 	@Override
@@ -213,7 +215,7 @@ public class FileChannelHa
 
 	/**
 	 * {@inheritDoc}
-	 *
+	 * 
 	 * @see java.nio.channels.FileChannel#force(boolean)
 	 */
 	@Override
@@ -226,8 +228,9 @@ public class FileChannelHa
 
 	/**
 	 * {@inheritDoc}
-	 *
-	 * @see java.nio.channels.FileChannel#transferTo(long, long, java.nio.channels.WritableByteChannel)
+	 * 
+	 * @see java.nio.channels.FileChannel#transferTo(long, long,
+	 *      java.nio.channels.WritableByteChannel)
 	 */
 	@Override
 	public long transferTo(long position, long count, WritableByteChannel target)
@@ -238,8 +241,9 @@ public class FileChannelHa
 
 	/**
 	 * {@inheritDoc}
-	 *
-	 * @see java.nio.channels.FileChannel#transferFrom(java.nio.channels.ReadableByteChannel, long, long)
+	 * 
+	 * @see java.nio.channels.FileChannel#transferFrom(java.nio.channels.ReadableByteChannel,
+	 *      long, long)
 	 */
 	@Override
 	public long transferFrom(ReadableByteChannel src, long position, long count)
@@ -247,18 +251,18 @@ public class FileChannelHa
 	{
 		long startPos = baseChannel.position();
 		baseChannel.position(position);
-		
+
 		final int maxBufferSize = 8192;
 		ByteBuffer buffer = null;
 		long total = 0;
 		while (count > 0) {
-			int l = (count < maxBufferSize ? (int)count : maxBufferSize);
+			int l = (count < maxBufferSize ? (int) count : maxBufferSize);
 			if (buffer == null || l != buffer.capacity()) {
 				buffer = ByteBuffer.allocate(l);
 			} else {
 				buffer.clear();
 			}
-			
+
 			l = src.read(buffer);
 			if (l <= 0) {
 				// EOF reached or would block on non-blocking channel
@@ -268,7 +272,7 @@ public class FileChannelHa
 				total += write(buffer);
 			}
 		}
-		
+
 		// position will not be changed!
 		baseChannel.position(startPos);
 		return total;
@@ -276,7 +280,7 @@ public class FileChannelHa
 
 	/**
 	 * {@inheritDoc}
-	 *
+	 * 
 	 * @see java.nio.channels.FileChannel#read(java.nio.ByteBuffer, long)
 	 */
 	@Override
@@ -288,7 +292,7 @@ public class FileChannelHa
 
 	/**
 	 * {@inheritDoc}
-	 *
+	 * 
 	 * @see java.nio.channels.FileChannel#write(java.nio.ByteBuffer, long)
 	 */
 	@Override
@@ -303,19 +307,21 @@ public class FileChannelHa
 
 	/**
 	 * {@inheritDoc}
-	 *
-	 * @see java.nio.channels.FileChannel#map(java.nio.channels.FileChannel.MapMode, long, long)
+	 * 
+	 * @see java.nio.channels.FileChannel#map(java.nio.channels.FileChannel.MapMode,
+	 *      long, long)
 	 */
 	@Override
 	public MappedByteBuffer map(MapMode mode, long position, long size)
 		throws IOException
 	{
-        throw new UnsupportedOperationException("map() is currently not implemented by H2HA ... and probably never will");
+		throw new UnsupportedOperationException(
+			"map() is currently not implemented by H2HA ... and probably never will");
 	}
 
 	/**
 	 * {@inheritDoc}
-	 *
+	 * 
 	 * @see java.nio.channels.FileChannel#lock(long, long, boolean)
 	 */
 	@Override
@@ -327,7 +333,7 @@ public class FileChannelHa
 
 	/**
 	 * {@inheritDoc}
-	 *
+	 * 
 	 * @see java.nio.channels.FileChannel#tryLock(long, long, boolean)
 	 */
 	@Override
@@ -339,7 +345,7 @@ public class FileChannelHa
 
 	/**
 	 * {@inheritDoc}
-	 *
+	 * 
 	 * @see java.nio.channels.spi.AbstractInterruptibleChannel#implCloseChannel()
 	 */
 	@Override
@@ -348,7 +354,6 @@ public class FileChannelHa
 	{
 		fileSystem.sendClose(filePath);
 	}
-
 
 
 	// /////////////////////////////////////////////////////////

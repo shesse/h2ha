@@ -14,8 +14,6 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.util.Properties;
 import java.util.logging.Logger;
 
-import org.h2.jdbc.JdbcConnection;
-
 /**
  * 
  * @author sth
@@ -81,8 +79,7 @@ public class Driver
 	public Connection connect(String url, Properties info)
 		throws SQLException
 	{
-		JdbcConnection h2Conn = AlternatingConnectionFactory.getFactory(url, info).getConnection();
-		return new HaConnection(h2Conn);
+		return AlternatingConnectionFactory.getFactory(url, info).getConnection();
 	}
 
 	/**

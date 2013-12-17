@@ -16,11 +16,11 @@ import java.net.SocketException;
 import org.apache.log4j.Logger;
 
 /**
- *
+ * 
  * @author sth
  */
 public class ReplicationProtocolReceiver
-extends Thread
+	extends Thread
 {
 	// /////////////////////////////////////////////////////////
 	// Class Members
@@ -45,9 +45,10 @@ extends Thread
 	// Constructors
 	// /////////////////////////////////////////////////////////
 	/**
-	 * @throws IOException 
+	 * @throws IOException
 	 */
-	public ReplicationProtocolReceiver(ReplicationProtocolInstance sender, Socket socket) throws IOException
+	public ReplicationProtocolReceiver(ReplicationProtocolInstance sender, Socket socket)
+		throws IOException
 	{
 		super("replClientRecv");
 		log.debug("ReplicationProtocolReceiver()");
@@ -55,7 +56,7 @@ extends Thread
 		this.sender = sender;
 		this.socket = socket;
 
-		instanceName="recv:"+sender.getInstanceName();
+		instanceName = "recv:" + sender.getInstanceName();
 	}
 
 	// /////////////////////////////////////////////////////////
@@ -73,29 +74,32 @@ extends Thread
 			if (x.getMessage().contains("reset")) {
 				// treat like EOF
 			} else {
-				log.warn(instanceName+": caught socket exception on replication connection: "+x.getMessage());
+				log.warn(instanceName + ": caught socket exception on replication connection: " +
+					x.getMessage());
 			}
 
 		} catch (EOFException x) {
 
 		} catch (Throwable x) {
-			log.fatal(instanceName+": unexpected error within replication client receiver", x);
+			log.fatal(instanceName + ": unexpected error within replication client receiver", x);
 
 		} finally {
-			log.info(instanceName+": got end of connection");
-			//ReplicationServerInstance.logStacksOfAllThreads(log);
+			log.info(instanceName + ": got end of connection");
+			// ReplicationServerInstance.logStacksOfAllThreads(log);
 			sender.terminate();
 		}
 	}
 
 	/**
-	 * @throws ClassNotFoundException 
-	 * @throws IOException 
+	 * @throws ClassNotFoundException
+	 * @throws IOException
 	 * 
 	 */
-	private void body() throws IOException, ClassNotFoundException
+	private void body()
+		throws IOException, ClassNotFoundException
 	{
-		ObjectInputStream ois = new ObjectInputStream(new BufferedInputStream(socket.getInputStream()));
+		ObjectInputStream ois =
+			new ObjectInputStream(new BufferedInputStream(socket.getInputStream()));
 		Object messageObject;
 		while (!terminationRequested && (messageObject = ois.readObject()) != null) {
 			sender.processReceivedMessage(messageObject);

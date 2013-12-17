@@ -15,66 +15,65 @@ import javax.naming.Reference;
 import javax.naming.spi.ObjectFactory;
 
 /**
- *
+ * 
  * @author sth
  */
 public class HaDataSourceFactory
-    implements ObjectFactory
+	implements ObjectFactory
 {
-    // /////////////////////////////////////////////////////////
-    // Class Members
-    // /////////////////////////////////////////////////////////
-    /** */
-    //private static Logger log = Logger.getLogger(HaDataSourceFactory.class);
+	// /////////////////////////////////////////////////////////
+	// Class Members
+	// /////////////////////////////////////////////////////////
+	/** */
+	// private static Logger log = Logger.getLogger(HaDataSourceFactory.class);
 
 
-    // /////////////////////////////////////////////////////////
-    // Constructors
-    // /////////////////////////////////////////////////////////
-    /**
+	// /////////////////////////////////////////////////////////
+	// Constructors
+	// /////////////////////////////////////////////////////////
+	/**
      */
-    public HaDataSourceFactory()
-    {
-    }
+	public HaDataSourceFactory()
+	{
+	}
 
 
-    // /////////////////////////////////////////////////////////
-    // Methods
-    // /////////////////////////////////////////////////////////
-    /**
-     * {@inheritDoc}
-     *
-     * @see javax.naming.spi.ObjectFactory#getObjectInstance(java.lang.Object, javax.naming.Name, javax.naming.Context, java.util.Hashtable)
-     */
-    public Object getObjectInstance(Object obj, Name name, Context nameCtx,
-				    Hashtable<?, ?> environment)
-	throws Exception
-    {
-        if (obj instanceof Reference) {
-            Reference ref = (Reference) obj;
-            if (ref.getClassName().equals(HaDataSource.class.getName())) {
-        	String url = (String) ref.get("url").getContent();
-        	Properties props = new Properties();
-        	for (String propName: new String[]{
-        	    "user", "password", "description", "loginTimeout"})
-        	{
-        	    String propValue = (String)ref.get(propName).getContent();
-        	    if (propValue != null) {
-        		props.setProperty(propName, propValue);
-        	    }
-        	}
-        	
-               return new HaDataSource(url, props);
-            }
-        }
-        return null;
-    }
+	// /////////////////////////////////////////////////////////
+	// Methods
+	// /////////////////////////////////////////////////////////
+	/**
+	 * {@inheritDoc}
+	 * 
+	 * @see javax.naming.spi.ObjectFactory#getObjectInstance(java.lang.Object,
+	 *      javax.naming.Name, javax.naming.Context, java.util.Hashtable)
+	 */
+	public Object getObjectInstance(Object obj, Name name, Context nameCtx,
+		Hashtable<?, ?> environment)
+		throws Exception
+	{
+		if (obj instanceof Reference) {
+			Reference ref = (Reference) obj;
+			if (ref.getClassName().equals(HaDataSource.class.getName())) {
+				String url = (String) ref.get("url").getContent();
+				Properties props = new Properties();
+				for (String propName : new String[] { "user", "password", "description",
+					"loginTimeout" }) {
+					String propValue = (String) ref.get(propName).getContent();
+					if (propValue != null) {
+						props.setProperty(propName, propValue);
+					}
+				}
+
+				return new HaDataSource(url, props);
+			}
+		}
+		return null;
+	}
 
 
-
-    // /////////////////////////////////////////////////////////
-    // Inner Classes
-    // /////////////////////////////////////////////////////////
+	// /////////////////////////////////////////////////////////
+	// Inner Classes
+	// /////////////////////////////////////////////////////////
 
 
 }

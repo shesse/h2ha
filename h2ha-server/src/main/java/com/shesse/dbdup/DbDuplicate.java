@@ -42,9 +42,9 @@ public class DbDuplicate
 	{
 		try {
 			new DbDuplicate().run(args);
-			
+
 		} catch (SQLException x) {
-			System.err.println("SQL error: "+x.getMessage());
+			System.err.println("SQL error: " + x.getMessage());
 			System.exit(1);
 
 		} catch (Throwable x) {
@@ -56,20 +56,18 @@ public class DbDuplicate
 
 	/**
 	 * @param args
-	 * @throws SQLException 
+	 * @throws SQLException
 	 */
 	private void run(List<String> args)
-	throws SQLException
+		throws SQLException
 	{
 		if (args.size() != 6) {
 			/*
-			System.err.println("got args:");
-			for (int i = 0; i < args.length; i++) {
-				System.err.println(" args["+i+"] = "+args[i]);
-			}
-			System.err.println("\n");
-			*/
-			
+			 * System.err.println("got args:"); for (int i = 0; i < args.length;
+			 * i++) { System.err.println(" args["+i+"] = "+args[i]); }
+			 * System.err.println("\n");
+			 */
+
 			System.err.println("usage: DbDuplicate from-url from-user from-password to-url to-user to-password");
 			System.exit(1);
 		}
@@ -97,10 +95,10 @@ public class DbDuplicate
 	/**
 	 * @param fromConn
 	 * @param toConn
-	 * @throws SQLException 
+	 * @throws SQLException
 	 */
 	private void dupSchema(Connection fromConn, Connection toConn)
-	throws SQLException
+		throws SQLException
 	{
 		DatabaseMetaData dbMeta = fromConn.getMetaData();
 
@@ -114,25 +112,25 @@ public class DbDuplicate
 					tableNames.add(tableName);
 
 				} else {
-					System.err.println("won't dup table of type "+tableName);
+					System.err.println("won't dup table of type " + tableName);
 				}
 			}
 
 		} finally {
 			tables.close();
 		}
-		
-		for (String tableName: tableNames) {
+
+		for (String tableName : tableNames) {
 			dropForeignKeyConstraints(toConn, tableName);
 		}
-		
-		for (String tableName: tableNames) {
+
+		for (String tableName : tableNames) {
 			dupTable(fromConn, toConn, tableName);
 			String pkeyName = buildPrimaryKey(fromConn, dbMeta, toConn, tableName);
 			buildIndexes(fromConn, dbMeta, toConn, tableName, pkeyName);
 		}
 
-		for (String tableName: tableNames) {
+		for (String tableName : tableNames) {
 			buildForeignKeyConstraints(fromConn, dbMeta, toConn, tableName);
 		}
 	}
@@ -141,22 +139,22 @@ public class DbDuplicate
 	 * @param fromConn
 	 * @param toConn
 	 * @param tableName
-	 * @throws SQLException 
+	 * @throws SQLException
 	 */
 	private void dupTable(Connection fromConn, Connection toConn, String tableName)
-	throws SQLException
+		throws SQLException
 	{
-		System.err.println("copying table "+tableName);
+		System.err.println("copying table " + tableName);
 		Statement toStmnt = toConn.createStatement();
 		Statement fromStmnt = fromConn.createStatement();
 
 		try {
-			String sql = "drop table if exists "+tableName;
+			String sql = "drop table if exists " + tableName;
 			log.debug(sql);
 			toStmnt.executeUpdate(sql);
 			toConn.commit();
 
-			sql = "select * from "+tableName;
+			sql = "select * from " + tableName;
 			ResultSet srcRecords = fromStmnt.executeQuery(sql);
 
 			try {
@@ -182,18 +180,18 @@ public class DbDuplicate
 	 * @param toConn
 	 * @param tableName
 	 * @param srcRecords
-	 * @throws SQLException 
+	 * @throws SQLException
 	 */
 	private void dupRecords(Connection fromConn, Connection toConn, String tableName,
-	                        ResultSet srcRecords)
-	throws SQLException
+		ResultSet srcRecords)
+		throws SQLException
 	{
 		ResultSetMetaData meta = srcRecords.getMetaData();
 
 		StringBuilder sb = new StringBuilder();
 
 		long startStamp = System.currentTimeMillis();
-		sb.append("insert into "+tableName+" (");
+		sb.append("insert into " + tableName + " (");
 		String delim = "";
 
 		int ncol = meta.getColumnCount();
@@ -237,20 +235,21 @@ public class DbDuplicate
 		}
 
 		toConn.commit();
-		System.err.println(recordCount+" records done in "+(System.currentTimeMillis()-startStamp)+" ms for "+tableName);
+		System.err.println(recordCount + " records done in " +
+			(System.currentTimeMillis() - startStamp) + " ms for " + tableName);
 	}
 
 	/**
 	 * @param tableName
 	 * @param meta
-	 * @throws SQLException 
+	 * @throws SQLException
 	 */
 	private String genDdl(String tableName, ResultSetMetaData meta)
-	throws SQLException
+		throws SQLException
 	{
 		StringBuilder sb = new StringBuilder();
 
-		sb.append("create table "+tableName+" (\n");
+		sb.append("create table " + tableName + " (\n");
 
 		int ncol = meta.getColumnCount();
 
@@ -266,12 +265,12 @@ public class DbDuplicate
 			} else if ("TEXT".equals(columnTypeName)) {
 				sb.append("VARCHAR");
 				if (p < 65536 && p > 0) {
-					sb.append("("+p+")");
+					sb.append("(" + p + ")");
 				}
 			} else if ("SMALLINT UNSIGNED".equals(columnTypeName)) {
 				sb.append("SMALLINT");
 				if (p < 65536 && p > 0) {
-					sb.append("("+p+")");
+					sb.append("(" + p + ")");
 				}
 				sb.append(" UNSIGNED");
 			} else {
@@ -280,7 +279,8 @@ public class DbDuplicate
 				if (p > 0 && p < 65536) {
 					sb.append("(").append(p);
 					int s = meta.getScale(c);
-					if (s > 0) sb.append(", ").append(s);
+					if (s > 0)
+						sb.append(", ").append(s);
 					sb.append(")");
 				}
 			}
@@ -304,10 +304,10 @@ public class DbDuplicate
 	/**
 	 * @param string
 	 * @return
-	 * @throws SQLException 
+	 * @throws SQLException
 	 */
 	private Connection openDbConnection(String dbUrl, String dbUser, String dbPassword)
-	throws SQLException
+		throws SQLException
 	{
 		if (dbUrl.startsWith("jdbc:h2:")) {
 			try {
@@ -324,7 +324,7 @@ public class DbDuplicate
 			}
 
 		} else {
-			throw new SQLException("unknown URL: "+dbUrl);
+			throw new SQLException("unknown URL: " + dbUrl);
 		}
 
 		Connection conn = DriverManager.getConnection(dbUrl, dbUser, dbPassword);
@@ -335,10 +335,11 @@ public class DbDuplicate
 	/**
 	 * @param fromConn
 	 * @param toConn
-	 * @throws SQLException 
+	 * @throws SQLException
 	 */
-	private String buildPrimaryKey(Connection fromConn, DatabaseMetaData dbMeta, Connection toConn, String tableName)
-	throws SQLException
+	private String buildPrimaryKey(Connection fromConn, DatabaseMetaData dbMeta, Connection toConn,
+		String tableName)
+		throws SQLException
 	{
 		ResultSet pkeys = dbMeta.getPrimaryKeys(fromConn.getCatalog(), "", tableName);
 		try {
@@ -349,7 +350,7 @@ public class DbDuplicate
 				while (columns.size() < seq) {
 					columns.add(null);
 				}
-				columns.set(seq-1, pkeys.getString("COLUMN_NAME"));
+				columns.set(seq - 1, pkeys.getString("COLUMN_NAME"));
 				pkeyName = pkeys.getString("PK_NAME");
 			}
 			buildPrimaryKey(toConn, tableName, pkeyName, columns);
@@ -366,16 +367,16 @@ public class DbDuplicate
 	 * @param tableName
 	 * @param pkeyName
 	 * @param columns
-	 * @throws SQLException 
+	 * @throws SQLException
 	 */
 	private void buildPrimaryKey(Connection toConn, String tableName, String pkeyName,
-	                             List<String> columns)
-	throws SQLException
+		List<String> columns)
+		throws SQLException
 	{
 		StringBuilder sb = new StringBuilder();
 		sb.append("create primary key on ").append(tableName).append("(");
 		String delim = "";
-		for (String col: columns) {
+		for (String col : columns) {
 			sb.append(delim).append(col);
 			delim = ", ";
 		}
@@ -394,10 +395,11 @@ public class DbDuplicate
 	/**
 	 * @param fromConn
 	 * @param toConn
-	 * @throws SQLException 
+	 * @throws SQLException
 	 */
-	private void buildIndexes(Connection fromConn, DatabaseMetaData dbMeta, Connection toConn, String tableName, String pkeyName)
-	throws SQLException
+	private void buildIndexes(Connection fromConn, DatabaseMetaData dbMeta, Connection toConn,
+		String tableName, String pkeyName)
+		throws SQLException
 	{
 		ResultSet indexes = dbMeta.getIndexInfo(fromConn.getCatalog(), "", tableName, false, false);
 		try {
@@ -406,7 +408,7 @@ public class DbDuplicate
 			List<String> columns = new ArrayList<String>();
 			while (indexes.next()) {
 				String indexName = indexes.getString("INDEX_NAME");
-				//log.debug("index "+indexName+", col="+indexes.getString("COLUMN_NAME")+", nuniq="+indexes.getBoolean("NON_UNIQUE"));
+				// log.debug("index "+indexName+", col="+indexes.getString("COLUMN_NAME")+", nuniq="+indexes.getBoolean("NON_UNIQUE"));
 
 				short indexType = indexes.getShort("TYPE");
 				if (indexType == DatabaseMetaData.tableIndexStatistic) {
@@ -440,11 +442,11 @@ public class DbDuplicate
 	 * @param currentIndex
 	 * @param columns
 	 * @param boolean1
-	 * @throws SQLException 
+	 * @throws SQLException
 	 */
 	private void buildIndex(Connection toConn, String tableName, String indexName,
-	                        List<String> columns, boolean nonUnique)
-	throws SQLException
+		List<String> columns, boolean nonUnique)
+		throws SQLException
 	{
 		if (indexName == null) {
 			return;
@@ -460,7 +462,7 @@ public class DbDuplicate
 		sb.append("index ").append(indexName).append(" on ").append(tableName).append(" (");
 
 		String delim = "";
-		for (String col: columns) {
+		for (String col : columns) {
 			sb.append(delim).append(col);
 			delim = ", ";
 		}
@@ -478,18 +480,18 @@ public class DbDuplicate
 	/**
 	 * @param toConn
 	 * @param tableName
-	 * @throws SQLException 
+	 * @throws SQLException
 	 */
 	private void dropForeignKeyConstraints(Connection toConn, String tableName)
-	throws SQLException
+		throws SQLException
 	{
 		DatabaseMetaData dbMeta = toConn.getMetaData();
-	
-		System.err.println("dropping FK constraints for "+tableName);
+
+		System.err.println("dropping FK constraints for " + tableName);
 		ResultSet crefs = dbMeta.getImportedKeys(toConn.getCatalog(), "", tableName.toUpperCase());
 		try {
 			while (crefs.next()) {
-				//log.debug("  "+crefs.getString("FK_NAME")+": "+crefs.getShort("KEY_SEQ"));
+				// log.debug("  "+crefs.getString("FK_NAME")+": "+crefs.getShort("KEY_SEQ"));
 				if (crefs.getShort("KEY_SEQ") == 1) {
 					dropForeignKeyConstraint(toConn, tableName, crefs.getString("FK_NAME"));
 				}
@@ -508,14 +510,13 @@ public class DbDuplicate
 	 * @param fcolumns
 	 * @param updateRule
 	 * @param deleteRule
-	 * @throws SQLException 
+	 * @throws SQLException
 	 */
-	private void dropForeignKeyConstraint(Connection toConn, String tableName,
-										  String fkName)
-	throws SQLException
+	private void dropForeignKeyConstraint(Connection toConn, String tableName, String fkName)
+		throws SQLException
 	{
 		StringBuilder sb = new StringBuilder();
-		sb.append("alter table ").append(tableName).append(" drop constraint "+fkName);
+		sb.append("alter table ").append(tableName).append(" drop constraint " + fkName);
 
 		Statement stmnt = toConn.createStatement();
 		try {
@@ -531,11 +532,11 @@ public class DbDuplicate
 	 * @param dbMeta
 	 * @param toConn
 	 * @param tableName
-	 * @throws SQLException 
+	 * @throws SQLException
 	 */
 	private void buildForeignKeyConstraints(Connection fromConn, DatabaseMetaData dbMeta,
-	                                        Connection toConn, String tableName)
-	throws SQLException
+		Connection toConn, String tableName)
+		throws SQLException
 	{
 		ResultSet crefs = dbMeta.getImportedKeys(fromConn.getCatalog(), "", tableName);
 		try {
@@ -551,17 +552,16 @@ public class DbDuplicate
 				if (fkName == null) {
 					fkName = "";
 				}
-				//log.debug("index "+indexName+", col="+indexes.getString("COLUMN_NAME")+", nuniq="+indexes.getBoolean("NON_UNIQUE"));
-				log.debug("fk "+tableName+" PKTABLE_NAME="+pkTable+
-					", PKCOLUMN_NAME="+crefs.getString("PKCOLUMN_NAME")+
-					", FKCOLUMN_NAME="+crefs.getString("FKCOLUMN_NAME")+
-					", KEY_SEQ="+crefs.getString("KEY_SEQ")+
-					", FK_NAME="+crefs.getString("FK_NAME")+
-					", PK_NAME="+crefs.getString("PK_NAME")
-					);
-				
+				// log.debug("index "+indexName+", col="+indexes.getString("COLUMN_NAME")+", nuniq="+indexes.getBoolean("NON_UNIQUE"));
+				log.debug("fk " + tableName + " PKTABLE_NAME=" + pkTable + ", PKCOLUMN_NAME=" +
+					crefs.getString("PKCOLUMN_NAME") + ", FKCOLUMN_NAME=" +
+					crefs.getString("FKCOLUMN_NAME") + ", KEY_SEQ=" + crefs.getString("KEY_SEQ") +
+					", FK_NAME=" + crefs.getString("FK_NAME") + ", PK_NAME=" +
+					crefs.getString("PK_NAME"));
+
 				if (!pkTable.equals(currentPkTable) || !fkName.equals(currentFkName)) {
-					buildForeignKeyConstraint(toConn, tableName, currentPkTable, pcolumns, fcolumns, updateRule, deleteRule);
+					buildForeignKeyConstraint(toConn, tableName, currentPkTable, pcolumns,
+						fcolumns, updateRule, deleteRule);
 					currentPkTable = pkTable;
 					currentFkName = fkName;
 					pcolumns.clear();
@@ -574,7 +574,8 @@ public class DbDuplicate
 				deleteRule = crefs.getShort("DELETE_RULE");
 			}
 			if (currentPkTable != null) {
-				buildForeignKeyConstraint(toConn, tableName, currentPkTable, pcolumns, fcolumns, updateRule, deleteRule);
+				buildForeignKeyConstraint(toConn, tableName, currentPkTable, pcolumns, fcolumns,
+					updateRule, deleteRule);
 			}
 		} finally {
 			crefs.close();
@@ -587,28 +588,27 @@ public class DbDuplicate
 	 * @param currentFkTable
 	 * @param pcolumns
 	 * @param fcolumns
-	 * @throws SQLException 
+	 * @throws SQLException
 	 */
-	private void buildForeignKeyConstraint(Connection toConn, String tableName,
-	                                       String pkTableName, List<String> pcolumns,
-	                                       List<String> fcolumns, short updateRule, short deleteRule)
-	throws SQLException
+	private void buildForeignKeyConstraint(Connection toConn, String tableName, String pkTableName,
+		List<String> pcolumns, List<String> fcolumns, short updateRule, short deleteRule)
+		throws SQLException
 	{
 		if (pkTableName == null) {
 			return;
 		}
 
-		System.err.println("building foreign key constraint "+tableName+" -> "+pkTableName);
+		System.err.println("building foreign key constraint " + tableName + " -> " + pkTableName);
 		StringBuilder sb = new StringBuilder();
 		sb.append("alter table ").append(tableName).append(" add foreign key (");
 		String delim = "";
-		for (String col: fcolumns) {
+		for (String col : fcolumns) {
 			sb.append(delim).append(col);
 			delim = ", ";
 		}
 		sb.append(") references ").append(pkTableName).append(" (");
 		delim = "";
-		for (String col: pcolumns) {
+		for (String col : pcolumns) {
 			sb.append(delim).append(col);
 			delim = ", ";
 		}

@@ -198,34 +198,31 @@ public class FileSystemHa
 			rep.enqueue(message);
 		}
 	}
-	
+
 	/**
-	 * force() has been called on a FileChannelHa. This is most
-	 * probably the attempt to ensure persistency on commit.
-	 * There are different ways to deal with this with respect
-	 * to forwarding changes to replicators:
+	 * force() has been called on a FileChannelHa. This is most probably the
+	 * attempt to ensure persistency on commit. There are different ways to deal
+	 * with this with respect to forwarding changes to replicators:
 	 * <ul>
-	 * <li>Don't delay the sender and accept loosing some
-	 * milliseconds of already commited updates. In this case we don't need
-	 * to do anything here.
+	 * <li>Don't delay the sender and accept loosing some milliseconds of
+	 * already commited updates. In this case we don't need to do anything here.
 	 * <li>wait until all pending updates have been sent out to the replicators
-	 * <li>ask replicators to acknowldge that all data has been forced on their side
+	 * <li>ask replicators to acknowldge that all data has been forced on their
+	 * side
 	 * <ul>
-	 * The first possibility is the most performant and is in line with
-	 * H2 default beahviour (see 
-	 * http://www.h2database.com/html/advanced.html#durability_problems).
-	 * The current implementation of h2ha uses this variant.
+	 * The first possibility is the most performant and is in line with H2
+	 * default beahviour (see
+	 * http://www.h2database.com/html/advanced.html#durability_problems). The
+	 * current implementation of h2ha uses this variant.
 	 */
 	public void force()
 	{
 		// do nothing - see above
-		
+
 		// as an alternative it would be possible to call flushAll or
 		// syncAll from here. A small enhancement could add a boolean
 		// force argument to syncAll to do a force on the replicator's side
 	}
-
-
 
 
 	/**
@@ -480,7 +477,7 @@ public class FileSystemHa
 		if (!filePath.mustReplicate()) {
 			return;
 		}
-		
+
 		// All writing traffic will pass through this point. So we
 		// may use the block cache to limit the amount of data sent
 		// to the peer system to only the parts that have changed.
@@ -622,7 +619,7 @@ public class FileSystemHa
 		if (from.mustReplicate() && to.mustReplicate()) {
 			sendToReplicators(new MoveToMessage(from.getNormalizedHaName(),
 				to.getNormalizedHaName()));
-	
+
 		} else if (from.mustReplicate() || to.mustReplicate()) {
 			log.error("attempt to rename with differing replication requirements: " + from +
 				" to " + to);

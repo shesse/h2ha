@@ -27,6 +27,7 @@ import java.util.Properties;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.Semaphore;
 
 import org.apache.log4j.Logger;
 import org.h2.store.fs.FilePath;
@@ -36,9 +37,10 @@ import org.h2.tools.Shell;
 import org.h2.tools.SimpleResultSet;
 
 import com.shesse.dbdup.DbDuplicate;
+import com.shesse.jdbcproxy.Driver;
 
 /**
- *
+ * 
  * @author sth
  */
 public class H2HaServer
@@ -110,11 +112,12 @@ public class H2HaServer
 	/** */
 	public enum Event { //
 		HA_STARTUP, //
-		NO_PEER, // we don't have a peer 
+		NO_PEER, // we don't have a peer
 		MASTER_STARTED, //
 		MASTER_STOPPED, //
 		CONNECTED_TO_PEER, //
-		CANNOT_CONNECT, // parameter is: indication if local data is valid for a DB
+		CANNOT_CONNECT, // parameter is: indication if local data is valid for a
+						// DB
 		SYNC_COMPLETED, //
 		PEER_STATE, // parameter is: state of HA peer
 		DISCONNECTED, //
@@ -151,23 +154,23 @@ public class H2HaServer
 			throw new IllegalStateException("cannot read hafsm.properties", e);
 		}
 
-		for (String key: hafsm.stringPropertyNames()) {
+		for (String key : hafsm.stringPropertyNames()) {
 			String[] trans = hafsm.getProperty(key, "").split("\\s+");
 			if (trans.length != 2) {
-				throw new IllegalStateException("invalid FSM transition for "+key);
+				throw new IllegalStateException("invalid FSM transition for " + key);
 			}
 
 			try {
 				getAction(trans[0]);
 			} catch (NoSuchMethodException x) {
-				throw new IllegalStateException("unknown action in FSM transition for "+key);
+				throw new IllegalStateException("unknown action in FSM transition for " + key);
 			}
 
 
 			try {
 				FailoverState.valueOf(trans[1]);
 			} catch (IllegalArgumentException x) {
-				throw new IllegalStateException("unknown target state in FSM transition for "+key);
+				throw new IllegalStateException("unknown target state in FSM transition for " + key);
 			}
 		}
 	}
@@ -178,13 +181,13 @@ public class H2HaServer
 	// /////////////////////////////////////////////////////////
 	/**
 	 * @param args
-	 * @throws InterruptedException 
+	 * @throws InterruptedException
 	 */
-	public static void main(String[] argsArray) 
-	throws InterruptedException
+	public static void main(String[] argsArray)
+		throws InterruptedException
 	{
 		List<String> args = new ArrayList<String>(Arrays.asList(argsArray));
-		
+
 		try {
 			String command = "";
 			if (args.size() > 0) {
@@ -210,7 +213,7 @@ public class H2HaServer
 				printVersionInfo(args);
 
 			} else {
-				System.err.println("usage: java -jar "+getJarname()+" <command> [option ...]");
+				System.err.println("usage: java -jar " + getJarname() + " <command> [option ...]");
 				System.err.println("with command:");
 				System.err.println("    server");
 				System.err.println("        Run as H2HA database server");
@@ -228,7 +231,7 @@ public class H2HaServer
 			}
 
 		} catch (SQLException x) {
-			System.err.println("SQL error: "+x.getMessage());
+			System.err.println("SQL error: " + x.getMessage());
 			System.exit(1);
 
 		} catch (Throwable x) {
@@ -243,49 +246,50 @@ public class H2HaServer
 	}
 
 	/**
-	 * locates the named option within the argument
-	 * list and removes it from the  list. The option is exepcted to have
-	 * a value which also will be removed.
+	 * locates the named option within the argument list and removes it from the
+	 * list. The option is exepcted to have a value which also will be removed.
+	 * 
 	 * @return the value or the value of dflt if the option was not present
 	 */
 	public static String removeOptionWithValue(List<String> args, String optName, String dflt)
 	{
 		String ret = dflt;
-		for (int i = 0; i < args.size()-1; ) {
+		for (int i = 0; i < args.size() - 1;) {
 			if (args.get(i).equals(optName)) {
 				args.remove(i);
 				ret = args.remove(i);
-				
+
 			} else {
 				i++;
 			}
 		}
 		return ret;
 	}
-	
+
 	/**
-	 * locates the named option within the argument
-	 * list and returns its value. The list will remain unchanged.
+	 * locates the named option within the argument list and returns its value.
+	 * The list will remain unchanged.
+	 * 
 	 * @return the value or the value of dflt if the option was not present
 	 */
 	public static String findOptionWithValue(List<String> args, String optName, String dflt)
 	{
 		String ret = dflt;
-		for (int i = 0; i < args.size()-1; ) {
+		for (int i = 0; i < args.size() - 1;) {
 			if (args.get(i).equals(optName)) {
-				ret = args.get(i+1);
+				ret = args.get(i + 1);
 				i += 2;
 			} else {
 				i++;
-			}			
+			}
 		}
 		return ret;
 	}
-	
+
 	/**
-	 * locates the named option within the argument
-	 * list and removes it from the  list. The option is exepcted to have
-	 * a value which also will be removed.
+	 * locates the named option within the argument list and removes it from the
+	 * list. The option is exepcted to have a value which also will be removed.
+	 * 
 	 * @return the value or the value of dflt if the option was not present
 	 */
 	public static int removeOptionWithInt(List<String> args, String optName, int dflt)
@@ -301,10 +305,11 @@ public class H2HaServer
 			}
 		}
 	}
-	
+
 	/**
-	 * locates the named option within the argument
-	 * list and returns its value. The list will remain unchanged.
+	 * locates the named option within the argument list and returns its value.
+	 * The list will remain unchanged.
+	 * 
 	 * @return the value or the value of dflt if the option was not present
 	 */
 	public static int findOptionWithInt(List<String> args, String optName, int dflt)
@@ -320,16 +325,17 @@ public class H2HaServer
 			}
 		}
 	}
-	
+
 	/**
-	 * locates the named option within the argument
-	 * list and removes it from the list. 
+	 * locates the named option within the argument list and removes it from the
+	 * list.
+	 * 
 	 * @return true if the option was found
 	 */
 	public static boolean removeOption(List<String> args, String optName)
 	{
 		boolean ret = false;
-		for (int i = 0; i < args.size(); ) {
+		for (int i = 0; i < args.size();) {
 			if (args.get(i).equals(optName)) {
 				args.remove(i);
 				ret = true;
@@ -339,11 +345,11 @@ public class H2HaServer
 		}
 		return ret;
 	}
-	
+
 	/**
-	 * locates the named option within the argument
-	 * list and returns true if it could be found. 
-	 * The list will remain unchanged.
+	 * locates the named option within the argument list and returns true if it
+	 * could be found. The list will remain unchanged.
+	 * 
 	 * @return true if the option was found
 	 */
 	public static boolean findOption(List<String> args, String optName)
@@ -355,13 +361,13 @@ public class H2HaServer
 		}
 		return false;
 	}
-	
+
 	/**
 	 * @param args
-	 * @throws InterruptedException 
+	 * @throws InterruptedException
 	 */
 	private static void startServer(List<String> args)
-	throws InterruptedException
+		throws InterruptedException
 	{
 		new H2HaServer(args).runHaServer();
 	}
@@ -371,11 +377,11 @@ public class H2HaServer
 	 */
 	private static void showConsoleUsage()
 	{
-		System.err.println("usage: java -jar "+getJarname()+" console [option ...]");
+		System.err.println("usage: java -jar " + getJarname() + " console [option ...]");
 		System.err.println("with option:");
 		System.err.println("    -help or -?");
 		System.err.println("        Print the list of options");
-		System.err.println("    -server hostname[:port][hostname[:port]]");
+		System.err.println("    -server hostname[:port][,hostname[:port]]");
 		System.err.println("        The database server address(es)");
 		System.err.println("    -haBaseDir <directory>");
 		System.err.println("        Base directory of HA database");
@@ -405,16 +411,16 @@ public class H2HaServer
 	 * @param args2
 	 */
 	private static void startShell(List<String> args)
-	throws SQLException
+		throws SQLException
 	{
 		try {
 			createUrl(args);
 		} catch (SQLException x) {
-			System.err.println(x.getMessage()+"\n");
+			System.err.println(x.getMessage() + "\n");
 			showConsoleUsage();
 		}
 
-		new Shell(){
+		new Shell() {
 			@Override
 			protected void showUsage()
 			{
@@ -429,7 +435,7 @@ public class H2HaServer
 	 */
 	private static void showScriptUsage()
 	{
-		System.err.println("usage: java -jar "+getJarname()+" script [option ...]");
+		System.err.println("usage: java -jar " + getJarname() + " script [option ...]");
 		System.err.println("with option:");
 		System.err.println("    -help or -?");
 		System.err.println("        Print the list of options");
@@ -460,22 +466,22 @@ public class H2HaServer
 		System.exit(1);
 
 	}
-	
+
 	/**
 	 * @param args2
-	 * @throws SQLException 
+	 * @throws SQLException
 	 */
 	private static void startScript(List<String> args)
-	throws SQLException
+		throws SQLException
 	{
 		try {
 			createUrl(args);
 		} catch (SQLException x) {
-			System.err.println(x.getMessage()+"\n");
+			System.err.println(x.getMessage() + "\n");
 			showScriptUsage();
 		}
 
-		new RunScript(){
+		new RunScript() {
 			@Override
 			protected void showUsage()
 			{
@@ -488,10 +494,10 @@ public class H2HaServer
 
 	/**
 	 * @param args2
-	 * @throws SQLException 
+	 * @throws SQLException
 	 */
 	private static void createDatabase(List<String> args)
-	throws SQLException
+		throws SQLException
 	{
 		String script = findOptionWithValue(args, "-script", null);
 		String user = findOptionWithValue(args, "-user", null);
@@ -501,7 +507,7 @@ public class H2HaServer
 
 		removeOption(args, "-url");
 		removeOption(args, "-server");
-			
+
 		if (script == null) {
 			System.err.println("mandatory parameter -script is missing");
 			showCreateUsage();
@@ -528,18 +534,18 @@ public class H2HaServer
 		}
 
 		if (!new File(haBaseDir).exists()) {
-			System.err.println("HA base dir "+haBaseDir+" does not exist");
+			System.err.println("HA base dir " + haBaseDir + " does not exist");
 			System.exit(1);
 		}
 
 		try {
 			createUrl(args);
 		} catch (SQLException x) {
-			System.err.println(x.getMessage()+"\n");
+			System.err.println(x.getMessage() + "\n");
 			showCreateUsage();
 		}
-		
-		new RunScript(){
+
+		new RunScript() {
 			@Override
 			protected void showUsage()
 			{
@@ -554,7 +560,7 @@ public class H2HaServer
 	 */
 	private static void showCreateUsage()
 	{
-		System.err.println("usage: java -jar "+getJarname()+" create [option ...]");
+		System.err.println("usage: java -jar " + getJarname() + " create [option ...]");
 		System.err.println("with option:");
 		System.err.println("    -help or -?");
 		System.err.println("        Print the list of options");
@@ -607,54 +613,63 @@ public class H2HaServer
 
 		int pdel = url.lastIndexOf('/');
 		if (pdel >= 0) {
-			url = url.substring(pdel+1);
+			url = url.substring(pdel + 1);
 		}
 		return url;
 	}
 
 	/**
-	 * ensures that a -url option is present. If it is not,
-	 * it will be built based on the -server, -database
-	 * and -haBaseDir options.
+	 * ensures that a -url option is present. If it is not, it will be built
+	 * based on the -server, -database and -haBaseDir options.
 	 * 
 	 * @param args
 	 * @throws SQLException
 	 */
 	private static void createUrl(List<String> args)
-	throws SQLException
+		throws SQLException
 	{
 		String server = removeOptionWithValue(args, "-server", null);
 		String database = removeOptionWithValue(args, "-database", null);
 		String haBaseDir = removeOptionWithValue(args, "-haBaseDir", null);
 		String url = removeOptionWithValue(args, "-url", null);
+		
+		// this is unused but still needed: it forces loading of the H2HA driver
+		@SuppressWarnings("unused")
+		final Class<?> h2haDriver = Driver.class;
 
 		if (url == null) {
 			if (server == null && haBaseDir == null) {
 				server = "localhost";
 			}
-			
+
 			if (database == null) {
 				throw new SQLException("either -database dbname or -url jdbc-url is needed");
 			}
 
 			if (server != null) {
-				url = "jdbc:h2:tcp://"+server+"/"+database;
+				if (server.contains(",")) {
+					url = "jdbc:h2ha:tcp://" + server + "/" + database;
+				} else {
+					
+					url = "jdbc:h2:tcp://" + server + "/" + database;
+				}
 
 			} else if (haBaseDir != null) {
-				url = "jdbc:h2:file:"+new File(haBaseDir).getAbsolutePath()+"/"+database;
+				url = "jdbc:h2:file:" + new File(haBaseDir).getAbsolutePath() + "/" + database;
 				if (!new File(haBaseDir).exists()) {
-					System.err.println("HA base dir "+haBaseDir+" does not exist");
+					System.err.println("HA base dir " + haBaseDir + " does not exist");
 					System.exit(1);
 				}
 
 				staticBaseLock = acquireHaBaseLock(haBaseDir);
 				if (staticBaseLock == null) {
-					System.err.println("could not get lock for "+haBaseDir+" - some other process is probably using it");
+					System.err.println("could not get lock for " + haBaseDir +
+						" - some other process is probably using it");
 					System.exit(1);
 				}
 
 			} else {
-				url = "jdbc:h2:tcp://localhost/"+database;
+				url = "jdbc:h2:tcp://localhost/" + database;
 			}
 		}
 
@@ -668,7 +683,7 @@ public class H2HaServer
 	 */
 	private static void printVersionInfo(List<String> args)
 	{
-		System.err.println("H2HA Server "+getVersionInfo());
+		System.err.println("H2HA Server " + getVersionInfo());
 	}
 
 	/**
@@ -676,7 +691,8 @@ public class H2HaServer
 	 */
 	private static String getVersionInfo()
 	{
-		InputStream versionStream = H2HaServer.class.getClassLoader().getResourceAsStream("version.properties");
+		InputStream versionStream =
+			H2HaServer.class.getClassLoader().getResourceAsStream("version.properties");
 		if (versionStream == null) {
 			return "unknown";
 		} else {
@@ -696,20 +712,19 @@ public class H2HaServer
 	}
 
 	/**
-	 * Acquires a lock for accessing haBaseDir. 
-	 * Returns a handle for this lock which can be used
-	 * to release the lock. Returns null if it was not possible
-	 * to acquire the lock. 
+	 * Acquires a lock for accessing haBaseDir. Returns a handle for this lock
+	 * which can be used to release the lock. Returns null if it was not
+	 * possible to acquire the lock.
 	 */
 	private static LockHandle acquireHaBaseLock(String haBaseDir)
 	{
-		FilePath basePath = FilePath.get(haBaseDir+"/h2ha.lock");
+		FilePath basePath = FilePath.get(haBaseDir + "/h2ha.lock");
 
 		FileChannel channel;
 		try {
 			channel = basePath.open("rw");
 		} catch (IOException x) {
-			log.error("could not create HA lock file: "+x);
+			log.error("could not create HA lock file: " + x);
 			return null;
 		}
 
@@ -721,9 +736,9 @@ public class H2HaServer
 			} else {
 				return new LockHandle(channel, lock);
 			}
-			
+
 		} catch (IOException x) {
-			log.error("could not acquire HA lock: "+x);
+			log.error("could not acquire HA lock: " + x);
 			return null;
 		}
 	}
@@ -733,7 +748,7 @@ public class H2HaServer
 	 */
 	private void showServerUsage()
 	{
-		System.err.println("usage: java -jar "+getJarname()+" server [option ...]");
+		System.err.println("usage: java -jar " + getJarname() + " server [option ...]");
 		System.err.println("with option:");
 		System.err.println("    -help or -?");
 		System.err.println("        Print the list of options");
@@ -773,32 +788,32 @@ public class H2HaServer
 		System.err.println("    -trace");
 		System.err.println("        print additional trace information");
 		System.err.println("");
-	
-	
+
+
 		System.exit(1);
 	}
 
 
 	/**
-	 * @throws InterruptedException 
+	 * @throws InterruptedException
 	 * 
 	 */
-	private void runHaServer() 
-	throws InterruptedException
+	private void runHaServer()
+		throws InterruptedException
 	{
 		serverArgs = new ArrayList<String>();
-		
+
 		serverArgs.add("-tcpAllowOthers");
 		serverArgs.add("-baseDir");
 		serverArgs.add("ha:///");
 		serverArgs.add("-ifExists");
-		
+
 		serverArgs.addAll(args);
-		
+
 		peerHost = removeOptionWithValue(serverArgs, "-haPeerHost", null);
 		haBaseDir = removeOptionWithValue(serverArgs, "-haBaseDir", null);
 		masterPriority = removeOptionWithInt(serverArgs, "-masterPriority", 10);
-		
+
 		removeOptionWithValue(serverArgs, "-haPeerPort", null);
 		removeOptionWithValue(serverArgs, "-haCacheSize", null);
 		removeOptionWithValue(serverArgs, "-haConnectTimeout", null);
@@ -810,8 +825,8 @@ public class H2HaServer
 		removeOptionWithValue(serverArgs, "-haMaxWaitingMessages", null);
 		removeOption(serverArgs, "-autoFailback");
 		removeOption(serverArgs, "-haRestrictPeer");
-		
-		
+
+
 		if (findOption(serverArgs, "-?")) {
 			showServerUsage();
 			System.exit(1);
@@ -820,47 +835,48 @@ public class H2HaServer
 			showServerUsage();
 			System.exit(1);
 		}
-		
-	
+
+
 		if (haBaseDir == null) {
 			System.err.println("mandatory flag -haBaseDir is missing");
 			showServerUsage();
 			System.exit(1);
 		}
-	
+
 		if (!new File(haBaseDir).exists()) {
-			System.err.println("HA base dir "+haBaseDir+" does not exist");
+			System.err.println("HA base dir " + haBaseDir + " does not exist");
 			showServerUsage();
 			System.exit(1);
 		}
-	
+
 		LockHandle baseLock = acquireHaBaseLock(haBaseDir);
 		if (baseLock == null) {
-			System.err.println("could not get lock for "+haBaseDir+" - some other process is probably using it");
+			System.err.println("could not get lock for " + haBaseDir +
+				" - some other process is probably using it");
 			System.exit(1);
 		}
-	
+
 		try {
 			fileSystem = new FileSystemHa(this, args);
 			server = new ReplicationServer(this, fileSystem, args);
 			server.start();
-	
+
 			if (peerHost == null) {
 				log.warn("no haPeerHost specified - running in master only mode!");
 				applyEvent(Event.NO_PEER, null, null);
-	
+
 			} else {
 				applyEvent(Event.HA_STARTUP, null, null);
 			}
-	
+
 			while (!shutdownRequested) {
 				Runnable queueEntry = controlQueue.take();
 				queueEntry.run();
 			}
-	
+
 		} catch (TerminateThread x) {
 			System.err.println(x.getMessage());
-	
+
 		} finally {
 			baseLock.release();
 		}
@@ -873,7 +889,7 @@ public class H2HaServer
 	public void shutdown()
 	{
 		shutdownRequested = true;
-		enqueue(new Runnable(){
+		enqueue(new Runnable() {
 			public void run()
 			{
 				// no content - we simply want the controlQueue.take()
@@ -895,8 +911,8 @@ public class H2HaServer
 	}
 
 	/**
-	 * may be called when running as a master to ensure that
-	 * all outstanding changes have been sent to all clients
+	 * may be called when running as a master to ensure that all outstanding
+	 * changes have been sent to all clients
 	 */
 	public static void pushToAllReplicators()
 	{
@@ -904,8 +920,8 @@ public class H2HaServer
 	}
 
 	/**
-	 * may be called when running as a master to ensure that
-	 * all outstanding changes have been received by all clients
+	 * may be called when running as a master to ensure that all outstanding
+	 * changes have been received by all clients
 	 */
 	public static void syncWithAllReplicators()
 	{
@@ -915,14 +931,15 @@ public class H2HaServer
 
 	/**
 	 * must be called on the actual master system
-	 * @throws SQLException 
+	 * 
+	 * @throws SQLException
 	 */
 	public static void transferMasterRole()
-	throws SQLException
+		throws SQLException
 	{
 		findFileSystem().getHaServer().transferMasterRoleImpl();
 	}
-	
+
 	/**
 	 * 
 	 */
@@ -930,7 +947,7 @@ public class H2HaServer
 	{
 		FilePath fp = FilePath.get("ha:///");
 		if (fp instanceof FilePathHa) {
-			return ((FilePathHa)fp).getFileSystem();
+			return ((FilePathHa) fp).getFileSystem();
 		} else {
 			throw new IllegalStateException("did not get a FilePathHa for url ha:///");
 		}
@@ -938,21 +955,53 @@ public class H2HaServer
 	}
 
 	/**
-	 * @throws SQLException 
+	 * @throws SQLException
 	 * 
 	 */
 	private void transferMasterRoleImpl()
-	throws SQLException
+		throws SQLException
 	{
-		if (failoverState != FailoverState.MASTER) {
-			throw new SQLException("master role can only be transferred from an active master");
-		}
+		// we need to pass through the controlQueue to stay
+		// in correct time sequence but also want to wait until 
+		// the TRANSFER_MASTER has been applied to the FSM.
+		// Therefore, we use a construct with enqueue
+		// and waiting on a semaphore
+		final ResultContainer<Void, SQLException> res = new ResultContainer<Void, SQLException>();
+		enqueue(new Runnable() {
+			public void run()
+			{
+				try {
+					if (failoverState != FailoverState.MASTER) {
+						throw new SQLException(
+							"master role can only be transferred from an active master");
+					}
 
-		if (client == null) {
-			throw new SQLException("master role can only be transferred from within a failover configuration");
-		}
+					if (client == null) {
+						throw new SQLException(
+							"master role can only be transferred from within a failover configuration");
+					}
 
-		applyEvent(Event.TRANSFER_MASTER, null, null);
+					applyEventImpl(Event.TRANSFER_MASTER, null, null);
+					
+				} catch (SQLException x) {
+					res.exception = x;
+				} finally {
+					res.sema.release();
+				}
+			}
+		});
+		
+		// we wait until the enqueued Runnable has been run
+		try {
+			res.sema.acquire();
+		} catch (InterruptedException x) {
+			throw new SQLException("unexpected interrupt", x);
+		}
+		
+		// if there was en exception we will find it in res.exception ...
+		if (res.exception != null) {
+			throw res.exception;
+		}
 	}
 
 	/**
@@ -963,11 +1012,11 @@ public class H2HaServer
 	 * @throws SQLException
 	 */
 	public static ResultSet getServerInfo(Connection conn)
-	throws SQLException
+		throws SQLException
 	{
 		return findFileSystem().getHaServer().getServerInfoImpl(conn);
 	}
-	
+
 	/**
 	 * 
 	 * @param conn
@@ -976,7 +1025,7 @@ public class H2HaServer
 	 * @throws SQLException
 	 */
 	public ResultSet getServerInfoImpl(Connection conn)
-	throws SQLException
+		throws SQLException
 	{
 		SimpleResultSet rs = new SimpleResultSet();
 		rs.addColumn("SERVER_NAME", Types.VARCHAR, 100, 0);
@@ -1031,10 +1080,11 @@ public class H2HaServer
 	 * @throws SQLException
 	 */
 	public static ResultSet getReplicationInfo(Connection conn)
-	throws SQLException
+		throws SQLException
 	{
 		return findFileSystem().getHaServer().getReplicationInfoImpl(conn);
 	}
+
 	/**
 	 * 
 	 * @param conn
@@ -1043,7 +1093,7 @@ public class H2HaServer
 	 * @throws SQLException
 	 */
 	public ResultSet getReplicationInfoImpl(Connection conn)
-	throws SQLException
+		throws SQLException
 	{
 		SimpleResultSet rs = new SimpleResultSet();
 		rs.addColumn("INSTANCE_NAME", Types.VARCHAR, 100, 0);
@@ -1056,12 +1106,12 @@ public class H2HaServer
 			return rs;
 		}
 
-		for (ReplicationServerInstance server: servers) {
+		for (ReplicationServerInstance server : servers) {
 			rs.addRow(//
 				server.getInstanceName(),//
 				server.getStartTime(),//
 				server.getTotalBytesTransmitted(),//
-				(int)server.getLastSendDelay()//
+				(int) server.getLastSendDelay()//
 			);
 		}
 
@@ -1070,18 +1120,18 @@ public class H2HaServer
 
 
 	/**
-	 * Returns the name of a directory to be used for storing backup
-	 * files. This directory can be defined by setting the system property
-	 * h2ha.backupdir when starting the H2HA server.
+	 * Returns the name of a directory to be used for storing backup files. This
+	 * directory can be defined by setting the system property h2ha.backupdir
+	 * when starting the H2HA server.
 	 * 
 	 * @param conn
 	 * @return null if no backup directory is defined or if it cannot be used.
 	 * 
 	 * @throws SQLException
-	 * @throws IOException 
+	 * @throws IOException
 	 */
 	public static ResultSet getBackupDirectory(Connection conn)
-	throws SQLException, IOException
+		throws SQLException, IOException
 	{
 		String backupDir = System.getProperty("h2ha.backupdir");
 		if (backupDir != null) {
@@ -1093,7 +1143,7 @@ public class H2HaServer
 				}
 			}
 		}
-		
+
 		SimpleResultSet rs = new SimpleResultSet();
 		rs.addColumn("BACKUP_DIRECTORY", Types.VARCHAR, 1000, 0);
 
@@ -1106,10 +1156,10 @@ public class H2HaServer
 
 		return rs;
 	}
-	
+
 	/**
-	 * Removes all files in the backup directory except the noToKeep
-	 * newest ones.
+	 * Removes all files in the backup directory except the noToKeep newest
+	 * ones.
 	 */
 	public static void cleanupBackupDirectory(int noToKeep)
 	{
@@ -1123,13 +1173,13 @@ public class H2HaServer
 		if (backupFiles == null) {
 			return;
 		}
-		
+
 		Arrays.sort(backupFiles, new Comparator<File>() {
 			public int compare(File o1, File o2)
 			{
 				long lm1 = o1.lastModified();
 				long lm2 = o2.lastModified();
-				
+
 				if (lm1 < lm2) {
 					return 1;
 				} else if (lm1 > lm2) {
@@ -1139,9 +1189,9 @@ public class H2HaServer
 				}
 			}
 		});
-		
+
 		// descending sort -> the youngest ones come first
-		for (File backupFile: backupFiles) {
+		for (File backupFile : backupFiles) {
 			if (backupFile.isFile()) {
 				if (noToKeep > 0) {
 					noToKeep--;
@@ -1151,11 +1201,11 @@ public class H2HaServer
 			}
 		}
 	}
-	
+
 	/**
-	 * computes deterministic role assignment depending on
-	 * current local role, local and remote master priority and
-	 * local and remote UUID.
+	 * computes deterministic role assignment depending on current local role,
+	 * local and remote master priority and local and remote UUID.
+	 * 
 	 * @return true if the local system is the configured master system
 	 */
 	public boolean weAreConfiguredMaster(int otherMasterPriority, String otherUuid)
@@ -1221,8 +1271,7 @@ public class H2HaServer
 			}
 		}
 
-		ReplicationServerInstance[] newServers =
-			new ReplicationServerInstance[servers.length + 1];
+		ReplicationServerInstance[] newServers = new ReplicationServerInstance[servers.length + 1];
 		System.arraycopy(servers, 0, newServers, 0, servers.length);
 		newServers[servers.length] = server;
 		servers = newServers;
@@ -1252,7 +1301,7 @@ public class H2HaServer
 	 */
 	public void applyEvent(final Event event, final Object parameter, final Object optParam)
 	{
-		enqueue(new Runnable(){
+		enqueue(new Runnable() {
 			public void run()
 			{
 				applyEventImpl(event, parameter, optParam);
@@ -1265,17 +1314,17 @@ public class H2HaServer
 	 */
 	private void applyEventImpl(Event event, Object parameter, Object optParam)
 	{
-		log.debug("applyEventImpl "+event+", param="+parameter);
+		log.debug("applyEventImpl " + event + ", param=" + parameter);
 		String eventKey = String.valueOf(event);
 
 		if (parameter != null) {
-			eventKey += "."+parameter;
+			eventKey += "." + parameter;
 		}
 
-		String eventKeyOpt = eventKey + "." +optParam;
+		String eventKeyOpt = eventKey + "." + optParam;
 
-		String key = failoverState+"."+eventKey;
-		String keyOpt = failoverState+"."+eventKeyOpt;
+		String key = failoverState + "." + eventKey;
+		String keyOpt = failoverState + "." + eventKeyOpt;
 
 
 		String transition = hafsm.getProperty(keyOpt);
@@ -1288,14 +1337,15 @@ public class H2HaServer
 		}
 
 		if (transition == null) {
-			throw new IllegalStateException("cannot find FSM entry for '"+key+"'");
+			throw new IllegalStateException("cannot find FSM entry for '" + key + "'");
 		}
 
-		log.debug("transition lookup: "+key+" -> "+transition);
+		log.debug("transition lookup: " + key + " -> " + transition);
 
 		String[] transitionParts = transition.split("\\s+");
 		if (transitionParts.length != 2) {
-			throw new IllegalStateException("not a valid transition for '"+key+"': "+transition);
+			throw new IllegalStateException("not a valid transition for '" + key + "': " +
+				transition);
 		}
 
 		String actionName = transitionParts[0];
@@ -1305,7 +1355,8 @@ public class H2HaServer
 		FailoverState oldState = failoverState;
 		if (newState != oldState) {
 
-			log.info("changing state from "+oldState+" to "+newState+" (event was "+eventKey+")");
+			log.info("changing state from " + oldState + " to " + newState + " (event was " +
+				eventKey + ")");
 			failoverState = newState;
 
 			try {
@@ -1313,19 +1364,24 @@ public class H2HaServer
 				action.invoke(this, oldState, event, newState, parameter);
 
 			} catch (IllegalArgumentException x) {
-				throw new IllegalStateException("illegal argument for FSM action '"+actionName+"'", x);
+				throw new IllegalStateException("illegal argument for FSM action '" + actionName +
+					"'", x);
 
 			} catch (IllegalAccessException x) {
-				throw new IllegalStateException("illegal access for FSM action '"+actionName+"'", x);
+				throw new IllegalStateException("illegal access for FSM action '" + actionName +
+					"'", x);
 
 			} catch (InvocationTargetException x) {
-				throw new IllegalStateException("caught exception within FSM action '"+actionName+"'", x.getCause());
+				throw new IllegalStateException("caught exception within FSM action '" +
+					actionName + "'", x.getCause());
 
 			} catch (SecurityException x) {
-				throw new IllegalStateException("security exception for FSM action '"+actionName+"'", x);
+				throw new IllegalStateException("security exception for FSM action '" + actionName +
+					"'", x);
 
 			} catch (NoSuchMethodException x) {
-				throw new IllegalStateException("could not find action '"+actionName+"' for FSM transition '"+key+"'");
+				throw new IllegalStateException("could not find action '" + actionName +
+					"' for FSM transition '" + key + "'");
 
 			}
 
@@ -1337,16 +1393,16 @@ public class H2HaServer
 			}
 
 			ReplicationServerInstance[] sdup = servers;
-			for (ReplicationServerInstance server: sdup) {
+			for (ReplicationServerInstance server : sdup) {
 				server.enqueue(new ReplicationMessage() {
 					private static final long serialVersionUID = 1L;
 
 					@Override
 					protected void process(ReplicationProtocolInstance instance)
-					throws Exception
+						throws Exception
 					{
 						if (instance instanceof ServerSideProtocolInstance) {
-							((ServerSideProtocolInstance)instance).sendStatus();
+							((ServerSideProtocolInstance) instance).sendStatus();
 						}
 					}
 
@@ -1361,24 +1417,25 @@ public class H2HaServer
 					{
 						return "send hb";
 					}
-				}
-				);
+				});
 			}
 		}
 	}
 
 	/**
-	 * @throws NoSuchMethodException 
+	 * @throws NoSuchMethodException
 	 * 
 	 */
 	private Method getAction(String actionName)
-	throws NoSuchMethodException
+		throws NoSuchMethodException
 	{
 		try {
-			return getClass().getMethod(actionName, FailoverState.class, Event.class, FailoverState.class, Object.class);
+			return getClass().getMethod(actionName, FailoverState.class, Event.class,
+				FailoverState.class, Object.class);
 
 		} catch (SecurityException x) {
-			throw new IllegalStateException("security exception for FSM action '"+actionName+"'", x);
+			throw new IllegalStateException("security exception for FSM action '" + actionName +
+				"'", x);
 
 		}
 	}
@@ -1386,48 +1443,55 @@ public class H2HaServer
 	/**
 	 * 
 	 */
-	public void noAction(FailoverState oldState, Event event, FailoverState newState, Object parameter)
+	public void noAction(FailoverState oldState, Event event, FailoverState newState,
+		Object parameter)
 	{
 	}
 
 	/**
 	 * 
 	 */
-	public void fatalError(FailoverState oldState, Event event, FailoverState newState, Object parameter)
+	public void fatalError(FailoverState oldState, Event event, FailoverState newState,
+		Object parameter)
 	{
-		log.fatal("invalid state / event combination: "+oldState+" / "+event);
+		log.fatal("invalid state / event combination: " + oldState + " / " + event);
 		System.exit(1);
 	}
 
 	/**
 	 * 
 	 */
-	public void logUnexpected(FailoverState oldState, Event event, FailoverState newState, Object parameter)
+	public void logUnexpected(FailoverState oldState, Event event, FailoverState newState,
+		Object parameter)
 	{
 		if (parameter == null) {
-			log.warn("unexpected state / event combination: "+oldState+" / "+event);
+			log.warn("unexpected state / event combination: " + oldState + " / " + event);
 		} else {
-			log.warn("unexpected state / event combination: "+oldState+" / "+event+"("+parameter+")");
+			log.warn("unexpected state / event combination: " + oldState + " / " + event + "(" +
+				parameter + ")");
 		}
 	}
 
 	/**
 	 * 
 	 */
-	public void startHaClient(FailoverState oldState, Event event, FailoverState newState, Object parameter)
+	public void startHaClient(FailoverState oldState, Event event, FailoverState newState,
+		Object parameter)
 	{
 		client = new ReplicationClientInstance(this, fileSystem, args);
-		new Thread(client, "ReplicationClient").start(); 
+		new Thread(client, "ReplicationClient").start();
 	}
 
 	/**
 	 * 
 	 */
-	public void startDbServer(FailoverState oldState, Event event, FailoverState newState, Object parameter)
+	public void startDbServer(FailoverState oldState, Event event, FailoverState newState,
+		Object parameter)
 	{
 		try {
-			log.info("creating H2 TCP server with args: "+serverArgs);
-			tcpDatabaseServer = Server.createTcpServer(serverArgs.toArray(new String[serverArgs.size()])).start();
+			log.info("creating H2 TCP server with args: " + serverArgs);
+			tcpDatabaseServer =
+				Server.createTcpServer(serverArgs.toArray(new String[serverArgs.size()])).start();
 			log.info("DB server is ready to accept connections");
 			applyEvent(Event.MASTER_STARTED, null, null);
 
@@ -1440,7 +1504,8 @@ public class H2HaServer
 	/**
 	 * 
 	 */
-	public void failbackMasterRole(FailoverState oldState, Event event, FailoverState newState, Object parameter)
+	public void failbackMasterRole(FailoverState oldState, Event event, FailoverState newState,
+		Object parameter)
 	{
 		log.info("configured master is ready again - transfering the master role");
 		stopDbServer(oldState, event, newState, parameter);
@@ -1449,7 +1514,8 @@ public class H2HaServer
 	/**
 	 * 
 	 */
-	public void stopDbServer(FailoverState oldState, Event event, FailoverState newState, Object parameter)
+	public void stopDbServer(FailoverState oldState, Event event, FailoverState newState,
+		Object parameter)
 	{
 		log.info("shutting down DB server");
 		tcpDatabaseServer.stop();
@@ -1459,7 +1525,8 @@ public class H2HaServer
 	/**
 	 * 
 	 */
-	public void sendListFilesRequest(FailoverState oldState, Event event, FailoverState newState, Object parameter)
+	public void sendListFilesRequest(FailoverState oldState, Event event, FailoverState newState,
+		Object parameter)
 	{
 		client.sendListFilesRequest();
 	}
@@ -1468,7 +1535,8 @@ public class H2HaServer
 	/**
 	 * 
 	 */
-	public void sendStopReplicationRequest(FailoverState oldState, Event event, FailoverState newState, Object parameter)
+	public void sendStopReplicationRequest(FailoverState oldState, Event event,
+		FailoverState newState, Object parameter)
 	{
 		client.sendStopReplicationRequest();
 	}
@@ -1477,7 +1545,8 @@ public class H2HaServer
 	/**
 	 * 
 	 */
-	public void issueConnEvent(FailoverState oldState, Event event, FailoverState newState, Object parameter)
+	public void issueConnEvent(FailoverState oldState, Event event, FailoverState newState,
+		Object parameter)
 	{
 		client.issueConnEvent();
 	}
@@ -1486,7 +1555,8 @@ public class H2HaServer
 	/**
 	 * 
 	 */
-	public void issuePeerEvent(FailoverState oldState, Event event, FailoverState newState, Object parameter)
+	public void issuePeerEvent(FailoverState oldState, Event event, FailoverState newState,
+		Object parameter)
 	{
 		client.issuePeerEvent();
 	}
@@ -1498,7 +1568,7 @@ public class H2HaServer
 	public boolean isActive()
 	{
 		return failoverState == FailoverState.MASTER_STANDALONE ||
-		failoverState == FailoverState.MASTER || failoverState == FailoverState.SLAVE;
+			failoverState == FailoverState.MASTER || failoverState == FailoverState.SLAVE;
 	}
 
 	// /////////////////////////////////////////////////////////
@@ -1530,7 +1600,17 @@ public class H2HaServer
 			} catch (IOException x) {
 			}
 		}
-
+	}
+	
+	/**
+	 * 
+	 */
+	private static class ResultContainer<T, X extends Throwable>
+	{
+		@SuppressWarnings("unused")
+		T result = null;
+		X exception = null;
+		Semaphore sema = new Semaphore(0);
 	}
 
 }
