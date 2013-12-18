@@ -189,6 +189,21 @@ public class ServerProcess
 	}
 
 	/**
+	 * 
+	 */
+	public void waitUntilMaster()
+		throws IOException, InterruptedException
+	{
+		log.info("waiting until server becomes master");
+		for (int i = 30; i >= 0; i--) {
+			if (getServerStatus().isMaster())
+				return;
+			Thread.sleep(500L);
+		}
+		Assert.fail("instance does not become active");
+	}
+
+	/**
 	 * @throws InterruptedException
 	 * @throws IOException
 	 * @throws SQLException

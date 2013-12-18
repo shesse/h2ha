@@ -148,6 +148,14 @@ public class ReplicationServerInstance
 
 
 	/**
+	 * @return
+	 */
+	public Boolean isMaster()
+	{
+		return haServer.isMaster();
+	}
+
+	/**
 	 * 
 	 * @return
 	 */

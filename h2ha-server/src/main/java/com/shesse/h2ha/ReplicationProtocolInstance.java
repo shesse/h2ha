@@ -420,9 +420,10 @@ public class ReplicationProtocolInstance
 				}
 
 				long nextActivity = nextStatisticsTimestamp;
-				if (nextHeartbeatToSend < nextActivity)
+				if (statisticsInterval == 0 || nextHeartbeatToSend < nextActivity) {
 					nextActivity = nextHeartbeatToSend;
-
+				}
+				
 				long delta = nextActivity - now;
 				ReplicationMessage message = messageQueue.poll(delta, TimeUnit.MILLISECONDS);
 

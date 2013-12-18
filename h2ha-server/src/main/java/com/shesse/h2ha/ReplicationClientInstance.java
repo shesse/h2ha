@@ -105,7 +105,7 @@ public class ReplicationClientInstance
 		statisticsInterval = H2HaServer.findOptionWithInt(args, "-statisticsInterval", 300000);
 		maxConnectRetries = H2HaServer.findOptionWithInt(args, "-connectRetry", 5);
 		autoFailback = H2HaServer.findOption(args, "-autoFailback");
-
+		
 		setInstanceName("replClient-" + peerHost + ":" + peerPort);
 		setParameters(statisticsInterval);
 	}

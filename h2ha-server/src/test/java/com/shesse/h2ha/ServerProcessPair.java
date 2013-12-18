@@ -179,6 +179,28 @@ public class ServerProcessPair
 	}
 
 	/**
+	 * @throws InterruptedException 
+	 * @throws IOException 
+	 * 
+	 */
+	public void waitUntilAIsMaster()
+		throws IOException, InterruptedException
+	{
+		processA.waitUntilMaster();
+	}
+
+	/**
+	 * @throws InterruptedException 
+	 * @throws IOException 
+	 * 
+	 */
+	public void waitUntilBIsMaster()
+		throws IOException, InterruptedException
+	{
+		processB.waitUntilMaster();
+	}
+
+	/**
 	 * @throws InterruptedException
 	 * @throws IOException
 	 * @throws SQLException

@@ -133,6 +133,7 @@ public class FailoverTests
 
 		log.info("step 2: transfering master to DB B");
 		tr.getDbManager().transferMasterRole();
+		servers.waitUntilBIsMaster();
 		servers.waitUntilActive();
 
 		log.info("step 2 done: transfered master role");
@@ -150,6 +151,7 @@ public class FailoverTests
 
 		log.info("step 4: transfering master to DB A");
 		tr.getDbManager().transferMasterRole();
+		servers.waitUntilAIsMaster();
 		servers.waitUntilActive();
 
 		log.info("step 4 done: transfered master role");

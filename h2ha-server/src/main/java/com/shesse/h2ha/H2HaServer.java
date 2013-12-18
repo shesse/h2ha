@@ -27,7 +27,6 @@ import java.util.Properties;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.Semaphore;
 
 import org.apache.log4j.Logger;
 import org.h2.store.fs.FilePath;
@@ -961,47 +960,7 @@ public class H2HaServer
 	private void transferMasterRoleImpl()
 		throws SQLException
 	{
-		// we need to pass through the controlQueue to stay
-		// in correct time sequence but also want to wait until 
-		// the TRANSFER_MASTER has been applied to the FSM.
-		// Therefore, we use a construct with enqueue
-		// and waiting on a semaphore
-		final ResultContainer<Void, SQLException> res = new ResultContainer<Void, SQLException>();
-		enqueue(new Runnable() {
-			public void run()
-			{
-				try {
-					if (failoverState != FailoverState.MASTER) {
-						throw new SQLException(
-							"master role can only be transferred from an active master");
-					}
-
-					if (client == null) {
-						throw new SQLException(
-							"master role can only be transferred from within a failover configuration");
-					}
-
-					applyEventImpl(Event.TRANSFER_MASTER, null, null);
-					
-				} catch (SQLException x) {
-					res.exception = x;
-				} finally {
-					res.sema.release();
-				}
-			}
-		});
-		
-		// we wait until the enqueued Runnable has been run
-		try {
-			res.sema.acquire();
-		} catch (InterruptedException x) {
-			throw new SQLException("unexpected interrupt", x);
-		}
-		
-		// if there was en exception we will find it in res.exception ...
-		if (res.exception != null) {
-			throw res.exception;
-		}
+		applyEvent(Event.TRANSFER_MASTER, null, null);
 	}
 
 	/**
@@ -1571,6 +1530,15 @@ public class H2HaServer
 			failoverState == FailoverState.MASTER || failoverState == FailoverState.SLAVE;
 	}
 
+	/**
+	 * @return
+	 */
+	public Boolean isMaster()
+	{
+		return failoverState == FailoverState.MASTER_STANDALONE ||
+			failoverState == FailoverState.MASTER;
+	}
+
 	// /////////////////////////////////////////////////////////
 	// Inner Classes
 	// /////////////////////////////////////////////////////////
@@ -1602,15 +1570,4 @@ public class H2HaServer
 		}
 	}
 	
-	/**
-	 * 
-	 */
-	private static class ResultContainer<T, X extends Throwable>
-	{
-		@SuppressWarnings("unused")
-		T result = null;
-		X exception = null;
-		Semaphore sema = new Semaphore(0);
-	}
-
 }

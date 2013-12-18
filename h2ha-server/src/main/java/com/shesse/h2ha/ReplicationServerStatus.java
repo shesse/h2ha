@@ -65,6 +65,24 @@ public class ReplicationServerStatus
 	}
 
 	/**
+	 * @return
+	 * @throws IOException 
+	 * @throws InterruptedException 
+	 */
+	public boolean isMaster()
+		throws InterruptedException, IOException
+	{
+		log.debug("querying server status");
+		WaitingOperation<Boolean> wo = new WaitingOperation<Boolean>(new IsMasterRequest());
+
+		log.debug("sending is master request to peer");
+		boolean result = wo.sendAndGetResult();
+		log.debug("is master has been confirmed - result = " + result);
+
+		return result;
+	}
+
+	/**
 	 * @param dbName
 	 * @param adminUser
 	 * @param adminPassword
@@ -121,6 +139,42 @@ public class ReplicationServerStatus
 		public String toString()
 		{
 			return "is active req";
+		}
+	}
+
+	/**
+     * 
+     */
+	private static class IsMasterRequest
+		extends OperationRequestMessage<Boolean>
+	{
+		private static final long serialVersionUID = 1L;
+
+		IsMasterRequest()
+		{
+			super(Boolean.class);
+		}
+
+		@Override
+		protected Boolean performOperation(ReplicationProtocolInstance instance)
+		{
+			if (instance instanceof ReplicationServerInstance) {
+				return ((ReplicationServerInstance) instance).isMaster();
+			} else {
+				return false;
+			}
+		}
+
+		@Override
+		public int getSizeEstimate()
+		{
+			return 4;
+		}
+
+		@Override
+		public String toString()
+		{
+			return "is master req";
 		}
 	}
 
