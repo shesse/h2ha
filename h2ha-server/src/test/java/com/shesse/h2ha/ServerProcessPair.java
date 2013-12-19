@@ -49,10 +49,10 @@ public class ServerProcessPair
 	private int haCacheSize = -1;
 
 	/** */
-	private ServerProcess processA = new ServerProcess(dbDirA, tcpPortA, syncPortA, syncPortB);
+	private ServerProcess processA = new ServerProcess("a", dbDirA, tcpPortA, syncPortA, syncPortB);
 
 	/** */
-	private ServerProcess processB = new ServerProcess(dbDirB, tcpPortB, syncPortB, syncPortA);
+	private ServerProcess processB = new ServerProcess("b", dbDirB, tcpPortB, syncPortB, syncPortA);
 
 
 	// /////////////////////////////////////////////////////////

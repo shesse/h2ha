@@ -28,6 +28,10 @@ public class ServerProcess
 	/** */
 	private static Logger log = Logger.getLogger(ServerProcess.class);
 
+
+	/** */
+	private String sideName;
+	
 	/** */
 	private File dbDir;
 
@@ -55,10 +59,11 @@ public class ServerProcess
 	// /////////////////////////////////////////////////////////
 	/**
      */
-	public ServerProcess(File dbDir, int localTcpPort, int localSyncPort, int peerSyncPort)
+	public ServerProcess(String sideName, File dbDir, int localTcpPort, int localSyncPort, int peerSyncPort)
 	{
-		log.debug("ServerProcess()");
+		log.debug(sideName+": ServerProcess()");
 
+		this.sideName = sideName;
 		this.dbDir = dbDir;
 		this.localTcpPort = localTcpPort;
 		this.localSyncPort = localSyncPort;
@@ -79,10 +84,8 @@ public class ServerProcess
 	{
 		stop();
 
-		log.info("creating " + dbDir);
+		log.info(sideName+": creating " + dbDir);
 		dbDir.mkdirs();
-
-		String instName = dbDir.getName();
 
 		List<String> cmd = new ArrayList<String>();
 
@@ -102,7 +105,7 @@ public class ServerProcess
 		cmd.add("-Dstderr.threshold=DEBUG");
 
 		String[] serverCommand = {//
-			"-DhaTestProc=" + instName, //
+			"-DhaTestProc=" + sideName, //
 				"com.shesse.h2ha.H2HaServer",//
 				"server",//
 				"-haPeerHost", "localhost",//
@@ -121,11 +124,11 @@ public class ServerProcess
 			cmd.add(String.valueOf(haCacheSize));
 		}
 
-		log.info("starting up instance " + instName);
-		log.info("arguments=" + cmd);
-		dbProcess = ProcessUtils.startJavaProcess(instName, cmd);
+		log.info(sideName+": starting up instance");
+		log.info(sideName+": arguments=" + cmd);
+		dbProcess = ProcessUtils.startJavaProcess(sideName, cmd);
 
-		log.info("instance " + instName + " has been started");
+		log.info(sideName+": instance has been started");
 	}
 
 	/**
@@ -137,7 +140,7 @@ public class ServerProcess
 	{
 		stop();
 
-		log.info("removing " + dbDir);
+		log.info(sideName+": removing " + dbDir);
 		FileUtils.deleteRecursive(dbDir);
 	}
 
@@ -179,13 +182,13 @@ public class ServerProcess
 	public void waitUntilActive()
 		throws IOException, InterruptedException
 	{
-		log.info("waiting until server becomes active");
+		log.info(sideName+": waiting until server becomes active");
 		for (int i = 30; i >= 0; i--) {
 			if (getServerStatus().isActive())
 				return;
 			Thread.sleep(500L);
 		}
-		Assert.fail("instance does not become active");
+		Assert.fail(sideName+": instance did not become active");
 	}
 
 	/**
@@ -194,13 +197,13 @@ public class ServerProcess
 	public void waitUntilMaster()
 		throws IOException, InterruptedException
 	{
-		log.info("waiting until server becomes master");
+		log.info(sideName+": waiting until server becomes master");
 		for (int i = 30; i >= 0; i--) {
 			if (getServerStatus().isMaster())
 				return;
 			Thread.sleep(500L);
 		}
-		Assert.fail("instance does not become active");
+		Assert.fail(sideName+": instance did not become master");
 	}
 
 	/**
@@ -223,10 +226,8 @@ public class ServerProcess
 	public void stop()
 		throws InterruptedException
 	{
-		String instName = dbDir.getName();
-
 		if (dbProcess != null) {
-			log.info("stopping db server process " + instName);
+			log.info(sideName+": stopping db server process");
 			dbProcess.destroy();
 			dbProcess.waitFor();
 		}
