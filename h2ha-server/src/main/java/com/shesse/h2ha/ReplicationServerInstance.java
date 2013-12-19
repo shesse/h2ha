@@ -266,7 +266,7 @@ public class ReplicationServerInstance
 
 		log.debug("sending file " + haName);
 
-		FilePathHa filePath = getFilePath(haName);
+		FilePathHa filePath = getFilePathHa(haName);
 		SyncInfo syncInfo = getSyncInfo(filePath);
 
 		FileChannel fc = getFileChannel(haName);
@@ -333,7 +333,7 @@ public class ReplicationServerInstance
 		String haName = entry.getHaName();
 		log.info(getInstanceName() + ": sending checksums for file " + haName);
 
-		FilePathHa filePath = getFilePath(haName);
+		FilePathHa filePath = getFilePathHa(haName);
 		SyncInfo syncInfo = getSyncInfo(filePath);
 
 		// Optimization: shortcut when file size and last modified
@@ -455,7 +455,7 @@ public class ReplicationServerInstance
 		throws IOException
 	{
 		log.info(getInstanceName() + ": file has been processed: " + haName);
-		FilePathHa fp = getFilePath(haName);
+		FilePathHa fp = getFilePathHa(haName);
 		long length = fp.size();
 		long lastModified = fp.lastModified();
 		sendToPeer(new EndOfFileMessage(haName, length, lastModified));
@@ -503,7 +503,7 @@ public class ReplicationServerInstance
 				haServer.getFailoverState());
 		}
 
-		String url = "jdbc:h2:" + getFilePath(dbName);
+		String url = "jdbc:h2:" + getFilePathHa(dbName);
 		try {
 			Class.forName("org.h2.Driver");
 		} catch (ClassNotFoundException x) {

@@ -51,6 +51,9 @@ public class ServerProcess
 	private ReplicationServerStatus serverStatus = null;
 
 	/** */
+	private CreateDatabaseCommand createDatabase = null;
+
+	/** */
 	private Thread serverConnectionThread = null;
 
 
@@ -148,6 +151,36 @@ public class ServerProcess
 	 * @throws InterruptedException
 	 * 
 	 */
+	private CreateDatabaseCommand getCreateDatabaseCommand()
+		throws InterruptedException
+	{
+		if (serverConnectionThread != null && !serverConnectionThread.isAlive()) {
+			serverConnectionThread = null;
+			createDatabase = null;
+		}
+
+		if (createDatabase == null) {
+			createDatabase = new CreateDatabaseCommand();
+			for (int i = 20; i >= 0; i--) {
+				if (createDatabase.tryToConnect("localhost", localSyncPort, 20000)) {
+					serverConnectionThread = new Thread(createDatabase);
+					serverConnectionThread.start();
+					return createDatabase;
+				}
+				Thread.sleep(500L);
+			}
+
+			Assert.fail("cannot connect to DB server process");
+		}
+
+		return createDatabase;
+	}
+
+
+	/**
+	 * @throws InterruptedException
+	 * 
+	 */
 	private ReplicationServerStatus getServerStatus()
 		throws InterruptedException
 	{
@@ -215,7 +248,7 @@ public class ServerProcess
 	public void createDatabase(String dbName, String adminUser, String adminPassword)
 		throws IOException, InterruptedException, SQLException
 	{
-		ReplicationServerStatus rs = getServerStatus();
+		CreateDatabaseCommand rs = getCreateDatabaseCommand();
 		rs.createDatabase(dbName, adminUser, adminPassword);
 	}
 

@@ -191,7 +191,7 @@ public abstract class ServerSideProtocolInstance
 	/**
      * 
      */
-	protected FilePathHa getFilePath(String haName)
+	protected FilePathHa getFilePathHa(String haName)
 	{
 		return new FilePathHa(fileSystem, haName, false);
 	}
@@ -203,7 +203,7 @@ public abstract class ServerSideProtocolInstance
 	protected FileChannel getFileChannel(String haName)
 		throws IOException
 	{
-		return getFileChannel(getFilePath(haName));
+		return getFileChannel(getFilePathHa(haName));
 	}
 
 	/**
@@ -230,7 +230,7 @@ public abstract class ServerSideProtocolInstance
 	protected void closeFileChannel(String haName, long lastModified)
 		throws IOException
 	{
-		closeFileObject(getFilePath(haName), lastModified);
+		closeFileObject(getFilePathHa(haName), lastModified);
 	}
 
 	/**

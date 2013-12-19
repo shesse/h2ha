@@ -497,7 +497,7 @@ public class ReplicationClientInstance
 	{
 		log.debug("got EndOfFile - ha=" + haName + ", length=" + length + ", mod=" + lastModified);
 
-		FilePathHa fp = getFilePath(haName);
+		FilePathHa fp = getFilePathHa(haName);
 		FileChannel fc = getFileChannel(fp);
 		fc.truncate(length);
 		closeFileObject(fp, lastModified);
@@ -546,7 +546,7 @@ public class ReplicationClientInstance
 	 */
 	public void processCreateDirectoryMessage(String haName)
 	{
-		FilePathHa fp = getFilePath(haName);
+		FilePathHa fp = getFilePathHa(haName);
 		fp.createDirectory();
 	}
 
@@ -555,7 +555,7 @@ public class ReplicationClientInstance
 	 */
 	public void processCreateFileMessage(String haName)
 	{
-		FilePathHa fp = getFilePath(haName);
+		FilePathHa fp = getFilePathHa(haName);
 		fp.createFile();
 	}
 
@@ -564,7 +564,7 @@ public class ReplicationClientInstance
 	 */
 	public void processDeleteMessage(String haName)
 	{
-		FilePathHa fp = getFilePath(haName);
+		FilePathHa fp = getFilePathHa(haName);
 		fp.delete();
 	}
 
@@ -573,8 +573,8 @@ public class ReplicationClientInstance
 	 */
 	public void processMoveToMessage(String oldName, String newName)
 	{
-		FilePathHa oldFp = getFilePath(oldName);
-		FilePathHa newFp = getFilePath(newName);
+		FilePathHa oldFp = getFilePathHa(oldName);
+		FilePathHa newFp = getFilePathHa(newName);
 		oldFp.moveTo(newFp);
 	}
 
@@ -593,7 +593,7 @@ public class ReplicationClientInstance
 	 */
 	public void processSetReadOnlyMessage(String haName)
 	{
-		FilePathHa fp = getFilePath(haName);
+		FilePathHa fp = getFilePathHa(haName);
 		fp.setReadOnly();
 	}
 
