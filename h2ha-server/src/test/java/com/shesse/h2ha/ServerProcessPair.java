@@ -209,7 +209,7 @@ public class ServerProcessPair
 	public void createDatabaseA()
 		throws IOException, InterruptedException, SQLException
 	{
-		processA.createDatabase("test", "sa", "sa");
+		processA.createDatabase("localhost", syncPortA, "test", "sa", "sa");
 	}
 
 	/**
@@ -220,7 +220,7 @@ public class ServerProcessPair
 	public void createDatabaseB()
 		throws IOException, InterruptedException, SQLException
 	{
-		processB.createDatabase("test", "sa", "sa");
+		processB.createDatabase("localhost", syncPortB, "test", "sa", "sa");
 	}
 
 	/**

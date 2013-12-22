@@ -16,6 +16,7 @@ import java.net.UnknownHostException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -36,7 +37,6 @@ import org.h2.tools.Shell;
 import org.h2.tools.SimpleResultSet;
 
 import com.shesse.dbdup.DbDuplicate;
-import com.shesse.jdbcproxy.Driver;
 
 /**
  * 
@@ -78,7 +78,7 @@ public class H2HaServer
 	private ReplicationClientInstance client = null;
 
 	/** */
-	private ReplicationServerInstance[] servers = new ReplicationServerInstance[0];
+	private ReplicationServerInstance[] replicators = new ReplicationServerInstance[0];
 
 	/** */
 	private BlockingQueue<Runnable> controlQueue = new LinkedBlockingQueue<Runnable>();
@@ -194,22 +194,22 @@ public class H2HaServer
 			}
 
 			if ("server".equals(command)) {
-				startServer(args);
+				performServerCommand(args);
 
 			} else if ("console".equals(command)) {
-				startShell(args);
+				performConsoleCommand(args);
 
 			} else if ("script".equals(command)) {
-				startScript(args);
+				performScriptCommand(args);
 
 			} else if ("create".equals(command)) {
-				createDatabase(args);
+				performCreateCommand(args);
 
 			} else if ("dbdup".equals(command)) {
 				DbDuplicate.main(args);
 
 			} else if ("version".equals(command)) {
-				printVersionInfo(args);
+				performVersionCommand(args);
 
 			} else {
 				System.err.println("usage: java -jar " + getJarname() + " <command> [option ...]");
@@ -229,10 +229,6 @@ public class H2HaServer
 
 			}
 
-		} catch (SQLException x) {
-			System.err.println("SQL error: " + x.getMessage());
-			System.exit(1);
-
 		} catch (Throwable x) {
 			log.fatal("unexpected exception within main thread", x);
 			System.exit(1);
@@ -245,501 +241,29 @@ public class H2HaServer
 	}
 
 	/**
-	 * locates the named option within the argument list and removes it from the
-	 * list. The option is exepcted to have a value which also will be removed.
 	 * 
-	 * @return the value or the value of dflt if the option was not present
 	 */
-	public static String removeOptionWithValue(List<String> args, String optName, String dflt)
+	public void shutdown()
 	{
-		String ret = dflt;
-		for (int i = 0; i < args.size() - 1;) {
-			if (args.get(i).equals(optName)) {
-				args.remove(i);
-				ret = args.remove(i);
-
-			} else {
-				i++;
+		shutdownRequested = true;
+		enqueue(new Runnable() {
+			public void run()
+			{
+				// no content - we simply want the controlQueue.take()
+				// in the main loop to return.
 			}
-		}
-		return ret;
+		});
 	}
 
-	/**
-	 * locates the named option within the argument list and returns its value.
-	 * The list will remain unchanged.
-	 * 
-	 * @return the value or the value of dflt if the option was not present
-	 */
-	public static String findOptionWithValue(List<String> args, String optName, String dflt)
-	{
-		String ret = dflt;
-		for (int i = 0; i < args.size() - 1;) {
-			if (args.get(i).equals(optName)) {
-				ret = args.get(i + 1);
-				i += 2;
-			} else {
-				i++;
-			}
-		}
-		return ret;
-	}
-
-	/**
-	 * locates the named option within the argument list and removes it from the
-	 * list. The option is exepcted to have a value which also will be removed.
-	 * 
-	 * @return the value or the value of dflt if the option was not present
-	 */
-	public static int removeOptionWithInt(List<String> args, String optName, int dflt)
-	{
-		String sval = removeOptionWithValue(args, optName, null);
-		if (sval == null) {
-			return dflt;
-		} else {
-			try {
-				return Integer.parseInt(sval);
-			} catch (NumberFormatException x) {
-				return dflt;
-			}
-		}
-	}
-
-	/**
-	 * locates the named option within the argument list and returns its value.
-	 * The list will remain unchanged.
-	 * 
-	 * @return the value or the value of dflt if the option was not present
-	 */
-	public static int findOptionWithInt(List<String> args, String optName, int dflt)
-	{
-		String sval = findOptionWithValue(args, optName, null);
-		if (sval == null) {
-			return dflt;
-		} else {
-			try {
-				return Integer.parseInt(sval);
-			} catch (NumberFormatException x) {
-				return dflt;
-			}
-		}
-	}
-
-	/**
-	 * locates the named option within the argument list and removes it from the
-	 * list.
-	 * 
-	 * @return true if the option was found
-	 */
-	public static boolean removeOption(List<String> args, String optName)
-	{
-		boolean ret = false;
-		for (int i = 0; i < args.size();) {
-			if (args.get(i).equals(optName)) {
-				args.remove(i);
-				ret = true;
-			} else {
-				i++;
-			}
-		}
-		return ret;
-	}
-
-	/**
-	 * locates the named option within the argument list and returns true if it
-	 * could be found. The list will remain unchanged.
-	 * 
-	 * @return true if the option was found
-	 */
-	public static boolean findOption(List<String> args, String optName)
-	{
-		for (int i = 0; i < args.size(); i++) {
-			if (args.get(i).equals(optName)) {
-				return true;
-			}
-		}
-		return false;
-	}
 
 	/**
 	 * @param args
 	 * @throws InterruptedException
 	 */
-	private static void startServer(List<String> args)
+	private static void performServerCommand(List<String> args)
 		throws InterruptedException
 	{
 		new H2HaServer(args).runHaServer();
-	}
-
-	/**
-	 * 
-	 */
-	private static void showConsoleUsage()
-	{
-		System.err.println("usage: java -jar " + getJarname() + " console [option ...]");
-		System.err.println("with option:");
-		System.err.println("    -help or -?");
-		System.err.println("        Print the list of options");
-		System.err.println("    -server hostname[:port][,hostname[:port]]");
-		System.err.println("        The database server address(es)");
-		System.err.println("    -haBaseDir <directory>");
-		System.err.println("        Base directory of HA database");
-		System.err.println("    -database <database-name>");
-		System.err.println("        The database name");
-		System.err.println("    -user <user>");
-		System.err.println("        The user name (default: sa)");
-		System.err.println("    -password <pwd>");
-		System.err.println("        The password");
-		System.err.println("    -sql <statements>");
-		System.err.println("        Execute the SQL statements and exit");
-		System.err.println("    -url <url>");
-		System.err.println("        Expliciat spec of database URL (jdbc:...)");
-		System.err.println("    -driver <class>");
-		System.err.println("        The JDBC driver class to use (not required in most cases)");
-		System.err.println("    -properties <dir>");
-		System.err.println("        Load the server properties from this directory");
-		System.err.println("");
-		System.err.println("If special characters don't work as expected, you may need to use");
-		System.err.println("-Dfile.encoding=UTF-8 (Mac OS X) or CP850 (Windows).");
-
-		System.exit(1);
-
-	}
-
-	/**
-	 * @param args2
-	 */
-	private static void startShell(List<String> args)
-		throws SQLException
-	{
-		try {
-			createUrl(args);
-		} catch (SQLException x) {
-			System.err.println(x.getMessage() + "\n");
-			showConsoleUsage();
-		}
-
-		new Shell() {
-			@Override
-			protected void showUsage()
-			{
-				showConsoleUsage();
-			}
-
-		}.runTool(args.toArray(new String[0]));
-	}
-
-	/**
-	 *
-	 */
-	private static void showScriptUsage()
-	{
-		System.err.println("usage: java -jar " + getJarname() + " script [option ...]");
-		System.err.println("with option:");
-		System.err.println("    -help or -?");
-		System.err.println("        Print the list of options");
-		System.err.println("    -server hostname[:port][hostname[:port]]");
-		System.err.println("        The database server address(es)");
-		System.err.println("    -haBaseDir <directory>");
-		System.err.println("        Base directory of HA database");
-		System.err.println("    -database <database-name>");
-		System.err.println("        The database name");
-		System.err.println("    -user <user>");
-		System.err.println("        The user name (default: sa)");
-		System.err.println("    -password <pwd>");
-		System.err.println("        The password");
-		System.err.println("    -script <file>;");
-		System.err.println("        The script file to run (default: backup.sql)");
-		System.err.println("    -showResults");
-		System.err.println("        Show the statements and the results of queries");
-		System.err.println("    -checkResults");
-		System.err.println("        Check if the query results match the expected results");
-		System.err.println("    -continueOnError");
-		System.err.println("        Continue even if the script contains errors");
-		System.err.println("    -url <url>");
-		System.err.println("        Expliciat spec of database URL (jdbc:...)");
-		System.err.println("    -driver <class>");
-		System.err.println("        The JDBC driver class to use (not required in most cases)");
-		System.err.println("");
-
-		System.exit(1);
-
-	}
-
-	/**
-	 * @param args2
-	 * @throws SQLException
-	 */
-	private static void startScript(List<String> args)
-		throws SQLException
-	{
-		try {
-			createUrl(args);
-		} catch (SQLException x) {
-			System.err.println(x.getMessage() + "\n");
-			showScriptUsage();
-		}
-
-		new RunScript() {
-			@Override
-			protected void showUsage()
-			{
-				showScriptUsage();
-			}
-
-		}.runTool(args.toArray(new String[0]));
-	}
-
-
-	/**
-	 * @param args2
-	 * @throws SQLException
-	 */
-	private static void createDatabase(List<String> args)
-		throws SQLException
-	{
-		String script = findOptionWithValue(args, "-script", null);
-		String user = findOptionWithValue(args, "-user", null);
-		String password = findOptionWithValue(args, "-password", null);
-		String haBaseDir = findOptionWithValue(args, "-haBaseDir", null);
-		String database = findOptionWithValue(args, "-database", null);
-
-		removeOption(args, "-url");
-		removeOption(args, "-server");
-
-		if (script == null) {
-			System.err.println("mandatory parameter -script is missing");
-			showCreateUsage();
-		}
-
-		if (user == null) {
-			System.err.println("mandatory parameter -user is missing");
-			showCreateUsage();
-		}
-
-		if (password == null) {
-			System.err.println("mandatory parameter -password is missing");
-			showCreateUsage();
-		}
-
-		if (haBaseDir == null) {
-			System.err.println("mandatory parameter -haBaseDir is missing");
-			showCreateUsage();
-		}
-
-		if (database == null) {
-			System.err.println("mandatory parameter -database is missing");
-			showCreateUsage();
-		}
-
-		if (!new File(haBaseDir).exists()) {
-			System.err.println("HA base dir " + haBaseDir + " does not exist");
-			System.exit(1);
-		}
-
-		try {
-			createUrl(args);
-		} catch (SQLException x) {
-			System.err.println(x.getMessage() + "\n");
-			showCreateUsage();
-		}
-
-		new RunScript() {
-			@Override
-			protected void showUsage()
-			{
-				showCreateUsage();
-			}
-
-		}.runTool(args.toArray(new String[0]));
-	}
-
-	/**
-	 * 
-	 */
-	private static void showCreateUsage()
-	{
-		System.err.println("usage: java -jar " + getJarname() + " create [option ...]");
-		System.err.println("with option:");
-		System.err.println("    -help or -?");
-		System.err.println("        Print the list of options");
-		System.err.println("    -server hostname[:port][hostname[:port]]");
-		System.err.println("        The database server address(es)");
-		System.err.println("    -haBaseDir <directory>");
-		System.err.println("        Base directory of HA database");
-		System.err.println("    -database <database-name>");
-		System.err.println("        The database name");
-		System.err.println("    -user <user>");
-		System.err.println("        The user name (default: sa)");
-		System.err.println("    -password <pwd>");
-		System.err.println("        The password");
-		System.err.println("    -script <file>;");
-		System.err.println("        The script file to run (default: backup.sql)");
-		System.err.println("    -showResults");
-		System.err.println("        Show the statements and the results of queries");
-		System.err.println("    -checkResults");
-		System.err.println("        Check if the query results match the expected results");
-		System.err.println("    -continueOnError");
-		System.err.println("        Continue even if the script contains errors");
-		System.err.println("    -url <url>");
-		System.err.println("        Expliciat spec of database URL (jdbc:...)");
-		System.err.println("    -driver <class>");
-		System.err.println("        The JDBC driver class to use (not required in most cases)");
-		System.err.println("");
-
-		System.exit(1);
-	}
-
-
-	/**
-	 * 
-	 */
-	private static String getJarname()
-	{
-		String url = String.valueOf(H2HaServer.class.getResource("H2HaServer.class"));
-		int bang = url.indexOf('!');
-		if (bang >= 0) {
-			url = url.substring(0, bang);
-		}
-
-		if (url.startsWith("jar:")) {
-			url = url.substring(4);
-		}
-
-		if (url.startsWith("file:")) {
-			url = url.substring(5);
-		}
-
-		int pdel = url.lastIndexOf('/');
-		if (pdel >= 0) {
-			url = url.substring(pdel + 1);
-		}
-		return url;
-	}
-
-	/**
-	 * ensures that a -url option is present. If it is not, it will be built
-	 * based on the -server, -database and -haBaseDir options.
-	 * 
-	 * @param args
-	 * @throws SQLException
-	 */
-	private static void createUrl(List<String> args)
-		throws SQLException
-	{
-		String server = removeOptionWithValue(args, "-server", null);
-		String database = removeOptionWithValue(args, "-database", null);
-		String haBaseDir = removeOptionWithValue(args, "-haBaseDir", null);
-		String url = removeOptionWithValue(args, "-url", null);
-		
-		// this is unused but still needed: it forces loading of the H2HA driver
-		@SuppressWarnings("unused")
-		final Class<?> h2haDriver = Driver.class;
-
-		if (url == null) {
-			if (server == null && haBaseDir == null) {
-				server = "localhost";
-			}
-
-			if (database == null) {
-				throw new SQLException("either -database dbname or -url jdbc-url is needed");
-			}
-
-			if (server != null) {
-				if (server.contains(",")) {
-					url = "jdbc:h2ha:tcp://" + server + "/" + database;
-				} else {
-					
-					url = "jdbc:h2:tcp://" + server + "/" + database;
-				}
-
-			} else if (haBaseDir != null) {
-				url = "jdbc:h2:file:" + new File(haBaseDir).getAbsolutePath() + "/" + database;
-				if (!new File(haBaseDir).exists()) {
-					System.err.println("HA base dir " + haBaseDir + " does not exist");
-					System.exit(1);
-				}
-
-				staticBaseLock = acquireHaBaseLock(haBaseDir);
-				if (staticBaseLock == null) {
-					System.err.println("could not get lock for " + haBaseDir +
-						" - some other process is probably using it");
-					System.exit(1);
-				}
-
-			} else {
-				url = "jdbc:h2:tcp://localhost/" + database;
-			}
-		}
-
-		args.add(0, "-url");
-		args.add(1, url);
-	}
-
-
-	/**
-	 * @param args2
-	 */
-	private static void printVersionInfo(List<String> args)
-	{
-		System.err.println("H2HA Server " + getVersionInfo());
-	}
-
-	/**
-	 * 
-	 */
-	private static String getVersionInfo()
-	{
-		InputStream versionStream =
-			H2HaServer.class.getClassLoader().getResourceAsStream("version.properties");
-		if (versionStream == null) {
-			return "unknown";
-		} else {
-			try {
-				Properties versionProps = new Properties();
-				versionProps.load(versionStream);
-				return versionProps.getProperty("version", "unknown");
-			} catch (IOException x) {
-				return "unknown";
-			} finally {
-				try {
-					versionStream.close();
-				} catch (IOException x) {
-				}
-			}
-		}
-	}
-
-	/**
-	 * Acquires a lock for accessing haBaseDir. Returns a handle for this lock
-	 * which can be used to release the lock. Returns null if it was not
-	 * possible to acquire the lock.
-	 */
-	private static LockHandle acquireHaBaseLock(String haBaseDir)
-	{
-		FilePath basePath = FilePath.get(haBaseDir + "/h2ha.lock");
-
-		FileChannel channel;
-		try {
-			channel = basePath.open("rw");
-		} catch (IOException x) {
-			log.error("could not create HA lock file: " + x);
-			return null;
-		}
-
-		try {
-			FileLock lock = channel.tryLock();
-			if (lock == null) {
-				log.error("could not acquire HA lock: it is locked by another process");
-				return null;
-			} else {
-				return new LockHandle(channel, lock);
-			}
-
-		} catch (IOException x) {
-			log.error("could not acquire HA lock: " + x);
-			return null;
-		}
 	}
 
 	/**
@@ -787,8 +311,8 @@ public class H2HaServer
 		System.err.println("    -trace");
 		System.err.println("        print additional trace information");
 		System.err.println("");
-
-
+	
+	
 		System.exit(1);
 	}
 
@@ -801,18 +325,18 @@ public class H2HaServer
 		throws InterruptedException
 	{
 		serverArgs = new ArrayList<String>();
-
+	
 		serverArgs.add("-tcpAllowOthers");
 		serverArgs.add("-baseDir");
 		serverArgs.add("ha:///");
 		serverArgs.add("-ifExists");
-
+	
 		serverArgs.addAll(args);
-
+	
 		peerHost = removeOptionWithValue(serverArgs, "-haPeerHost", null);
 		haBaseDir = removeOptionWithValue(serverArgs, "-haBaseDir", null);
 		masterPriority = removeOptionWithInt(serverArgs, "-masterPriority", 10);
-
+	
 		removeOptionWithValue(serverArgs, "-haPeerPort", null);
 		removeOptionWithValue(serverArgs, "-haCacheSize", null);
 		removeOptionWithValue(serverArgs, "-haConnectTimeout", null);
@@ -824,8 +348,8 @@ public class H2HaServer
 		removeOptionWithValue(serverArgs, "-haMaxWaitingMessages", null);
 		removeOption(serverArgs, "-autoFailback");
 		removeOption(serverArgs, "-haRestrictPeer");
-
-
+	
+	
 		if (findOption(serverArgs, "-?")) {
 			showServerUsage();
 			System.exit(1);
@@ -834,48 +358,48 @@ public class H2HaServer
 			showServerUsage();
 			System.exit(1);
 		}
-
-
+	
+	
 		if (haBaseDir == null) {
 			System.err.println("mandatory flag -haBaseDir is missing");
 			showServerUsage();
 			System.exit(1);
 		}
-
+	
 		if (!new File(haBaseDir).exists()) {
 			System.err.println("HA base dir " + haBaseDir + " does not exist");
 			showServerUsage();
 			System.exit(1);
 		}
-
+	
 		LockHandle baseLock = acquireHaBaseLock(haBaseDir);
 		if (baseLock == null) {
 			System.err.println("could not get lock for " + haBaseDir +
 				" - some other process is probably using it");
 			System.exit(1);
 		}
-
+	
 		try {
 			fileSystem = new FileSystemHa(this, args);
 			server = new ReplicationServer(this, fileSystem, args);
 			server.start();
-
+	
 			if (peerHost == null) {
 				log.warn("no haPeerHost specified - running in master only mode!");
 				applyEvent(Event.NO_PEER, null, null);
-
+	
 			} else {
 				applyEvent(Event.HA_STARTUP, null, null);
 			}
-
+	
 			while (!shutdownRequested) {
 				Runnable queueEntry = controlQueue.take();
 				queueEntry.run();
 			}
-
+	
 		} catch (TerminateThread x) {
 			System.err.println(x.getMessage());
-
+	
 		} finally {
 			baseLock.release();
 		}
@@ -885,85 +409,361 @@ public class H2HaServer
 	/**
 	 * 
 	 */
-	public void shutdown()
+	private static void showConsoleUsage()
 	{
-		shutdownRequested = true;
-		enqueue(new Runnable() {
-			public void run()
-			{
-				// no content - we simply want the controlQueue.take()
-				// in the main loop to return.
-			}
-		});
+		System.err.println("usage: java -jar " + getJarname() + " console [option ...]");
+		System.err.println("with option:");
+		System.err.println("    -help or -?");
+		System.err.println("        Print the list of options");
+		System.err.println("    -server hostname[:port][,hostname[:port]]");
+		System.err.println("        The database server address(es)");
+		System.err.println("    -haBaseDir <directory>");
+		System.err.println("        Base directory of HA database");
+		System.err.println("    -database <database-name>");
+		System.err.println("        The database name");
+		System.err.println("    -user <user>");
+		System.err.println("        The user name (default: sa)");
+		System.err.println("    -password <pwd>");
+		System.err.println("        The password");
+		System.err.println("    -sql <statements>");
+		System.err.println("        Execute the SQL statements and exit");
+		System.err.println("    -url <url>");
+		System.err.println("        Explicit spec of database URL (jdbc:...)");
+		System.err.println("    -driver <class>");
+		System.err.println("        The JDBC driver class to use (not required in most cases)");
+		System.err.println("    -properties <dir>");
+		System.err.println("        Load the server properties from this directory");
+		System.err.println("");
+		System.err.println("If special characters don't work as expected, you may need to use");
+		System.err.println("-Dfile.encoding=UTF-8 (Mac OS X) or CP850 (Windows).");
+
+		System.exit(1);
+
 	}
 
 	/**
-	 * 
+	 * @param args2
 	 */
-	private void enqueue(Runnable queueEntry)
+	private static void performConsoleCommand(List<String> args)
 	{
 		try {
-			controlQueue.put(queueEntry);
-		} catch (InterruptedException x) {
-			log.error("InterruptedException", x);
+			createUrl(args);
+			
+			new Shell() {
+				@Override
+				protected void showUsage()
+				{
+					showConsoleUsage();
+				}
+
+			}.runTool(args.toArray(new String[0]));
+			
+		} catch (SQLException x) {
+			System.err.println(x.getMessage() + "\n");
+			showConsoleUsage();
 		}
+
 	}
 
 	/**
-	 * may be called when running as a master to ensure that all outstanding
-	 * changes have been sent to all clients
+	 *
 	 */
-	public static void pushToAllReplicators()
+	private static void showScriptUsage()
 	{
-		findFileSystem().flushAll();
+		System.err.println("usage: java -jar " + getJarname() + " script [option ...]");
+		System.err.println("with option:");
+		System.err.println("    -help or -?");
+		System.err.println("        Print the list of options");
+		System.err.println("    -server hostname[:port][,hostname[:port]]");
+		System.err.println("        The database server address(es)");
+		System.err.println("    -haBaseDir <directory>");
+		System.err.println("        Base directory of HA database");
+		System.err.println("    -database <database-name>");
+		System.err.println("        The database name");
+		System.err.println("    -user <user>");
+		System.err.println("        The user name (default: sa)");
+		System.err.println("    -password <pwd>");
+		System.err.println("        The password");
+		System.err.println("    -script <file>;");
+		System.err.println("        The script file to run (default: backup.sql)");
+		System.err.println("    -showResults");
+		System.err.println("        Show the statements and the results of queries");
+		System.err.println("    -checkResults");
+		System.err.println("        Check if the query results match the expected results");
+		System.err.println("    -continueOnError");
+		System.err.println("        Continue even if the script contains errors");
+		System.err.println("    -url <url>");
+		System.err.println("        Explicit spec of database URL (jdbc:...)");
+		System.err.println("    -driver <class>");
+		System.err.println("        The JDBC driver class to use (not required in most cases)");
+		System.err.println("");
+
+		System.exit(1);
+
 	}
 
 	/**
-	 * may be called when running as a master to ensure that all outstanding
-	 * changes have been received by all clients
-	 */
-	public static void syncWithAllReplicators()
-	{
-		log.debug("syncWithAllReplicators has been called");
-		findFileSystem().syncAll();
-	}
-
-	/**
-	 * must be called on the actual master system
-	 * 
+	 * @param args2
 	 * @throws SQLException
 	 */
-	public static void transferMasterRole()
-		throws SQLException
+	private static void performScriptCommand(List<String> args)
 	{
-		findFileSystem().getHaServer().transferMasterRoleImpl();
+		try {
+			createUrl(args);
+			
+			new RunScript() {
+				@Override
+				protected void showUsage()
+				{
+					showScriptUsage();
+				}
+
+			}.runTool(args.toArray(new String[0]));
+			
+		} catch (SQLException x) {
+			System.err.println(x.getMessage() + "\n");
+			showScriptUsage();
+		}
+
+	}
+
+
+	/**
+	 * 
+	 */
+	private static void showCreateUsage()
+	{
+		System.err.println("usage: java -jar " + getJarname() + " create [option ...]");
+		System.err.println("with option:");
+		System.err.println("    -help or -?");
+		System.err.println("        Print the list of options");
+		System.err.println("    -server hostname[:port][,hostname[:port]]");
+		System.err.println("        The database server address(es)");
+		System.err.println("    -haControlPort <port>");
+		System.err.println("        Control port of master H2HA database server");
+		System.err.println("    -haBaseDir <directory>");
+		System.err.println("        Base directory of HA database");
+		System.err.println("    -database <database-name>");
+		System.err.println("        The database name");
+		System.err.println("    -user <user>");
+		System.err.println("        The user name (default: sa)");
+		System.err.println("    -password <pwd>");
+		System.err.println("        The password");
+		System.err.println("    -script <file>;");
+		System.err.println("        A script file to run");
+		System.err.println("    -showResults");
+		System.err.println("        Show the statements and the results of queries");
+		System.err.println("    -checkResults");
+		System.err.println("        Check if the query results match the expected results");
+		System.err.println("    -continueOnError");
+		System.err.println("        Continue even if the script contains errors");
+		System.err.println("");
+	
+		System.exit(1);
+	}
+
+
+	/**
+	 * @param args2
+	 * @throws IOException 
+	 * @throws InterruptedException 
+	 * @throws SQLException
+	 */
+	private static void performCreateCommand(List<String> args)
+		throws InterruptedException
+	{
+		String script = findOptionWithValue(args, "-script", null);
+		String user = findOptionWithValue(args, "-user", null);
+		String password = findOptionWithValue(args, "-password", null);
+		String haBaseDir = findOptionWithValue(args, "-haBaseDir", null);
+		String server = findOptionWithValue(args, "-server", null);
+		String database = findOptionWithValue(args, "-database", null);
+		int ctlPort = removeOptionWithInt(args, "-haControlPort", 8234);
+
+		removeOptionWithValue(args, "-url", null);
+
+		if (user == null) {
+			System.err.println("mandatory parameter -user is missing");
+			showCreateUsage();
+		}
+
+		if (password == null) {
+			System.err.println("mandatory parameter -password is missing");
+			showCreateUsage();
+		}
+
+		if (database == null) {
+			System.err.println("mandatory parameter -database is missing");
+			showCreateUsage();
+		}
+		
+		if (haBaseDir != null && server != null) {
+			System.err.println("only one of -haBaseDir and -server may be specified");
+			showCreateUsage();
+		}
+
+		try {
+			if (haBaseDir != null) {
+				// -haBaseDir was specified - we assume the the H2HA server is not
+				// running and create a database file within the HA base directory.
+				if (!new File(haBaseDir).exists()) {
+					System.err.println("HA base dir " + haBaseDir + " does not exist");
+					System.exit(1);
+				}
+
+				createUrl(args);
+				// we will use the URL created within createUrl to create the DB
+				String url = findOptionWithValue(args, "-url", null);
+				try {
+					Class.forName("org.h2.Driver");
+				} catch (ClassNotFoundException x) {
+					log.error("ClassNotFoundException", x);
+					throw new SQLException("ClassNotFoundException", x);
+				}
+
+				// the DB file will be created as a side effect of opening the 
+				// DB connection the first time.
+				Connection conn = DriverManager.getConnection(url, user, password);
+				conn.close();
+				
+			} else {
+				// -haBaseDir was not specified - we will use -server with
+				// a default of localhost to locate a h2ha server and send it a
+				// create command
+				if (server == null) {
+					server = "localhost";
+				}
+				
+				// if multiple servers have been specified, we try them in
+				// sequence until we find the master
+				ControlCommandClient commandClient = null;
+				String error = null;
+				for (String target: server.split(",")) {
+					// if server contains a port number, it refers to the DB port.
+					// For DB creation we need to connect to the control port.
+					// Therefore, we strip the DB port off.
+					target = target.replaceFirst(":.*", "");
+					
+					commandClient = new ControlCommandClient();
+					if (commandClient.tryToConnect(target, ctlPort, 20000)) {
+						new Thread(commandClient).start();
+						
+						// ask the server if it is the master
+						if (commandClient.isMaster()) {
+							// success - we may use this client
+							break;
+							
+						} else {
+							// not the master - close and forget this connection
+							commandClient.terminate();
+							commandClient = null;
+						}
+						
+					} else {
+						// could not connect - prepare for error message and forget
+						if (error == null) {
+							error = "cannot connect to DB server control port " + target + ":" + ctlPort;
+						}
+						commandClient = null;
+					}
+				}
+				
+				if (commandClient == null) {
+					if (error == null) {
+						System.err.println("could not find a database instance running in master role");
+						System.exit(1);
+					} else {
+						System.err.println(error);
+						System.exit(1);
+					}
+				}
+				
+				commandClient.createDatabase(database, user, password);
+				commandClient.terminate();
+			}
+
+			// if we have got an init script, we will execute it
+			// using RunScript
+			if (script != null) {
+				new RunScript() {
+					@Override
+					protected void showUsage()
+					{
+						showCreateUsage();
+					}
+
+				}.runTool(args.toArray(new String[0]));
+			}
+			
+		} catch (SQLException x) {
+			System.err.println(x.getMessage() + "\n");
+			showCreateUsage();
+			
+		} catch (IOException x) {
+			System.err.println("error communicating to " + server + ":" + ctlPort+": "+x.getMessage());
+			System.exit(1);
+		}
+
+	}
+
+	/**
+	 * @param args2
+	 */
+	private static void performVersionCommand(List<String> args)
+	{
+		System.err.println("H2HA Server " + getVersionInfo());
 	}
 
 	/**
 	 * 
 	 */
-	private static FileSystemHa findFileSystem()
+	private static String getVersionInfo()
 	{
-		FilePath fp = FilePath.get("ha:///");
-		if (fp instanceof FilePathHa) {
-			return ((FilePathHa) fp).getFileSystem();
+		InputStream versionStream =
+			H2HaServer.class.getClassLoader().getResourceAsStream("version.props");
+		if (versionStream == null) {
+			return "unknown";
 		} else {
-			throw new IllegalStateException("did not get a FilePathHa for url ha:///");
+			try {
+				Properties versionProps = new Properties();
+				versionProps.load(versionStream);
+				return versionProps.getProperty("h2ha.version", "unknown");
+			} catch (IOException x) {
+				return "unknown";
+			} finally {
+				try {
+					versionStream.close();
+				} catch (IOException x) {
+				}
+			}
 		}
-
 	}
 
 	/**
-	 * @throws SQLException
-	 * 
-	 */
-	private void transferMasterRoleImpl()
-		throws SQLException
-	{
-		applyEvent(Event.TRANSFER_MASTER, null, null);
-	}
-
-	/**
+	 * Function intended for use from an SQL select statement. It returns
+	 * a single row result set containing the following columns:
+	 * <ul>
+	 * <li>SERVER_NAME: host name of currently active server
+	 * <li>SERVER_PORT: TCP port number of the control port of the currently active server
+	 * <li>LOCAL_STATUS: State the currently active server is in - most probably 'MASTER'.
+	 * <li>PEER_NAME: host name of the failover peer. May be NULL when no
+	 * peer has been configured.
+	 * <li>PEER_PORT: TCP port number of the control port of the failover peer. 
+	 * May be NULL when no
+	 * peer has been configured.
+	 * <li>PEER_STATUS: State the failover peer is in. May be NULL when no
+	 * peer has been configured.
+	 * <li>REPL_BYTES_RAW: cumulative number of bytes replicated since start of server
+	 * <li>REPL_BYTES_CROPPED: cumulative number of bytes replicated since start of server
+	 * after cropping unchanged initial and final parts of blocks.
+	 * <li>BLOCK_CACHE_LOOKUPS: Number of block cache lookups since start of the server.
+	 * <li>BLOCK_CACHE_ADDS: Number of blocks added to the block cache since start of the server.
+	 * <li>BLOCK_CACHE_HITS: Nunberof block cache hits since start of the server.
+	 * </ul>
+	 * <p>
+	 * For accessing this function from SQL, add the following ALIAS to your session:
+	 * <br>
+	 * create alias SERVER_INFO for "com.shesse.h2ha.H2HaServer.getServerInfo"
 	 * 
 	 * @param conn
 	 * @param size
@@ -983,7 +783,7 @@ public class H2HaServer
 	 * @return
 	 * @throws SQLException
 	 */
-	public ResultSet getServerInfoImpl(Connection conn)
+	private ResultSet getServerInfoImpl(Connection conn)
 		throws SQLException
 	{
 		SimpleResultSet rs = new SimpleResultSet();
@@ -1032,6 +832,19 @@ public class H2HaServer
 
 
 	/**
+	 * Function intended for use from from an SQL select statement. It returns
+	 * a row for each registered replicator. The row contains the following columns:
+	 * <ul>
+	 * <li>INSTANCE_NAME: instance name assigned to this replicator.
+	 * <li>ACTIVE_SINCE: timestamp when instance became active.
+	 * <li>TOTAL_BYTES_SENT: number of bytes sent to this instance
+	 * <li>SEND_DELAY: number of milliseconds the last send operation to this 
+	 * replicator took until it was sent out through the TCP channel. 
+	 * </ul>
+	 * <p>
+	 * For accessing this function from SQL, add the following ALIAS to your session:
+	 * <br>
+	 * create alias REPLICATION_INFO for "com.shesse.h2ha.H2HaServer.getReplicationInfo"
 	 * 
 	 * @param conn
 	 * @param size
@@ -1051,7 +864,7 @@ public class H2HaServer
 	 * @return
 	 * @throws SQLException
 	 */
-	public ResultSet getReplicationInfoImpl(Connection conn)
+	private ResultSet getReplicationInfoImpl(Connection conn)
 		throws SQLException
 	{
 		SimpleResultSet rs = new SimpleResultSet();
@@ -1065,7 +878,7 @@ public class H2HaServer
 			return rs;
 		}
 
-		for (ReplicationServerInstance server : servers) {
+		for (ReplicationServerInstance server : replicators) {
 			rs.addRow(//
 				server.getInstanceName(),//
 				server.getStartTime(),//
@@ -1079,9 +892,15 @@ public class H2HaServer
 
 
 	/**
-	 * Returns the name of a directory to be used for storing backup files. This
+	 * Function intended for use from from an SQL select statement. It returns a single row
+	 * with a single column containing the name of a directory to 
+	 * be used for storing backup files. This
 	 * directory can be defined by setting the system property h2ha.backupdir
 	 * when starting the H2HA server.
+	 * <p>
+	 * For accessing this function from SQL, add the following ALIAS to your session:
+	 * <br>
+	 * create alias BACKUP_DIRECTORY for "com.shesse.h2ha.H2HaServer.getBackupDirectory"
 	 * 
 	 * @param conn
 	 * @return null if no backup directory is defined or if it cannot be used.
@@ -1117,8 +936,17 @@ public class H2HaServer
 	}
 
 	/**
-	 * Removes all files in the backup directory except the noToKeep newest
-	 * ones.
+	 * Procedure intended for use from from an SQL call statement. 
+	 * It cleans up the directory defined as backup directory 
+	 * by setting the system property "h2ha.backupdir".
+	 * <p>
+	 * The procedure will delete all files in this directory
+	 * except the noToKeep newest ones.
+	 * <p>
+	 * For calling this procedure from SQL, add the following ALIAS to your session:
+	 * <br>
+	 * create alias CLEANUP_BACKUP_DIRECTORY for "com.shesse.h2ha.H2HaServer.cleanupBackupDirectory"
+	 * 
 	 */
 	public static void cleanupBackupDirectory(int noToKeep)
 	{
@@ -1126,19 +954,19 @@ public class H2HaServer
 		if (backupDir == null) {
 			return;
 		}
-
+	
 		File bdf = new File(backupDir);
 		File[] backupFiles = bdf.listFiles();
 		if (backupFiles == null) {
 			return;
 		}
-
+	
 		Arrays.sort(backupFiles, new Comparator<File>() {
 			public int compare(File o1, File o2)
 			{
 				long lm1 = o1.lastModified();
 				long lm2 = o2.lastModified();
-
+	
 				if (lm1 < lm2) {
 					return 1;
 				} else if (lm1 > lm2) {
@@ -1148,7 +976,7 @@ public class H2HaServer
 				}
 			}
 		});
-
+	
 		// descending sort -> the youngest ones come first
 		for (File backupFile : backupFiles) {
 			if (backupFile.isFile()) {
@@ -1161,13 +989,64 @@ public class H2HaServer
 		}
 	}
 
+
+	/**
+	 * Procedure intended for use from from an SQL call statement. 
+	 * It initiates the transfer of the master role to the current peer.
+	 * This procedure  must be called on the system that currently
+	 * has the master role. If used from SQL, this is always true.
+	 * <p>
+	 * For calling this procedure from SQL, add the following ALIAS to your session:
+	 * <br>
+	 * create alias TRANSFER_ROLE for "com.shesse.h2ha.H2HaServer.transferMasterRole"
+	 * 
+	 * @throws SQLException
+	 */
+	public static void transferMasterRole()
+		throws SQLException
+	{
+		findFileSystem().getHaServer().transferMasterRoleImpl();
+	}
+
+
+	/**
+	 * @throws SQLException
+	 * 
+	 */
+	private void transferMasterRoleImpl()
+		throws SQLException
+	{
+		applyEvent(Event.TRANSFER_MASTER, null, null);
+	}
+
+
+	/**
+	 * 
+	 */
+	public boolean isActive()
+	{
+		return failoverState == FailoverState.MASTER_STANDALONE ||
+			failoverState == FailoverState.MASTER || failoverState == FailoverState.SLAVE;
+	}
+
+
+	/**
+	 * @return
+	 */
+	public Boolean isMaster()
+	{
+		return failoverState == FailoverState.MASTER_STANDALONE ||
+			failoverState == FailoverState.MASTER;
+	}
+
+
 	/**
 	 * computes deterministic role assignment depending on current local role,
 	 * local and remote master priority and local and remote UUID.
 	 * 
 	 * @return true if the local system is the configured master system
 	 */
-	public boolean weAreConfiguredMaster(int otherMasterPriority, String otherUuid)
+	public boolean isConfiguredMaster(int otherMasterPriority, String otherUuid)
 	{
 		if (!client.isConsistentData()) {
 			return false;
@@ -1222,33 +1101,33 @@ public class H2HaServer
 	/**
 	 * @param server
 	 */
-	public synchronized void registerServer(ReplicationServerInstance server)
+	public synchronized void registerReplicationInstance(ReplicationServerInstance server)
 	{
-		for (ReplicationProtocolInstance r : servers) {
+		for (ReplicationProtocolInstance r : replicators) {
 			if (r == server) {
 				return;
 			}
 		}
 
-		ReplicationServerInstance[] newServers = new ReplicationServerInstance[servers.length + 1];
-		System.arraycopy(servers, 0, newServers, 0, servers.length);
-		newServers[servers.length] = server;
-		servers = newServers;
+		ReplicationServerInstance[] newServers = new ReplicationServerInstance[replicators.length + 1];
+		System.arraycopy(replicators, 0, newServers, 0, replicators.length);
+		newServers[replicators.length] = server;
+		replicators = newServers;
 	}
 
 
 	/**
 	 * @param server
 	 */
-	public void deregisterServer(ReplicationProtocolInstance server)
+	public void deregisterReplicationInstance(ReplicationProtocolInstance server)
 	{
-		for (int i = 0; i < servers.length; i++) {
-			if (servers[i] == server) {
+		for (int i = 0; i < replicators.length; i++) {
+			if (replicators[i] == server) {
 				ReplicationServerInstance[] newServers =
-					new ReplicationServerInstance[servers.length - 1];
-				System.arraycopy(servers, 0, newServers, 0, i);
-				System.arraycopy(servers, i + 1, newServers, i, newServers.length - i);
-				servers = newServers;
+					new ReplicationServerInstance[replicators.length - 1];
+				System.arraycopy(replicators, 0, newServers, 0, i);
+				System.arraycopy(replicators, i + 1, newServers, i, newServers.length - i);
+				replicators = newServers;
 				return;
 			}
 		}
@@ -1351,7 +1230,7 @@ public class H2HaServer
 				}
 			}
 
-			ReplicationServerInstance[] sdup = servers;
+			ReplicationServerInstance[] sdup = replicators;
 			for (ReplicationServerInstance server : sdup) {
 				server.enqueue(new ReplicationMessage() {
 					private static final long serialVersionUID = 1L;
@@ -1400,7 +1279,7 @@ public class H2HaServer
 	}
 
 	/**
-	 * 
+	 * Action routine for FSM that does nothing
 	 */
 	public void noAction(FailoverState oldState, Event event, FailoverState newState,
 		Object parameter)
@@ -1408,7 +1287,7 @@ public class H2HaServer
 	}
 
 	/**
-	 * 
+	 * Action routine for FSM
 	 */
 	public void fatalError(FailoverState oldState, Event event, FailoverState newState,
 		Object parameter)
@@ -1418,7 +1297,7 @@ public class H2HaServer
 	}
 
 	/**
-	 * 
+	 * Action routine for FSM
 	 */
 	public void logUnexpected(FailoverState oldState, Event event, FailoverState newState,
 		Object parameter)
@@ -1432,7 +1311,7 @@ public class H2HaServer
 	}
 
 	/**
-	 * 
+	 * Action routine for FSM
 	 */
 	public void startHaClient(FailoverState oldState, Event event, FailoverState newState,
 		Object parameter)
@@ -1442,7 +1321,7 @@ public class H2HaServer
 	}
 
 	/**
-	 * 
+	 * Action routine for FSM
 	 */
 	public void startDbServer(FailoverState oldState, Event event, FailoverState newState,
 		Object parameter)
@@ -1461,7 +1340,7 @@ public class H2HaServer
 	}
 
 	/**
-	 * 
+	 * Action routine for FSM
 	 */
 	public void failbackMasterRole(FailoverState oldState, Event event, FailoverState newState,
 		Object parameter)
@@ -1471,7 +1350,7 @@ public class H2HaServer
 	}
 
 	/**
-	 * 
+	 * Action routine for FSM
 	 */
 	public void stopDbServer(FailoverState oldState, Event event, FailoverState newState,
 		Object parameter)
@@ -1482,7 +1361,7 @@ public class H2HaServer
 	}
 
 	/**
-	 * 
+	 * Action routine for FSM
 	 */
 	public void sendListFilesRequest(FailoverState oldState, Event event, FailoverState newState,
 		Object parameter)
@@ -1492,7 +1371,7 @@ public class H2HaServer
 
 
 	/**
-	 * 
+	 * Action routine for FSM
 	 */
 	public void sendStopReplicationRequest(FailoverState oldState, Event event,
 		FailoverState newState, Object parameter)
@@ -1502,7 +1381,7 @@ public class H2HaServer
 
 
 	/**
-	 * 
+	 * Action routine for FSM
 	 */
 	public void issueConnEvent(FailoverState oldState, Event event, FailoverState newState,
 		Object parameter)
@@ -1512,7 +1391,7 @@ public class H2HaServer
 
 
 	/**
-	 * 
+	 * Action routine for FSM
 	 */
 	public void issuePeerEvent(FailoverState oldState, Event event, FailoverState newState,
 		Object parameter)
@@ -1522,21 +1401,296 @@ public class H2HaServer
 
 
 	/**
-	 * 
+	 * may be called when running as a master to ensure that all outstanding
+	 * changes have been sent to all clients
 	 */
-	public boolean isActive()
+	public static void pushToAllReplicators()
 	{
-		return failoverState == FailoverState.MASTER_STANDALONE ||
-			failoverState == FailoverState.MASTER || failoverState == FailoverState.SLAVE;
+		findFileSystem().flushAll();
+	}
+
+
+	/**
+	 * may be called when running as a master to ensure that all outstanding
+	 * changes have been received by all clients
+	 */
+	public static void syncWithAllReplicators()
+	{
+		log.debug("syncWithAllReplicators has been called");
+		findFileSystem().syncAll();
+	}
+
+
+	/**
+	 * locates the named option within the argument list and removes it from the
+	 * list. The option is exepcted to have a value which also will be removed.
+	 * 
+	 * @return the value or the value of dflt if the option was not present
+	 */
+	public static String removeOptionWithValue(List<String> args, String optName, String dflt)
+	{
+		String ret = dflt;
+		for (int i = 0; i < args.size() - 1;) {
+			if (args.get(i).equals(optName)) {
+				args.remove(i);
+				ret = args.remove(i);
+	
+			} else {
+				i++;
+			}
+		}
+		return ret;
+	}
+
+
+	/**
+	 * locates the named option within the argument list and returns its value.
+	 * The list will remain unchanged.
+	 * 
+	 * @return the value or the value of dflt if the option was not present
+	 */
+	public static String findOptionWithValue(List<String> args, String optName, String dflt)
+	{
+		String ret = dflt;
+		for (int i = 0; i < args.size() - 1;) {
+			if (args.get(i).equals(optName)) {
+				ret = args.get(i + 1);
+				i += 2;
+			} else {
+				i++;
+			}
+		}
+		return ret;
+	}
+
+
+	/**
+	 * locates the named option within the argument list and removes it from the
+	 * list. The option is exepcted to have a value which also will be removed.
+	 * 
+	 * @return the value or the value of dflt if the option was not present
+	 */
+	public static int removeOptionWithInt(List<String> args, String optName, int dflt)
+	{
+		String sval = removeOptionWithValue(args, optName, null);
+		if (sval == null) {
+			return dflt;
+		} else {
+			try {
+				return Integer.parseInt(sval);
+			} catch (NumberFormatException x) {
+				return dflt;
+			}
+		}
+	}
+
+
+	/**
+	 * locates the named option within the argument list and returns its value.
+	 * The list will remain unchanged.
+	 * 
+	 * @return the value or the value of dflt if the option was not present
+	 */
+	public static int findOptionWithInt(List<String> args, String optName, int dflt)
+	{
+		String sval = findOptionWithValue(args, optName, null);
+		if (sval == null) {
+			return dflt;
+		} else {
+			try {
+				return Integer.parseInt(sval);
+			} catch (NumberFormatException x) {
+				return dflt;
+			}
+		}
+	}
+
+
+	/**
+	 * locates the named option within the argument list and removes it from the
+	 * list.
+	 * 
+	 * @return true if the option was found
+	 */
+	public static boolean removeOption(List<String> args, String optName)
+	{
+		boolean ret = false;
+		for (int i = 0; i < args.size();) {
+			if (args.get(i).equals(optName)) {
+				args.remove(i);
+				ret = true;
+			} else {
+				i++;
+			}
+		}
+		return ret;
+	}
+
+
+	/**
+	 * locates the named option within the argument list and returns true if it
+	 * could be found. The list will remain unchanged.
+	 * 
+	 * @return true if the option was found
+	 */
+	public static boolean findOption(List<String> args, String optName)
+	{
+		for (int i = 0; i < args.size(); i++) {
+			if (args.get(i).equals(optName)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
-	 * @return
+	 * 
 	 */
-	public Boolean isMaster()
+	private void enqueue(Runnable queueEntry)
 	{
-		return failoverState == FailoverState.MASTER_STANDALONE ||
-			failoverState == FailoverState.MASTER;
+		try {
+			controlQueue.put(queueEntry);
+		} catch (InterruptedException x) {
+			log.error("InterruptedException", x);
+		}
+	}
+
+
+	/**
+	 * ensures that a -url option is present. If it is not, it will be built
+	 * based on the -server, -database and -haBaseDir options.
+	 * 
+	 * @param args
+	 * @throws SQLException
+	 */
+	private static void createUrl(List<String> args)
+		throws SQLException
+	{
+		String server = removeOptionWithValue(args, "-server", null);
+		String database = removeOptionWithValue(args, "-database", null);
+		String haBaseDir = removeOptionWithValue(args, "-haBaseDir", null);
+		String url = removeOptionWithValue(args, "-url", null);
+		
+		try {
+			Class.forName("com.shesse.jdbcproxy.Driver");
+		} catch (ClassNotFoundException x) {
+			log.error("ClassNotFoundException", x);
+			throw new SQLException("ClassNotFoundException", x);
+		}
+	
+		if (url == null) {
+			if (server == null && haBaseDir == null) {
+				server = "localhost";
+			}
+	
+			if (database == null) {
+				throw new SQLException("either -database dbname or -url jdbc-url is needed");
+			}
+	
+			if (server != null) {
+				if (server.contains(",")) {
+					url = "jdbc:h2ha:tcp://" + server + "/" + database;
+				} else {
+					
+					url = "jdbc:h2:tcp://" + server + "/" + database;
+				}
+	
+			} else if (haBaseDir != null) {
+				url = "jdbc:h2:file:" + new File(haBaseDir).getAbsolutePath() + "/" + database;
+				if (!new File(haBaseDir).exists()) {
+					System.err.println("HA base dir " + haBaseDir + " does not exist");
+					System.exit(1);
+				}
+	
+				staticBaseLock = acquireHaBaseLock(haBaseDir);
+				if (staticBaseLock == null) {
+					System.err.println("could not get lock for " + haBaseDir +
+						" - some other process is probably using it");
+					System.exit(1);
+				}
+	
+			} else {
+				url = "jdbc:h2:tcp://localhost/" + database;
+			}
+		}
+	
+		args.add(0, "-url");
+		args.add(1, url);
+	}
+
+
+	/**
+	 * Acquires a lock for accessing haBaseDir. Returns a handle for this lock
+	 * which can be used to release the lock. Returns null if it was not
+	 * possible to acquire the lock.
+	 */
+	private static LockHandle acquireHaBaseLock(String haBaseDir)
+	{
+		FilePath basePath = FilePath.get(haBaseDir + "/h2ha.lock");
+	
+		FileChannel channel;
+		try {
+			channel = basePath.open("rw");
+		} catch (IOException x) {
+			log.error("could not create HA lock file: " + x);
+			return null;
+		}
+	
+		try {
+			FileLock lock = channel.tryLock();
+			if (lock == null) {
+				log.error("could not acquire HA lock: it is locked by another process");
+				return null;
+			} else {
+				return new LockHandle(channel, lock);
+			}
+	
+		} catch (IOException x) {
+			log.error("could not acquire HA lock: " + x);
+			return null;
+		}
+	}
+
+
+	/**
+	 * 
+	 */
+	private static FileSystemHa findFileSystem()
+	{
+		FilePath fp = FilePath.get("ha:///");
+		if (fp instanceof FilePathHa) {
+			return ((FilePathHa) fp).getFileSystem();
+		} else {
+			throw new IllegalStateException("did not get a FilePathHa for url ha:///");
+		}
+	
+	}
+
+
+	/**
+	 * 
+	 */
+	private static String getJarname()
+	{
+		String url = String.valueOf(H2HaServer.class.getResource("H2HaServer.class"));
+		int bang = url.indexOf('!');
+		if (bang >= 0) {
+			url = url.substring(0, bang);
+		}
+	
+		if (url.startsWith("jar:")) {
+			url = url.substring(4);
+		}
+	
+		if (url.startsWith("file:")) {
+			url = url.substring(5);
+		}
+	
+		int pdel = url.lastIndexOf('/');
+		if (pdel >= 0) {
+			url = url.substring(pdel + 1);
+		}
+		return url;
 	}
 
 	// /////////////////////////////////////////////////////////

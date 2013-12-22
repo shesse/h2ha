@@ -111,7 +111,7 @@ public class ReplicationServerInstance
 	{
 		super(instanceName, maxQueueSize, maxEnqueueWait, maxWaitingMessages, haServer, fileSystem);
 
-		haServer.registerServer(this);
+		haServer.registerReplicationInstance(this);
 
 		setSocket(socket);
 		setParameters(statisticsInterval);
@@ -134,7 +134,7 @@ public class ReplicationServerInstance
 		} finally {
 			log.info(getInstanceName() + ": end of Client connection");
 			fileSystem.deregisterReplicator(this);
-			haServer.deregisterServer(this);
+			haServer.deregisterReplicationInstance(this);
 		}
 	}
 
@@ -490,12 +490,12 @@ public class ReplicationServerInstance
 
 
 	/**
-	 * @param dbName
+	 * @param dbNameAndParameters
 	 * @param adminUser
 	 * @param adminPassword
 	 * @throws SQLException
 	 */
-	public void createDatabase(String dbName, String adminUser, String adminPassword)
+	public void createDatabase(String dbNameAndParameters, String adminUser, String adminPassword)
 		throws SQLException
 	{
 		if (haServer.getFailoverState() != FailoverState.MASTER) {
@@ -503,7 +503,7 @@ public class ReplicationServerInstance
 				haServer.getFailoverState());
 		}
 
-		String url = "jdbc:h2:" + getFilePathHa(dbName);
+		String url = "jdbc:h2:" + getFilePathHa(dbNameAndParameters);
 		try {
 			Class.forName("org.h2.Driver");
 		} catch (ClassNotFoundException x) {

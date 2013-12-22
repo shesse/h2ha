@@ -71,6 +71,10 @@ public class FilePathHa
 		} else {
 			this.normalizedHaName = normalizeHaName(haName);
 		}
+		
+		if (normalizedHaName.startsWith("ha:////")) {
+			throw new IllegalStateException("invalid ha name: "+normalizedHaName);
+		}
 
 		FilePath haDir = fileSystem.getLocalBaseDir();
 		basePath = haDir.getPath(haDir.toString() + normalizedHaName.substring(5));
@@ -421,7 +425,13 @@ public class FilePathHa
 				// contradicts normalization
 				continue;
 			} else {
-				haEntries.add(new FilePathHa(fileSystem, normalizedHaName + "/" + baseName, true));
+				String path;
+				if (normalizedHaName.endsWith("/")) {
+					path = normalizedHaName + baseName;
+				} else {
+					path = normalizedHaName + "/" + baseName;
+				}
+				haEntries.add(new FilePathHa(fileSystem, path, true));
 
 			}
 		}

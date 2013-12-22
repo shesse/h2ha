@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 
 import javax.sql.ConnectionEvent;
 import javax.sql.ConnectionEventListener;
@@ -43,7 +44,21 @@ public class AlternatingConnectionFactory
 	private volatile int currentDataSourceIndex = -2;
 
 	/** */
-	private static ExecutorService threadPool = Executors.newCachedThreadPool();
+	private static ExecutorService threadPool = Executors.newCachedThreadPool(new ThreadFactory() {
+		int nextThreadNo = 1;
+		@Override
+		public Thread newThread(Runnable r)
+		{
+			int n;
+			synchronized (this) {
+				n = nextThreadNo++;
+			}
+			
+			Thread t = new Thread(r, "H2Ha-pool-"+n);
+			t.setDaemon(true);
+			return t;
+		}
+	});
 
 	/** */
 	private static Map<String, AlternatingConnectionFactory> factories =

@@ -48,10 +48,7 @@ public class ServerProcess
 	private Process dbProcess = null;
 
 	/** */
-	private ReplicationServerStatus serverStatus = null;
-
-	/** */
-	private CreateDatabaseCommand createDatabase = null;
+	private ControlCommandClient commandClient = null;
 
 	/** */
 	private Thread serverConnectionThread = null;
@@ -151,51 +148,31 @@ public class ServerProcess
 	 * @throws InterruptedException
 	 * 
 	 */
-	private CreateDatabaseCommand getCreateDatabaseCommand()
+	private ControlCommandClient getDatabaseCommand()
 		throws InterruptedException
 	{
-		if (serverConnectionThread != null && !serverConnectionThread.isAlive()) {
-			serverConnectionThread = null;
-			createDatabase = null;
-		}
-
-		if (createDatabase == null) {
-			createDatabase = new CreateDatabaseCommand();
-			for (int i = 20; i >= 0; i--) {
-				if (createDatabase.tryToConnect("localhost", localSyncPort, 20000)) {
-					serverConnectionThread = new Thread(createDatabase);
-					serverConnectionThread.start();
-					return createDatabase;
-				}
-				Thread.sleep(500L);
-			}
-
-			Assert.fail("cannot connect to DB server process");
-		}
-
-		return createDatabase;
+		return getCommandClient("localhost", localSyncPort);
 	}
-
 
 	/**
 	 * @throws InterruptedException
 	 * 
 	 */
-	private ReplicationServerStatus getServerStatus()
+	private ControlCommandClient getCommandClient(String host, int port)
 		throws InterruptedException
 	{
 		if (serverConnectionThread != null && !serverConnectionThread.isAlive()) {
 			serverConnectionThread = null;
-			serverStatus = null;
+			commandClient = null;
 		}
 
-		if (serverStatus == null) {
-			serverStatus = new ReplicationServerStatus();
+		if (commandClient == null) {
+			commandClient = new ControlCommandClient();
 			for (int i = 20; i >= 0; i--) {
-				if (serverStatus.tryToConnect("localhost", localSyncPort, 20000)) {
-					serverConnectionThread = new Thread(serverStatus);
+				if (commandClient.tryToConnect(host, port, 20000)) {
+					serverConnectionThread = new Thread(commandClient);
 					serverConnectionThread.start();
-					return serverStatus;
+					return commandClient;
 				}
 				Thread.sleep(500L);
 			}
@@ -203,7 +180,7 @@ public class ServerProcess
 			Assert.fail("cannot connect to DB server process");
 		}
 
-		return serverStatus;
+		return commandClient;
 	}
 
 
@@ -217,7 +194,7 @@ public class ServerProcess
 	{
 		log.info(sideName+": waiting until server becomes active");
 		for (int i = 30; i >= 0; i--) {
-			if (getServerStatus().isActive())
+			if (getDatabaseCommand().isActive())
 				return;
 			Thread.sleep(500L);
 		}
@@ -232,7 +209,7 @@ public class ServerProcess
 	{
 		log.info(sideName+": waiting until server becomes master");
 		for (int i = 30; i >= 0; i--) {
-			if (getServerStatus().isMaster())
+			if (getDatabaseCommand().isMaster())
 				return;
 			Thread.sleep(500L);
 		}
@@ -245,10 +222,10 @@ public class ServerProcess
 	 * @throws SQLException
 	 * 
 	 */
-	public void createDatabase(String dbName, String adminUser, String adminPassword)
+	public void createDatabase(String host, int port, String dbName, String adminUser, String adminPassword)
 		throws IOException, InterruptedException, SQLException
 	{
-		CreateDatabaseCommand rs = getCreateDatabaseCommand();
+		ControlCommandClient rs = getCommandClient(host, port);
 		rs.createDatabase(dbName, adminUser, adminPassword);
 	}
 

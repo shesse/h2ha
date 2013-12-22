@@ -354,6 +354,7 @@ public class ReplicationProtocolInstance
 				waitingOperations.clear();
 			}
 
+			timer.cancel();
 			log.debug(instanceName + ": replication instance has ended");
 		}
 	}

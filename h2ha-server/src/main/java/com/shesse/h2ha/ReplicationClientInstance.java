@@ -255,7 +255,7 @@ public class ReplicationClientInstance
 	{
 		String eventParam = peerState.toString();
 		String optParam;
-		if (haServer.weAreConfiguredMaster(peerMasterPriority, peerUuid)) {
+		if (haServer.isConfiguredMaster(peerMasterPriority, peerUuid)) {
 			// local system is configured master
 			optParam = "local";
 		} else if (autoFailback) {
