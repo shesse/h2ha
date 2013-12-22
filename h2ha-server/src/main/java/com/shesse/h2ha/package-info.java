@@ -34,9 +34,11 @@
  * <p>
  * The described mechanism of communication with a H2HA server may not
  * only be used to let the replicas talk to each other. It can also be 
- * used for other communication needs. Currently there exists the
- * class ReplicationServerStatus which implements a remote query for server 
- * status. It is only used within the JUnit tests.
+ * used for other communication needs. This is used for 
+ * {@link com.shesse.h2ha.ControlCommandClient}, which is a protocol 
+ * instance that connects from an arbitrary process via TCP to the
+ * H2HA server and executes commands there.
+ * 
  *
  * @author Stephan Hesse
  */

@@ -57,6 +57,9 @@ public class ReplicationServer
 
 	/** */
 	private long statisticsInterval = 300000;
+	
+	/** */
+	private InetAddress localhost;
 
 	// /////////////////////////////////////////////////////////
 	// Constructors
@@ -73,6 +76,13 @@ public class ReplicationServer
 		this.fileSystem = fileSystem;
 		boolean restrictPeer = false;
 		String peerHost = null;
+		
+		try {
+			localhost = InetAddress.getByName("127.0.0.1");
+		} catch (UnknownHostException x1) {
+			log.error("unknown host name: 127.0.0.1");
+			System.exit(1);
+		}
 
 		listenPort = H2HaServer.findOptionWithInt(args, "-haListenPort", 8234);
 		peerHost = H2HaServer.findOptionWithValue(args, "-haPeerHost", null);
@@ -132,8 +142,7 @@ public class ReplicationServer
 			Socket connSocket = serverSocket.accept();
 
 			SocketAddress remoteAddress = connSocket.getRemoteSocketAddress();
-			if (peerRestriction == null ||
-				(remoteAddress instanceof InetSocketAddress && peerRestriction.equals(((InetSocketAddress) remoteAddress).getAddress()))) {
+			if (isAccessAllowed(remoteAddress)) {
 				log.debug("accepted incoming replication connection");
 				String instanceName = "replServer-" + String.valueOf(remoteAddress);
 				new Thread(new ReplicationServerInstance(instanceName, maxQueueSize,
@@ -149,6 +158,28 @@ public class ReplicationServer
 			}
 
 		}
+	}
+	
+	/**
+	 * 
+	 */
+	private boolean isAccessAllowed(SocketAddress remoteAddress)
+	{
+		if (peerRestriction == null) {
+			return true;
+		}
+		
+		if (remoteAddress instanceof InetSocketAddress) {
+			InetSocketAddress inetRemoteAddress = (InetSocketAddress)remoteAddress;
+			if (peerRestriction.equals(inetRemoteAddress.getAddress())) {
+				return true;
+			}
+			if (localhost.equals(inetRemoteAddress.getAddress())) {
+				return true;
+			}
+		}
+		
+		return false;
 	}
 
 	/**
