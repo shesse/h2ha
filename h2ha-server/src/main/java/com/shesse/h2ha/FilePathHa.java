@@ -72,7 +72,7 @@ public class FilePathHa
 			this.normalizedHaName = normalizeHaName(haName);
 		}
 		
-		if (normalizedHaName.startsWith("ha:////")) {
+		if (!normalizedHaName.startsWith("ha:///") || normalizedHaName.startsWith("ha:////")) {
 			throw new IllegalStateException("invalid ha name: "+normalizedHaName);
 		}
 
