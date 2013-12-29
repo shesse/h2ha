@@ -13,33 +13,52 @@ import java.util.Map;
 
 import javax.sql.ConnectionEvent;
 import javax.sql.ConnectionEventListener;
+import javax.sql.StatementEvent;
 import javax.sql.StatementEventListener;
 import javax.sql.XAConnection;
 import javax.transaction.xa.XAException;
 import javax.transaction.xa.XAResource;
 import javax.transaction.xa.Xid;
 
+import org.h2.constant.ErrorCode;
+import org.h2.engine.SessionInterface;
 import org.h2.jdbcx.JdbcXAConnection;
+import org.h2.message.DbException;
+
+import com.shesse.jdbcproxy.AlternatingConnectionFactory.RegisteredHaConnection;
 
 /**
  * 
  * @author sth
  */
 public class HaXaConnection
-	implements XAConnection, XAResource
+	implements XAConnection, XAResource, RegisteredHaConnection
 {
 	// /////////////////////////////////////////////////////////
 	// Class Members
 	// /////////////////////////////////////////////////////////
 	/** */
-	// private static Logger log = Logger.getLogger(HaXaConnection.class);
+	//private static Logger log = Logger.getLogger(HaXaConnection.class.getName());
+
+	/** */
+	private AlternatingConnectionFactory connectionFactory;
+
+	/** */
+	private ServerMonitor monitoredBy;
 
 	/** */
 	private JdbcXAConnection h2XaConnection;
 	
 	/** */
-	private Map<ConnectionEventListener, ConnectionEventListener> delegatingListeners =
+	private SessionInterface session = null;
+	
+	/** */
+	private Map<ConnectionEventListener, ConnectionEventListener> connectionListeners =
 		new HashMap<ConnectionEventListener, ConnectionEventListener>();
+
+	/** */
+	private Map<StatementEventListener, StatementEventListener> statementListeners =
+		new HashMap<StatementEventListener, StatementEventListener>();
 
 
 	// /////////////////////////////////////////////////////////
@@ -47,15 +66,56 @@ public class HaXaConnection
 	// /////////////////////////////////////////////////////////
 	/**
      */
-	public HaXaConnection(JdbcXAConnection h2Connection)
+	public HaXaConnection(AlternatingConnectionFactory connectionFactory, ServerMonitor monitoredBy, JdbcXAConnection h2Connection)
 	{
+		this.connectionFactory = connectionFactory;
+		this.monitoredBy = monitoredBy;
 		this.h2XaConnection = h2Connection;
+		
+		connectionFactory.register(this);
 	}
 
 
 	// /////////////////////////////////////////////////////////
 	// Methods
 	// /////////////////////////////////////////////////////////
+	/**
+	 * cleanup if the close was not called explicitly
+	 * 
+	 * {@inheritDoc}
+	 *
+	 * @see java.lang.Object#finalize()
+	 */
+	protected void finalize()
+	{
+		try {
+			close();
+		} catch (SQLException x) {
+		}
+	}
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @see com.shesse.jdbcproxy.AlternatingConnectionFactory.RegisteredHaConnection#getMonitoredBy()
+	 */
+	@Override
+	public ServerMonitor getMonitoredBy()
+	{
+		return monitoredBy;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @see com.shesse.jdbcproxy.AlternatingConnectionFactory.RegisteredHaConnection#cleanup()
+	 */
+	@Override
+	public void cleanup()
+	{
+		HaConnection.forceCloseCommunicationSocket(session);
+	}
+
 	/**
 	 * @return
 	 * @see org.h2.jdbcx.JdbcXAConnection#getXAResource()
@@ -74,7 +134,26 @@ public class HaXaConnection
 	public Connection getConnection()
 		throws SQLException
 	{
-		return new HaConnection(h2XaConnection.getConnection());
+		if (h2XaConnection == null) {
+			throw DbException.get(ErrorCode.OBJECT_CLOSED).getSQLException();
+		}
+		
+		try {
+			HaConnection conn = new HaConnection(connectionFactory, monitoredBy, h2XaConnection);
+			session = conn.getH2Connection().getSession();
+			return conn;
+
+		} catch (SQLException x) {
+			// if the H2 connection has experienced a "session closed" exception
+			// before, the poll still may try to reuse the connection. In this
+			// case we get a DATABASE_CALLED_AT_SHUTDOWN, which is misleading.
+			// In this case we send another error code instead.
+			if (x.getErrorCode() == ErrorCode.DATABASE_CALLED_AT_SHUTDOWN) {
+				throw DbException.get(ErrorCode.OBJECT_CLOSED).getSQLException();
+			} else {
+				throw x;
+			}
+		}
 	}
 
 
@@ -84,6 +163,10 @@ public class HaXaConnection
 	 */
 	public synchronized void addConnectionEventListener(final ConnectionEventListener evl)
 	{
+		if (h2XaConnection == null) {
+			return;
+		}
+		
 		ConnectionEventListener delegatingListener = new ConnectionEventListener() {
 			public void connectionClosed(ConnectionEvent pev)
 			{
@@ -100,7 +183,7 @@ public class HaXaConnection
 			}
 		};
 		
-		ConnectionEventListener old = delegatingListeners.put(evl, delegatingListener);
+		ConnectionEventListener old = connectionListeners.put(evl, delegatingListener);
 		if (old != null) {
 			h2XaConnection.removeConnectionEventListener(old);
 		}
@@ -115,7 +198,11 @@ public class HaXaConnection
 	 */
 	public synchronized void removeConnectionEventListener(ConnectionEventListener evl)
 	{
-		ConnectionEventListener delegatingListener = delegatingListeners.remove(evl);
+		if (h2XaConnection == null) {
+			return;
+		}
+		
+		ConnectionEventListener delegatingListener = connectionListeners.remove(evl);
 		if (delegatingListener != null) {
 			h2XaConnection.removeConnectionEventListener(delegatingListener);
 		}
@@ -128,22 +215,34 @@ public class HaXaConnection
 	 */
 	public void addStatementEventListener(final StatementEventListener evl)
 	{
-		// TODO: activate this as soon as H2 supports it (H2 version for Java >=
-		// 1.6)
-		/* !see addConnectionEventListener for modified procedure
-		 * h2XaConnection.addStatementEventListener(new StatementEventListener() {
-		 * 
-		 * public void statementClosed(StatementEvent pev) { StatementEvent ev =
-		 * new StatementEvent(HaXaConnection.this, pev.getStatement(),
-		 * pev.getSQLException()); evl.statementClosed(ev); }
-		 * 
-		 * public void statementErrorOccurred(StatementEvent pev) {
-		 * StatementEvent ev = new StatementEvent(HaXaConnection.this,
-		 * pev.getStatement(), pev.getSQLException());
-		 * evl.statementErrorOccurred(ev); }
-		 * 
-		 * });
-		 */
+		if (h2XaConnection == null) {
+			return;
+		}
+		
+		StatementEventListener delegatingListener = new StatementEventListener() {
+			@Override
+			public void statementClosed(StatementEvent pev)
+			{
+				StatementEvent ev =
+					new StatementEvent(HaXaConnection.this, pev.getStatement());
+				evl.statementClosed(ev);
+			}
+
+			@Override
+			public void statementErrorOccurred(StatementEvent pev)
+			{
+				StatementEvent ev =
+					new StatementEvent(HaXaConnection.this, pev.getStatement());
+				evl.statementErrorOccurred(ev);
+			}
+		};
+		
+		StatementEventListener old = statementListeners.put(evl, delegatingListener);
+		if (old != null) {
+			h2XaConnection.removeStatementEventListener(old);
+		}
+		
+		h2XaConnection.addStatementEventListener(delegatingListener);
 	}
 
 
@@ -151,14 +250,16 @@ public class HaXaConnection
 	 * @param paramStatementEventListener
 	 * @see javax.sql.PooledConnection#removeStatementEventListener(javax.sql.StatementEventListener)
 	 */
-	public void removeStatementEventListener(StatementEventListener paramStatementEventListener)
+	public void removeStatementEventListener(StatementEventListener evl)
 	{
-		// TODO: activate this as soon as H2 supports it (H2 version for Java >=
-		// 1.6)
-		/* !see addConnectionEventListener for modified procedure
-		 * h2XaConnection.removeStatementEventListener(paramStatementEventListener)
-		 * ;
-		 */
+		if (h2XaConnection == null) {
+			return;
+		}
+		
+		StatementEventListener delegatingListener = statementListeners.remove(evl);
+		if (delegatingListener != null) {
+			h2XaConnection.removeStatementEventListener(delegatingListener);
+		}
 	}
 
 
@@ -169,7 +270,17 @@ public class HaXaConnection
 	public void close()
 		throws SQLException
 	{
-		h2XaConnection.close();
+		connectionFactory.deregister(this);
+		if (h2XaConnection != null) {
+			for (ConnectionEventListener l: connectionListeners.values()) {
+				h2XaConnection.removeConnectionEventListener(l);
+			}
+			for (StatementEventListener l: statementListeners.values()) {
+				h2XaConnection.removeStatementEventListener(l);
+			}
+			h2XaConnection.getConnection().close();
+			h2XaConnection = null;
+		}
 	}
 
 
@@ -179,6 +290,10 @@ public class HaXaConnection
 	 */
 	public int getTransactionTimeout()
 	{
+		if (h2XaConnection == null) {
+			throw DbException.get(ErrorCode.OBJECT_CLOSED);
+		}
+		
 		return h2XaConnection.getTransactionTimeout();
 	}
 
@@ -203,6 +318,10 @@ public class HaXaConnection
 	public Xid[] recover(int paramInt)
 		throws XAException
 	{
+		if (h2XaConnection == null) {
+			throw DbException.get(ErrorCode.OBJECT_CLOSED);
+		}
+		
 		return h2XaConnection.recover(paramInt);
 	}
 
@@ -216,6 +335,10 @@ public class HaXaConnection
 	public int prepare(Xid paramXid)
 		throws XAException
 	{
+		if (h2XaConnection == null) {
+			throw DbException.get(ErrorCode.OBJECT_CLOSED);
+		}
+		
 		return h2XaConnection.prepare(paramXid);
 	}
 
@@ -226,6 +349,10 @@ public class HaXaConnection
 	 */
 	public void forget(Xid paramXid)
 	{
+		if (h2XaConnection == null) {
+			return;
+		}
+		
 		h2XaConnection.forget(paramXid);
 	}
 
@@ -239,6 +366,10 @@ public class HaXaConnection
 	public void end(Xid paramXid, int paramInt)
 		throws XAException
 	{
+		if (h2XaConnection == null) {
+			return;
+		}
+		
 		h2XaConnection.end(paramXid, paramInt);
 	}
 
@@ -253,6 +384,10 @@ public class HaXaConnection
 	public void commit(Xid paramXid, boolean paramBoolean)
 		throws XAException
 	{
+		if (h2XaConnection == null) {
+			return;
+		}
+		
 		h2XaConnection.commit(paramXid, paramBoolean);
 	}
 
@@ -264,6 +399,10 @@ public class HaXaConnection
 	 */
 	public boolean setTransactionTimeout(int paramInt)
 	{
+		if (h2XaConnection == null) {
+			throw DbException.get(ErrorCode.OBJECT_CLOSED);
+		}
+		
 		return h2XaConnection.setTransactionTimeout(paramInt);
 	}
 
@@ -276,6 +415,10 @@ public class HaXaConnection
 	public void rollback(Xid paramXid)
 		throws XAException
 	{
+		if (h2XaConnection == null) {
+			return;
+		}
+		
 		h2XaConnection.rollback(paramXid);
 	}
 
@@ -289,6 +432,10 @@ public class HaXaConnection
 	public void start(Xid paramXid, int paramInt)
 		throws XAException
 	{
+		if (h2XaConnection == null) {
+			throw DbException.get(ErrorCode.OBJECT_CLOSED);
+		}
+		
 		h2XaConnection.start(paramXid, paramInt);
 	}
 
@@ -299,8 +446,13 @@ public class HaXaConnection
 	 */
 	public String toString()
 	{
+		if (h2XaConnection == null) {
+			return "null";
+		}
+		
 		return h2XaConnection.toString();
 	}
+
 
 
 	// /////////////////////////////////////////////////////////

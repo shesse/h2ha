@@ -22,6 +22,10 @@ import com.shesse.h2ha.H2HaServer.FailoverState;
 
 
 /**
+ * This is the client of the replication protocol. It is started
+ * upon start of the H2HA server and tries to contact the
+ * peer instance. If not successful or if contact is lost,
+ * the instance stays alive and tries to re-establish the contact.
  * 
  * @author sth
  */
@@ -93,21 +97,23 @@ public class ReplicationClientInstance
 	 */
 	public ReplicationClientInstance(H2HaServer haServer, FileSystemHa fileSystem, List<String> args)
 	{
-		super("replClient", 0, 0, 0, haServer, fileSystem);
+		super("replClient", 0, haServer, fileSystem);
 		log.debug("ReplicationClientInstance()");
 
 		dirtyFlagPath = fileSystem.getHaBaseDir().getPath(dirtyFlagFile);
 		long statisticsInterval = 300000L;
+		long heartbeatInterval = 10000L;
 
 		peerHost = H2HaServer.findOptionWithValue(args, "-haPeerHost", "replication-peer");
 		peerPort = H2HaServer.findOptionWithInt(args, "-haPeerPort", 8234);
 		connectTimeout = H2HaServer.findOptionWithInt(args, "-haConnectTimeout", 10000);
 		statisticsInterval = H2HaServer.findOptionWithInt(args, "-statisticsInterval", 300000);
+		heartbeatInterval = H2HaServer.findOptionWithInt(args, "-heartbeatInterval", 10000);
 		maxConnectRetries = H2HaServer.findOptionWithInt(args, "-connectRetry", 5);
 		autoFailback = H2HaServer.findOption(args, "-autoFailback");
 		
 		setInstanceName("replClient-" + peerHost + ":" + peerPort);
-		setParameters(statisticsInterval);
+		setParameters(0, 0, statisticsInterval, heartbeatInterval);
 	}
 
 	// /////////////////////////////////////////////////////////
@@ -181,17 +187,17 @@ public class ReplicationClientInstance
 		}
 
 		if (isConnected()) {
-			log.info("peer has been contacted");
+			log.info(getInstanceName() + ": peer has been contacted");
 			earliestNextConnect = 0;
 
 			issueConnEvent();
 
 			super.run();
-			log.info("connection to peer has ended");
+			log.info(getInstanceName() + ": connection to peer has ended");
 			haServer.applyEvent(Event.DISCONNECTED, null, null);
 
 		} else {
-			log.info("could not contact peer");
+			log.info(getInstanceName() + ": could not contact peer");
 			issueConnEvent();
 
 		}
@@ -218,7 +224,7 @@ public class ReplicationClientInstance
 	 */
 	public void sendListFilesRequest()
 	{
-		log.info("HA sync: requesting list of files");
+		log.info(getInstanceName() + ": HA sync: requesting list of files");
 		send(new SendListOfFilesRequest());
 	}
 
@@ -242,7 +248,7 @@ public class ReplicationClientInstance
 			if (isConsistentData()) {
 				haServer.applyEvent(Event.CANNOT_CONNECT, "valid", null);
 			} else {
-				log.info("no peer and local database is in an inconsistent state - we need to wait for a consistent master");
+				log.info(getInstanceName() + ": no peer and local database is in an inconsistent state - we need to wait for a consistent master");
 				haServer.applyEvent(Event.CANNOT_CONNECT, "invalid", null);
 			}
 		}
@@ -393,7 +399,7 @@ public class ReplicationClientInstance
 			haPath.delete();
 		}
 
-		log.info("HA sync: " + haNames.size() + " files on server - requested " +
+		log.info(getInstanceName() + ": HA sync: " + haNames.size() + " files on server - requested " +
 			fileDeltasRequested + " deltas and " + fullFilesRequested + " full files");
 		sendToPeer(new SendFileRequest(fileRequests));
 	}
@@ -482,7 +488,7 @@ public class ReplicationClientInstance
 	{
 		log.debug("got EndOfChecksums - ha=" + haName);
 		endOfChecksumReceived++;
-		log.info("HA sync: " + endOfChecksumReceived + " of " + fileDeltasRequested +
+		log.info(getInstanceName() + ": HA sync: " + endOfChecksumReceived + " of " + fileDeltasRequested +
 			" file checksums complete");
 		sendToPeer(new FileProcessed(haName));
 	}
@@ -502,7 +508,7 @@ public class ReplicationClientInstance
 		fc.truncate(length);
 		closeFileObject(fp, lastModified);
 		endOfFileReceived++;
-		log.info("HA sync: " + endOfFileReceived + " of " +
+		log.info(getInstanceName() + ": HA sync: " + endOfFileReceived + " of " +
 			(fileDeltasRequested + fullFilesRequested) + " files complete");
 	}
 
@@ -525,8 +531,8 @@ public class ReplicationClientInstance
 	 */
 	public void processLiveModeConfirmMessage()
 	{
-		log.debug("got LiveModeConfirm");
-		log.info("entering realtime replication mode");
+		log.debug(getInstanceName() + ": got LiveModeConfirm");
+		log.info(getInstanceName() + ": entering realtime replication mode");
 		setDirtyFlag(false);
 		closeAllFileObjects();
 		haServer.applyEvent(Event.SYNC_COMPLETED, null, null);
@@ -537,7 +543,7 @@ public class ReplicationClientInstance
 	 */
 	public void processStopReplicationConfirmMessage()
 	{
-		log.info("this server has stopped replicating the master");
+		log.info(getInstanceName() + ": this server has stopped replicating the master");
 		haServer.applyEvent(Event.SLAVE_STOPPED, null, null);
 	}
 

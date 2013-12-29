@@ -55,11 +55,10 @@ public abstract class ServerSideProtocolInstance
 	// /////////////////////////////////////////////////////////
 	/**
      */
-	public ServerSideProtocolInstance(String instanceName, int maxQueueSize, long maxEnqueueWait,
-										int maxWaitingMessages, H2HaServer haServer,
+	public ServerSideProtocolInstance(String instanceName, int maxQueueSize, H2HaServer haServer,
 										FileSystemHa fileSystem)
 	{
-		super(instanceName, maxQueueSize, maxEnqueueWait, maxWaitingMessages);
+		super(instanceName, maxQueueSize);
 
 		this.haServer = haServer;
 		this.fileSystem = fileSystem;

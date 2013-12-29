@@ -59,6 +59,9 @@ public class ReplicationServer
 	private long statisticsInterval = 300000;
 	
 	/** */
+	private long heartbeatInterval = 10000;
+	
+	/** */
 	private InetAddress localhost;
 
 	// /////////////////////////////////////////////////////////
@@ -91,6 +94,7 @@ public class ReplicationServer
 		maxEnqueueWait = H2HaServer.findOptionWithInt(args, "-haMaxEnqueueWait", 60000);
 		maxWaitingMessages = H2HaServer.findOptionWithInt(args, "-haMaxWaitingMessages", 0);
 		statisticsInterval = H2HaServer.findOptionWithInt(args, "-statisticsInterval", 300000);
+		heartbeatInterval = H2HaServer.findOptionWithInt(args, "-heartbeatInterval", 10000);
 
 		if (restrictPeer) {
 			String restrictHost = peerHost;
@@ -145,9 +149,12 @@ public class ReplicationServer
 			if (isAccessAllowed(remoteAddress)) {
 				log.debug("accepted incoming replication connection");
 				String instanceName = "replServer-" + String.valueOf(remoteAddress);
-				new Thread(new ReplicationServerInstance(instanceName, maxQueueSize,
-					maxEnqueueWait, maxWaitingMessages, statisticsInterval, haServer, fileSystem,
-					connSocket), "ha-server-conn").start();
+				ReplicationServerInstance rsrv =
+					new ReplicationServerInstance(instanceName, maxQueueSize, haServer, fileSystem,
+						connSocket);
+				rsrv.setParameters(maxEnqueueWait, maxWaitingMessages, statisticsInterval,
+					heartbeatInterval);
+				new Thread(rsrv, "ha-server-conn").start();
 
 			} else {
 				log.warn("rejected incoming HA connection from invalid address " + remoteAddress);

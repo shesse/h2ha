@@ -8,11 +8,13 @@ package com.shesse.h2ha;
 
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.logging.LogManager;
 
 import org.apache.log4j.Logger;
 import org.junit.AfterClass;
@@ -34,10 +36,20 @@ public class TestGroupBase
 	protected ServerProcessPair servers = new ServerProcessPair();
 
 	/** */
-	protected DbManager dbManager = new DbManager();
+	protected DbManager dbManager;
 
 	/** */
-	protected TableRegistry tr = new TableRegistry(dbManager);
+	protected TableRegistry tr;
+	
+	static {
+		try {
+			InputStream is = TestGroupBase.class.getResourceAsStream("/logging.properties");
+			LogManager.getLogManager().readConfiguration(is);
+			is.close();
+		} catch (IOException x) {
+			x.printStackTrace();
+		}
+	}
 
 	// /////////////////////////////////////////////////////////
 	// Constructors
@@ -47,7 +59,18 @@ public class TestGroupBase
      */
 	public TestGroupBase()
 	{
+		this(new DbManager());
+		
+	}
+	/**
+     * 
+     */
+	public TestGroupBase(DbManager dbManager)
+	{
 		super();
+		
+		this.dbManager = dbManager;
+		this.tr = new TableRegistry(dbManager);
 	}
 
 	// /////////////////////////////////////////////////////////

@@ -14,6 +14,7 @@ import java.io.Serializable;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
+import java.net.SocketException;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
@@ -101,6 +102,12 @@ public class ReplicationProtocolInstance
 
 	/** */
 	protected Timer timer = new Timer();
+	
+	/** */
+	private long heartbeatInterval = 30000;
+	
+	/** */
+	private long maxHeartbeatWait = 120000;
 
 	/** */
 	private boolean connectionCanceled = false;
@@ -157,12 +164,9 @@ public class ReplicationProtocolInstance
 	/**
      * 
      */
-	public ReplicationProtocolInstance(String instanceName, int maxQueueSize, long maxEnqueueWait,
-										int maxWaitingMessages)
+	public ReplicationProtocolInstance(String instanceName, int maxQueueSize)
 	{
 		this.instanceName = instanceName;
-		this.maxEnqueueWait = maxEnqueueWait;
-		this.maxWaitingMessages = maxWaitingMessages;
 
 		if (maxQueueSize > 0) {
 			messageQueue = new LinkedBlockingQueue<ReplicationMessage>(maxQueueSize);
@@ -204,11 +208,16 @@ public class ReplicationProtocolInstance
 	}
 
 	/**
+	 * @param heartbeatInterval2 
      * 
      */
-	public void setParameters(long statisticsInterval)
+	public void setParameters(long maxEnqueueWait, int maxWaitingMessages, long statisticsInterval,
+		long heartbeatInterval)
 	{
+		this.maxEnqueueWait = maxEnqueueWait;
+		this.maxWaitingMessages = maxWaitingMessages;
 		this.statisticsInterval = statisticsInterval;
+		this.heartbeatInterval = heartbeatInterval;
 	}
 
 	/**
@@ -411,11 +420,11 @@ public class ReplicationProtocolInstance
 				}
 
 				if (now >= nextHeartbeatToSend) {
-					nextHeartbeatToSend = now + 30000;
+					nextHeartbeatToSend = now + heartbeatInterval;
 					sendHeartbeat();
 				}
 
-				if (lastHeartbeatReceived != 0 && now > lastHeartbeatReceived + 120000) {
+				if (lastHeartbeatReceived != 0 && now > lastHeartbeatReceived + maxHeartbeatWait) {
 					throw new TerminateThread(
 						"did not receive heartbeats on replication connection");
 				}
@@ -431,16 +440,24 @@ public class ReplicationProtocolInstance
 				if (message != null) {
 					totalMessagesDequeued++;
 
-					if (message == terminateMessage)
+					if (message == terminateMessage) {
+						log.info(instanceName + ": message processor is terminating");
 						break;
-
+					}
+					
 					log.debug("process message: " + message);
+					// treat every message as a life sign of the peer
+					heartbeatReceived(-1);
 					message.process(this);
 				}
 			}
 
 		} catch (TerminateThread x) {
 			x.logError(log, instanceName);
+			log.error(instanceName + ": terminating connection!");
+
+		} catch (SocketException x) {
+			log.error(instanceName + ": error on socket to peer: "+x.getMessage());
 			log.error(instanceName + ": terminating connection!");
 
 		} catch (Exception x) {
@@ -468,7 +485,7 @@ public class ReplicationProtocolInstance
 	protected void sendHeartbeat()
 		throws IOException
 	{
-		sendToPeer(new HeartbeatMessage());
+		sendToPeer(new HeartbeatMessage(heartbeatInterval));
 	}
 
 
@@ -481,14 +498,18 @@ public class ReplicationProtocolInstance
 	}
 
 	/**
+	 * @param senderHeartbeatInterval 
 	 * @param uuid
 	 * @param masterPriority
 	 * 
 	 */
-	protected void heartbeatReceived()
+	protected void heartbeatReceived(long senderHeartbeatInterval)
 	{
 		log.debug("heartbeatReceived");
 		lastHeartbeatReceived = System.currentTimeMillis();
+		if (senderHeartbeatInterval > 0) {
+			maxHeartbeatWait = senderHeartbeatInterval * 2;
+		}
 	}
 
 	/**
@@ -1014,22 +1035,25 @@ public class ReplicationProtocolInstance
 		extends ReplicationMessage
 	{
 		private static final long serialVersionUID = 1L;
+		
+		private long senderHeartbeatInterval;
 
-		public HeartbeatMessage()
+		public HeartbeatMessage(long senderHeartbeatInterval)
 		{
+			this.senderHeartbeatInterval = senderHeartbeatInterval;
 		}
 
 		@Override
 		protected void process(ReplicationProtocolInstance instance)
 			throws Exception
 		{
-			instance.heartbeatReceived();
+			instance.heartbeatReceived(senderHeartbeatInterval);
 		}
 
 		@Override
 		public int getSizeEstimate()
 		{
-			return 4;
+			return 12;
 		}
 
 		@Override
