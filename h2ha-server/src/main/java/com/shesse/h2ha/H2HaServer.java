@@ -300,6 +300,8 @@ public class H2HaServer
 		System.err.println("        is considered defect. 0 = default = unlimited");
 		System.err.println("    -statisticsInterval");
 		System.err.println("        cycle millis for statistics logging, default = 300000");
+		System.err.println("    -heartbeatInterval");
+		System.err.println("        cycle millis for heartbeating, default = 10000");
 		System.err.println("    -haCacheSize");
 		System.err.println("        size of HA block cache (default = 1000)");
 		System.err.println("    -haConnectTimeout");
@@ -341,6 +343,7 @@ public class H2HaServer
 		removeOptionWithValue(serverArgs, "-haCacheSize", null);
 		removeOptionWithValue(serverArgs, "-haConnectTimeout", null);
 		removeOptionWithValue(serverArgs, "-statisticsInterval", null);
+		removeOptionWithValue(serverArgs, "-heartbeatInterval", null);
 		removeOptionWithValue(serverArgs, "-connectRetry", null);
 		removeOptionWithValue(serverArgs, "-haListenPort", null);
 		removeOptionWithValue(serverArgs, "-haMaxQueueSize", null);

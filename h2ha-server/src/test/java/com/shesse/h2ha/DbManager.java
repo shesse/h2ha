@@ -28,6 +28,15 @@ public class DbManager
 	// /////////////////////////////////////////////////////////
 	/** */
 	private static Logger log = Logger.getLogger(DbManager.class);
+	
+	/** */
+	private String addresses;
+	
+	/** */
+	private String user;
+	
+	/** */
+	private String password;
 
 	/** */
 	private JdbcConnectionPool cp = null;
@@ -40,7 +49,17 @@ public class DbManager
      */
 	public DbManager()
 	{
+		this("localhost:9092,localhost:9093", "sa", "sa");
+	}
+	
+	/**
+     */
+	public DbManager(String addresses, String user, String password)
+	{
 		log.debug("DbManager()");
+		this.addresses = addresses;
+		this.user = user;
+		this.password = password;
 	}
 
 
@@ -77,11 +96,12 @@ public class DbManager
 		throws SQLException
 	{
 		if (cp == null) {
-			String url = "jdbc:h2ha:tcp://localhost:9092,localhost:9093/test";
+			String url = "jdbc:h2ha:tcp://"+addresses+"/test";
 			
 			Properties props = new Properties();
-			props.setProperty("user", "sa");
-			props.setProperty("password", "sa");
+			props.setProperty("user", user);
+			props.setProperty("password", password);
+			log.info("using JDBC URL="+url);
 			HaDataSource ds = new HaDataSource(url, props);
 			cp = JdbcConnectionPool.create(ds);
 		}
@@ -108,6 +128,16 @@ public class DbManager
 					// connection is broken - probably due to HA takeover
 					log.info("connection returned from pool is broken - trying again");
 					conn = null;
+					
+				} else if (x.getErrorCode() == ErrorCode.OBJECT_CLOSED && attempts <= 4) {
+					// connection is broken - probably due to HA takeover
+					log.info("connection has been closed - trying again");
+					conn = null;
+					
+				//}  else if (x.getErrorCode() == ErrorCode.DATABASE_CALLED_AT_SHUTDOWN && attempts <= 4) {
+				//	// connection is broken - probably due to HA takeover
+				//	log.info("connection has been closed - trying again");
+				//	conn = null;
 					
 				} else {
 					// too many retries - give up!

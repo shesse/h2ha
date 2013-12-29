@@ -104,17 +104,15 @@ public class ReplicationServerInstance
 	/**
 	 * @throws IOException
 	 */
-	public ReplicationServerInstance(String instanceName, int maxQueueSize, long maxEnqueueWait,
-										int maxWaitingMessages, long statisticsInterval,
-										H2HaServer haServer, FileSystemHa fileSystem, Socket socket)
+	public ReplicationServerInstance(String instanceName, int maxQueueSize, H2HaServer haServer,
+										FileSystemHa fileSystem, Socket socket)
 		throws IOException
 	{
-		super(instanceName, maxQueueSize, maxEnqueueWait, maxWaitingMessages, haServer, fileSystem);
+		super(instanceName, maxQueueSize, haServer, fileSystem);
 
 		haServer.registerReplicationInstance(this);
 
 		setSocket(socket);
-		setParameters(statisticsInterval);
 
 		log.debug("ReplicationServerInstance()");
 	}

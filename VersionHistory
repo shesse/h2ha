@@ -1,0 +1,16 @@
+1.3.174.2
+=========
+
+- enhanced failover of the driver. It no longer depends
+  on operating system detection of connection end
+- binary is now compiled with Java 1.6 compiler. Before
+  1.7 was used with 1.6 compatibility mode. This caused
+  ClassNotFound exceptions when it was used with 1.6 
+  runtime.
+
+1.3.174.1
+=========
+
+- uses H2 1.3.174
+- new project structure based on Maven
+

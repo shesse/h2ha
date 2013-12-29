@@ -238,7 +238,7 @@ public class FailoverTests
 		log.info("Failover Pair is in sync");
 
 
-		log.info("step 2: writing 200 records and terminating A in during transaction");
+		log.info("step 2: writing 200 records and terminating A during transaction");
 		executeTransaction(insertAndTerminateA);
 
 

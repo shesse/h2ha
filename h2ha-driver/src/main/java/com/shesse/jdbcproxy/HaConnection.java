@@ -6,6 +6,7 @@
 
 package com.shesse.jdbcproxy;
 
+import java.lang.reflect.Field;
 import java.sql.Array;
 import java.sql.Blob;
 import java.sql.CallableStatement;
@@ -22,41 +23,161 @@ import java.sql.SQLXML;
 import java.sql.Savepoint;
 import java.sql.Statement;
 import java.sql.Struct;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executor;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import org.h2.engine.SessionInterface;
+import org.h2.jdbc.JdbcConnection;
+import org.h2.jdbcx.JdbcXAConnection;
+import org.h2.value.Transfer;
+
+import com.shesse.jdbcproxy.AlternatingConnectionFactory.RegisteredHaConnection;
 
 /**
  * 
  * @author sth
  */
 public class HaConnection
-	implements Connection
+	implements Connection, RegisteredHaConnection
 {
 	// /////////////////////////////////////////////////////////
 	// Class Members
 	// /////////////////////////////////////////////////////////
 	/** */
-	// private static Logger log = Logger.getLogger(HaConnection.class);
+	private static Logger log = Logger.getLogger(HaConnection.class.getName());
+	
+	/** */
+	private AlternatingConnectionFactory connectionFactory;
 
 	/** */
-	private Connection h2Connection;
+	private ServerMonitor monitoredBy;
+
+	/** */
+	@SuppressWarnings("unused")
+	private JdbcXAConnection h2XaConnection;
+
+	/** */
+	private JdbcConnection h2Connection;
+
+	/** */
+	private SessionInterface session;
 
 
 	// /////////////////////////////////////////////////////////
 	// Constructors
 	// /////////////////////////////////////////////////////////
 	/**
+	 * @param connectionFactory 
+	 * @throws SQLException 
      */
-	public HaConnection(Connection h2Connection)
+	public HaConnection(AlternatingConnectionFactory connectionFactory, ServerMonitor monitoredBy,
+						JdbcXAConnection h2XaConnection)
+		throws SQLException
 	{
-		this.h2Connection = h2Connection;
+		this.connectionFactory = connectionFactory;
+		this.monitoredBy = monitoredBy;
+		this.h2XaConnection = h2XaConnection;
+		this.h2Connection = (JdbcConnection)h2XaConnection.getConnection();
+		this.session = h2Connection.getSession();
+		connectionFactory.register(this);
 	}
 
 
 	// /////////////////////////////////////////////////////////
 	// Methods
 	// /////////////////////////////////////////////////////////
+	/**
+	 * cleanup if the close was not called explicitly
+	 * 
+	 * {@inheritDoc}
+	 *
+	 * @see java.lang.Object#finalize()
+	 */
+	protected void finalize()
+	{
+		try {
+			close();
+		} catch (SQLException x) {
+		}
+	}
+	
+	
+
+	/**
+	 * @return the h2Connection
+	 */
+	public JdbcConnection getH2Connection()
+	{
+		return h2Connection;
+	}
+
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @see com.shesse.jdbcproxy.AlternatingConnectionFactory.RegisteredHaConnection#getMonitoredBy()
+	 */
+	@Override
+	public ServerMonitor getMonitoredBy()
+	{
+		return monitoredBy;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @see com.shesse.jdbcproxy.AlternatingConnectionFactory.RegisteredHaConnection#cleanup()
+	 */
+	@Override
+	public void cleanup()
+	{
+		forceCloseCommunicationSocket(session);
+	}
+
+	/**
+	 * This does a bit of forbidden magic: we want to close the socket
+	 * support the argument session. However, all the relevant Methods
+	 * are synchronized snd are probably already locked when we run 
+	 * in the situation where closeCommunicationSocket is needed.
+	 * <p>
+	 * To overcome this, directly access the private member transferList,
+	 * which is an ArrayList<Transfer>. From there, we can access the 
+	 * Transfer objects and their sockets.
+	 *  
+	 * @param session
+	 */
+	public static void forceCloseCommunicationSocket(SessionInterface session)
+	{
+		if (session == null) {
+			log.fine("not closing session because it is null");
+			return;
+		}
+		
+		try {
+			log.fine("forcing close on session "+session.getClass().getName());
+			Field transferListField = session.getClass().getDeclaredField("transferList");
+			transferListField.setAccessible(true);
+			@SuppressWarnings("unchecked")
+			ArrayList<Transfer> transferList = (ArrayList<Transfer>)transferListField.get(session);
+			Transfer[] transfers = transferList.toArray(new Transfer[transferList.size()]);
+			for (Transfer transfer: transfers) {
+				try {
+					log.fine("closing socket for transfer");
+					transfer.getSocket().close();
+				} catch (Exception x) {
+					log.log(Level.FINE, "got exception when forcing close on socket", x);
+				}
+			}
+		} catch (Exception x) {
+			log.log(Level.FINE, "got exception when forcing close on connection", x);
+		}
+	}
+
+
 	/**
 	 * @throws SQLException
 	 * @see java.sql.Connection#clearWarnings()
@@ -75,6 +196,7 @@ public class HaConnection
 	public void close()
 		throws SQLException
 	{
+		connectionFactory.deregister(this);
 		h2Connection.close();
 	}
 
@@ -755,6 +877,7 @@ public class HaConnection
 	{
 		throw new SQLFeatureNotSupportedException("");
 	}
+
 
 
 	// /////////////////////////////////////////////////////////
