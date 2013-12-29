@@ -27,7 +27,7 @@ import org.h2.jdbcx.JdbcDataSource;
 import com.shesse.jdbcproxy.ServerMonitor.Status;
 
 /**
- * In instance of this class acts as a connection factory for
+ * An instance of this class acts as a connection factory for
  * a HA pair of H2 database servers. It maintains DataSources
  * for both database servers and tries to connect to both of 
  * them.
