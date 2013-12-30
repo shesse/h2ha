@@ -58,6 +58,13 @@ public class AlternatingConnectionFactory
 	/** */
 	private ServerMonitor[] monitors = null;
 
+	/**
+	 * We keep track of the status of the monitors to avoid
+	 * race conditions which could arise when we ask the
+	 * monitor using getStatus()
+	 */
+	private ServerMonitor.Status[] monitorStatus = null;
+	
 	/** */
 	private volatile ServerMonitor activeMonitor;
 	
@@ -75,8 +82,6 @@ public class AlternatingConnectionFactory
 	private static Map<String, AlternatingConnectionFactory> factories =
 		new HashMap<String, AlternatingConnectionFactory>();
 	
-	/** */
-	private static final long maxWaitForAvailable = 30000;
 
 
 	// /////////////////////////////////////////////////////////
@@ -197,7 +202,7 @@ public class AlternatingConnectionFactory
 	/**
 	 * @param serverMonitor
 	 */
-	public void submit(Runnable job)
+	public static synchronized void submit(Runnable job)
 	{
 		getThreadPool().submit(job);
 	}
@@ -206,7 +211,7 @@ public class AlternatingConnectionFactory
 	 * @param timerTask
 	 * @param refreshcycle
 	 */
-	public void schedule(TimerTask task, long delay)
+	public static synchronized void schedule(TimerTask task, long delay)
 	{
 		getTimer().schedule(task, delay);
 	}
@@ -220,12 +225,26 @@ public class AlternatingConnectionFactory
 		log.fine("update monitor status: "+monitor+": "+status);
 		ServerMonitor toBeCleaned = null;
 		synchronized (this) {
+			if (monitors == null) {
+				return;
+			}
+			
+			// remember new status
+			for (int i = 0; i < monitors.length; i++) {
+				if (monitors[i] == monitor) {
+					monitorStatus[i] = status;
+				}
+			}
+			
+			// prepare cleanup of the old upon change of active moinitor
 			if (status == Status.AVAILABLE || activeMonitor == null) {
 				if (activeMonitor != monitor) {
 					toBeCleaned = activeMonitor;
 					activeMonitor = monitor;
 				}
 			}
+			
+			// wake up any instances waiting for an active monitor
 			notifyAll();
 		}
 		
@@ -466,23 +485,29 @@ public class AlternatingConnectionFactory
 				}
 			}
 			
-			// we will wait at most maxWaitForAvailable for a
-			// monitor with status 'AVAILABLE'. 
-			long waitUntil = System.currentTimeMillis() + maxWaitForAvailable;
+			// we will wait we either have an available monitor or until
+			// all monitors have reported 'unavailable'
 			while (activeMonitor.getStatus() != ServerMonitor.Status.AVAILABLE) {
-				long delay = waitUntil - System.currentTimeMillis();
-				if (delay <= 0) {
-					log.fine("tineout waiting for an AVAILABLE monitor");
+				boolean allHaveReported = true;
+				for (ServerMonitor.Status status: monitorStatus) {
+					if (status != Status.AVAILABLE && status != Status.UNAVAILABLE) {
+						allHaveReported = false;
+						break;
+					}
+				}
+				
+				if (allHaveReported) {
 					break;
 				}
 				
 				try {
 					log.fine("waiting because activeMonitor is not AVAILABLE");
-					wait(delay);
+					wait();
 				} catch (InterruptedException x) {
 					throw new SQLException("unexpected interrupt", x);
 				}
 			}
+			
 			log.fine("found a monitor - "+activeMonitor+", status = "+activeMonitor.getStatus());
 
 		}
@@ -498,6 +523,7 @@ public class AlternatingConnectionFactory
 		if (monitors == null) {
 			log.fine("starting monitors");
 			monitors = new ServerMonitor[dataSources.length];
+			monitorStatus = new ServerMonitor.Status[dataSources.length];
 			for (int i = 0; i < monitors.length; i++) {
 				monitors[i] = new ServerMonitor(this, dataSources[i]);
 			}
@@ -518,6 +544,7 @@ public class AlternatingConnectionFactory
 				}
 			}
 			monitors = null;
+			monitorStatus = null;
 			activeMonitor = null;
 		}
 

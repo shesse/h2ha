@@ -86,7 +86,7 @@ implements Runnable
 		// we schedule ourself to attempt a connection 
 		// in background
 		submitted = true;
-		connectionFactory.submit(this);
+		AlternatingConnectionFactory.submit(this);
 	}
 
 	// /////////////////////////////////////////////////////////
@@ -127,7 +127,7 @@ implements Runnable
 				timerTask.cancel();
 				timerTask = null;
 			}
-			connectionFactory.submit(ServerMonitor.this);
+			AlternatingConnectionFactory.submit(ServerMonitor.this);
 			
 		} else {
 			log.fine("checkAgain does nothing because the check is already submitted for "+h2DataSource.getURL());
@@ -204,7 +204,7 @@ implements Runnable
 						checkAgain();
 					}
 				};
-				connectionFactory.schedule(timerTask, delay);
+				AlternatingConnectionFactory.schedule(timerTask, delay);
 			}
 		}
 	}
