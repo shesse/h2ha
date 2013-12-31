@@ -101,19 +101,17 @@ public class ReplicationClientInstance
 		log.debug("ReplicationClientInstance()");
 
 		dirtyFlagPath = fileSystem.getHaBaseDir().getPath(dirtyFlagFile);
-		long statisticsInterval = 300000L;
-		long heartbeatInterval = 10000L;
+		long idleTimeout = 10000L;
 
 		peerHost = H2HaServer.findOptionWithValue(args, "-haPeerHost", "replication-peer");
 		peerPort = H2HaServer.findOptionWithInt(args, "-haPeerPort", 8234);
 		connectTimeout = H2HaServer.findOptionWithInt(args, "-haConnectTimeout", 10000);
-		statisticsInterval = H2HaServer.findOptionWithInt(args, "-statisticsInterval", 300000);
-		heartbeatInterval = H2HaServer.findOptionWithInt(args, "-heartbeatInterval", 10000);
+		idleTimeout = H2HaServer.findOptionWithInt(args, "-idleTimeout", 20000);
 		maxConnectRetries = H2HaServer.findOptionWithInt(args, "-connectRetry", 5);
 		autoFailback = H2HaServer.findOption(args, "-autoFailback");
 		
 		setInstanceName("replClient-" + peerHost + ":" + peerPort);
-		setParameters(0, 0, statisticsInterval, heartbeatInterval);
+		setParameters(0, 0, idleTimeout);
 	}
 
 	// /////////////////////////////////////////////////////////

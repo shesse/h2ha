@@ -104,11 +104,8 @@ public class ReplicationProtocolInstance
 	protected Timer timer = new Timer();
 	
 	/** */
-	private long heartbeatInterval = 30000;
+	private long idleTimeout = 20000;
 	
-	/** */
-	private long maxHeartbeatWait = 120000;
-
 	/** */
 	private boolean connectionCanceled = false;
 
@@ -140,16 +137,10 @@ public class ReplicationProtocolInstance
 	private long lastStatisticsBytesReceived = 0L;
 
 	/** */
-	private long nextStatisticsTimestamp = 0L;
-
-	/** */
-	private long statisticsInterval = 0L;
-
-	/** */
 	private long nextHeartbeatToSend = 0L;
 
 	/** */
-	private long lastHeartbeatReceived = 0L;
+	private TimerTask idleTimer = null;
 
 	/** */
 	private long lastSendDelay = 0L;
@@ -191,9 +182,10 @@ public class ReplicationProtocolInstance
 		nextWaitingOperationId = 0;
 		connectionCanceled = false;
 		nextHeartbeatToSend = 0L;
-		lastHeartbeatReceived = 0L;
 		lastSendDelay = 0L;
 
+		restartIdleTimer();
+		
 		receiver = new ReplicationProtocolReceiver(this, socket);
 		receiver.start();
 
@@ -208,16 +200,14 @@ public class ReplicationProtocolInstance
 	}
 
 	/**
-	 * @param heartbeatInterval2 
+	 * @param idleTimeout2 
      * 
      */
-	public void setParameters(long maxEnqueueWait, int maxWaitingMessages, long statisticsInterval,
-		long heartbeatInterval)
+	public void setParameters(long maxEnqueueWait, int maxWaitingMessages, long idleTimeout)
 	{
 		this.maxEnqueueWait = maxEnqueueWait;
 		this.maxWaitingMessages = maxWaitingMessages;
-		this.statisticsInterval = statisticsInterval;
-		this.heartbeatInterval = heartbeatInterval;
+		this.idleTimeout = idleTimeout;
 	}
 
 	/**
@@ -380,59 +370,12 @@ public class ReplicationProtocolInstance
 		try {
 			for (;;) {
 				long now = System.currentTimeMillis();
-				if (now >= nextStatisticsTimestamp && statisticsInterval > 0) {
-					if (lastStatisticsTimestamp != 0L) {
-						double enqueuedMessagesPerSecond =
-							(totalMessagesEnqueued - lastStatisticsMessagesEnqueued) /
-								((now - lastStatisticsTimestamp) / 1000.);
-
-						double dequeuedMessagesPerSecond =
-							(totalMessagesDequeued - lastStatisticsMessagesDequeued) /
-								((now - lastStatisticsTimestamp) / 1000.);
-
-						double transmittedBytesPerSecond =
-							(totalBytesTransmitted - lastStatisticsBytesTransmitted) /
-								((now - lastStatisticsTimestamp) / 1000.);
-
-						double receivedBytesPerSecond =
-							(totalBytesReceived - lastStatisticsBytesReceived) /
-								((now - lastStatisticsTimestamp) / 1000.);
-
-						logStatistics();
-						log.info(instanceName +
-							String.format(": transmit/receive rate = %7.1f/%7.1f KB/sec",
-								transmittedBytesPerSecond / 1000, receivedBytesPerSecond / 1000));
-
-						log.info(instanceName +
-							String.format(": enqueue/dequeue rate  = %7.1f/%7.1f Msg/sec",
-								enqueuedMessagesPerSecond, dequeuedMessagesPerSecond));
-
-						log.info(instanceName +
-							String.format(": queue size    = %5d", messageQueue.size()));
-					}
-
-					lastStatisticsMessagesEnqueued = totalMessagesEnqueued;
-					lastStatisticsMessagesDequeued = totalMessagesDequeued;
-					lastStatisticsBytesTransmitted = totalBytesTransmitted;
-					lastStatisticsBytesReceived = totalBytesReceived;
-					lastStatisticsTimestamp = now;
-					nextStatisticsTimestamp = now + statisticsInterval;
-				}
-
 				if (now >= nextHeartbeatToSend) {
-					nextHeartbeatToSend = now + heartbeatInterval;
+					nextHeartbeatToSend = now + idleTimeout/2;
 					sendHeartbeat();
 				}
 
-				if (lastHeartbeatReceived != 0 && now > lastHeartbeatReceived + maxHeartbeatWait) {
-					throw new TerminateThread(
-						"did not receive heartbeats on replication connection");
-				}
-
-				long nextActivity = nextStatisticsTimestamp;
-				if (statisticsInterval == 0 || nextHeartbeatToSend < nextActivity) {
-					nextActivity = nextHeartbeatToSend;
-				}
+				long nextActivity = nextHeartbeatToSend;
 				
 				long delta = nextActivity - now;
 				ReplicationMessage message = messageQueue.poll(delta, TimeUnit.MILLISECONDS);
@@ -446,8 +389,6 @@ public class ReplicationProtocolInstance
 					}
 					
 					log.debug("process message: " + message);
-					// treat every message as a life sign of the peer
-					heartbeatReceived(-1);
 					message.process(this);
 				}
 			}
@@ -457,9 +398,14 @@ public class ReplicationProtocolInstance
 			log.error(instanceName + ": terminating connection!");
 
 		} catch (SocketException x) {
-			log.error(instanceName + ": error on socket to peer: "+x.getMessage());
-			log.error(instanceName + ": terminating connection!");
-
+			if (x.getMessage().contains("closed")) {
+				log.info(instanceName + ": "+x.getMessage());
+				log.info(instanceName + ": connection has been terminated");
+			} else {
+				log.error(instanceName + ": error on socket to peer: "+x.getMessage());
+				log.error(instanceName + ": terminating connection!");
+			}
+			
 		} catch (Exception x) {
 			log.error(instanceName + ": unexpected exception when processing message from peer", x);
 			log.error(instanceName + ": terminating connection!");
@@ -469,12 +415,48 @@ public class ReplicationProtocolInstance
 			log.debug(instanceName + ": leaving processProtocolMessages");
 		}
 	}
-
+	
 	/**
 	 * 
 	 */
 	protected void logStatistics()
 	{
+		long now = System.currentTimeMillis();
+		if (lastStatisticsTimestamp != 0) {
+			double enqueuedMessagesPerSecond =
+				(totalMessagesEnqueued - lastStatisticsMessagesEnqueued) /
+				((now - lastStatisticsTimestamp) / 1000.);
+
+			double dequeuedMessagesPerSecond =
+				(totalMessagesDequeued - lastStatisticsMessagesDequeued) /
+				((now - lastStatisticsTimestamp) / 1000.);
+
+			double transmittedBytesPerSecond =
+				(totalBytesTransmitted - lastStatisticsBytesTransmitted) /
+				((now - lastStatisticsTimestamp) / 1000.);
+
+			double receivedBytesPerSecond =
+				(totalBytesReceived - lastStatisticsBytesReceived) /
+				((now - lastStatisticsTimestamp) / 1000.);
+
+			logStatistics();
+			log.info(instanceName +
+				String.format(": transmit/receive rate = %7.1f/%7.1f KB/sec",
+					transmittedBytesPerSecond / 1000, receivedBytesPerSecond / 1000));
+
+			log.info(instanceName +
+				String.format(": enqueue/dequeue rate  = %7.1f/%7.1f Msg/sec",
+					enqueuedMessagesPerSecond, dequeuedMessagesPerSecond));
+
+			log.info(instanceName +
+				String.format(": queue size    = %5d", messageQueue.size()));
+		}
+		
+		lastStatisticsMessagesEnqueued = totalMessagesEnqueued;
+		lastStatisticsMessagesDequeued = totalMessagesDequeued;
+		lastStatisticsBytesTransmitted = totalBytesTransmitted;
+		lastStatisticsBytesReceived = totalBytesReceived;
+		lastStatisticsTimestamp = now;
 	}
 
 
@@ -485,7 +467,7 @@ public class ReplicationProtocolInstance
 	protected void sendHeartbeat()
 		throws IOException
 	{
-		sendToPeer(new HeartbeatMessage(heartbeatInterval));
+		sendToPeer(new HeartbeatMessage(idleTimeout));
 	}
 
 
@@ -498,17 +480,49 @@ public class ReplicationProtocolInstance
 	}
 
 	/**
-	 * @param senderHeartbeatInterval 
+	 * @param senderIdleTimeout 
 	 * @param uuid
 	 * @param masterPriority
 	 * 
 	 */
-	protected void heartbeatReceived(long senderHeartbeatInterval)
+	protected void activityReceived(long senderIdleTimeout)
 	{
-		log.debug("heartbeatReceived");
-		lastHeartbeatReceived = System.currentTimeMillis();
-		if (senderHeartbeatInterval > 0) {
-			maxHeartbeatWait = senderHeartbeatInterval * 2;
+		log.debug("activityReceived");
+		if (senderIdleTimeout > 0) {
+			idleTimeout = senderIdleTimeout;
+		}
+		
+		restartIdleTimer();
+	}
+	
+	/**
+	 * 
+	 */
+	private synchronized void restartIdleTimer()
+	{
+		stopIdleTimer();
+		
+		idleTimer = new TimerTask() {
+			@Override
+			public void run()
+			{
+				log.error(instanceName +
+					": inactivity timeout - terminating connection");
+				try {
+					socket.close();
+				} catch (IOException x) {
+					log.error("cannot close socket: "+x.getMessage());
+				}
+			}
+		};
+		timer.schedule(idleTimer, idleTimeout);
+	}
+	
+	private synchronized void stopIdleTimer()
+	{
+		if (idleTimer != null) {
+			idleTimer.cancel();
+			idleTimer = null;
 		}
 	}
 
@@ -676,6 +690,8 @@ public class ReplicationProtocolInstance
 				log.debug(instanceName + ": got from protocol connection: " + message);
 			}
 
+			// treat every message as a life sign of the peer
+			activityReceived(-1);
 
 			ReplicationMessage repmsg = (ReplicationMessage) message;
 			int estimatedSize = repmsg.getSizeEstimate();
@@ -1036,18 +1052,18 @@ public class ReplicationProtocolInstance
 	{
 		private static final long serialVersionUID = 1L;
 		
-		private long senderHeartbeatInterval;
+		private long senderIdleTimeout;
 
-		public HeartbeatMessage(long senderHeartbeatInterval)
+		public HeartbeatMessage(long senderIdleTimeout)
 		{
-			this.senderHeartbeatInterval = senderHeartbeatInterval;
+			this.senderIdleTimeout = senderIdleTimeout;
 		}
 
 		@Override
 		protected void process(ReplicationProtocolInstance instance)
 			throws Exception
 		{
-			instance.heartbeatReceived(senderHeartbeatInterval);
+			instance.activityReceived(senderIdleTimeout);
 		}
 
 		@Override

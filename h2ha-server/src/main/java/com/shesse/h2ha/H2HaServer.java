@@ -25,6 +25,8 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Properties;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -82,6 +84,9 @@ public class H2HaServer
 
 	/** */
 	private BlockingQueue<Runnable> controlQueue = new LinkedBlockingQueue<Runnable>();
+	
+	/** */
+	private Timer timer = new Timer(true);
 
 	/** */
 	private volatile boolean shutdownRequested = false;
@@ -300,8 +305,8 @@ public class H2HaServer
 		System.err.println("        is considered defect. 0 = default = unlimited");
 		System.err.println("    -statisticsInterval");
 		System.err.println("        cycle millis for statistics logging, default = 300000");
-		System.err.println("    -heartbeatInterval");
-		System.err.println("        cycle millis for heartbeating, default = 10000");
+		System.err.println("    -idleTimeout");
+		System.err.println("        max millis waiting for activity on a peer connection, default = 20000");
 		System.err.println("    -haCacheSize");
 		System.err.println("        size of HA block cache (default = 1000)");
 		System.err.println("    -haConnectTimeout");
@@ -342,8 +347,8 @@ public class H2HaServer
 		removeOptionWithValue(serverArgs, "-haPeerPort", null);
 		removeOptionWithValue(serverArgs, "-haCacheSize", null);
 		removeOptionWithValue(serverArgs, "-haConnectTimeout", null);
-		removeOptionWithValue(serverArgs, "-statisticsInterval", null);
-		removeOptionWithValue(serverArgs, "-heartbeatInterval", null);
+		long statisticsInterval = removeOptionWithInt(serverArgs, "-statisticsInterval", 300000);
+		removeOptionWithValue(serverArgs, "-idleTimeout", null);
 		removeOptionWithValue(serverArgs, "-connectRetry", null);
 		removeOptionWithValue(serverArgs, "-haListenPort", null);
 		removeOptionWithValue(serverArgs, "-haMaxQueueSize", null);
@@ -386,6 +391,16 @@ public class H2HaServer
 			fileSystem = new FileSystemHa(this, args);
 			server = new ReplicationServer(this, fileSystem, args);
 			server.start();
+			
+			if (statisticsInterval > 0) {
+				timer.schedule(new TimerTask() {
+					@Override
+					public void run()
+					{
+						logStatistics();
+					}
+				}, 2000, statisticsInterval);
+			}
 	
 			if (peerHost == null) {
 				log.warn("no haPeerHost specified - running in master only mode!");
@@ -1401,6 +1416,37 @@ public class H2HaServer
 	{
 		client.issuePeerEvent();
 	}
+
+	/**
+	 * 
+	 */
+	protected void logStatistics()
+	{
+		log.info("failoverState = " + getFailoverState());
+
+		Runtime rt = Runtime.getRuntime();
+		rt.gc();
+
+		long mmax = rt.maxMemory();
+		long mtot = rt.totalMemory();
+		long mfree = rt.freeMemory();
+		long mused = mtot-mfree;
+
+		mmax /= (1024*1024);
+		mtot /= (1024*1024);
+		mfree /= (1024*1024);
+		mused /= (1024*1024);
+
+		log.info("memory used="+mused+
+			"MB, allocated="+mtot+"MB"+", allowed="+mmax+"MB");
+		
+		if (client != null) {
+			client.logStatistics();
+		}
+		
+		fileSystem.logStatistics();
+	}
+
 
 
 	/**

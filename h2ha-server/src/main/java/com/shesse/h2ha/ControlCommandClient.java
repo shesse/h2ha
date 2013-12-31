@@ -37,7 +37,7 @@ public class ControlCommandClient
 	{
 		super("command", 0);
 
-		setParameters(0, 0, 0, 30000);
+		setParameters(0, 0, 20000);
 		log.debug("ControlCommandClient()");
 
 	}

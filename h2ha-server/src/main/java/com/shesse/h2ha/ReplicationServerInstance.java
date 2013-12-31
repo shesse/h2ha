@@ -190,17 +190,6 @@ public class ReplicationServerInstance
 
 
 	/**
-	 * {@inheritDoc}
-	 * 
-	 * @see com.shesse.h2ha.ReplicationProtocolInstance#logStatistics()
-	 */
-	@Override
-	protected void logStatistics()
-	{
-		log.info(instanceName + ": failoverState = " + haServer.getFailoverState());
-	}
-
-	/**
 	 * This method may only be called from within the protocol instance thread.
 	 * 
 	 * @throws IOException

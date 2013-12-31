@@ -226,6 +226,19 @@ public class FileSystemHa
 
 
 	/**
+	 * 
+	 */
+	public void logStatistics()
+	{
+		// use a local reference to the replicators array to prevent
+		// any interference that may be cause by changes from other threads
+		final ReplicationServerInstance[] reps = replicators;
+		for (ReplicationServerInstance rep: reps) {
+			rep.logStatistics();
+		}
+	}
+
+	/**
 	 * flushes all replicator connections.
 	 */
 	public void flushAll()

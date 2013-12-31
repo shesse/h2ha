@@ -56,10 +56,7 @@ public class ReplicationServer
 	private int maxWaitingMessages = 0;
 
 	/** */
-	private long statisticsInterval = 300000;
-	
-	/** */
-	private long heartbeatInterval = 10000;
+	private long idleTimeout = 20000;
 	
 	/** */
 	private InetAddress localhost;
@@ -93,8 +90,7 @@ public class ReplicationServer
 		maxQueueSize = H2HaServer.findOptionWithInt(args, "-haMaxQueueSize", 5000);
 		maxEnqueueWait = H2HaServer.findOptionWithInt(args, "-haMaxEnqueueWait", 60000);
 		maxWaitingMessages = H2HaServer.findOptionWithInt(args, "-haMaxWaitingMessages", 0);
-		statisticsInterval = H2HaServer.findOptionWithInt(args, "-statisticsInterval", 300000);
-		heartbeatInterval = H2HaServer.findOptionWithInt(args, "-heartbeatInterval", 10000);
+		idleTimeout = H2HaServer.findOptionWithInt(args, "-idleTimeout", 10000);
 
 		if (restrictPeer) {
 			String restrictHost = peerHost;
@@ -152,8 +148,7 @@ public class ReplicationServer
 				ReplicationServerInstance rsrv =
 					new ReplicationServerInstance(instanceName, maxQueueSize, haServer, fileSystem,
 						connSocket);
-				rsrv.setParameters(maxEnqueueWait, maxWaitingMessages, statisticsInterval,
-					heartbeatInterval);
+				rsrv.setParameters(maxEnqueueWait, maxWaitingMessages, idleTimeout);
 				new Thread(rsrv, "ha-server-conn").start();
 
 			} else {
