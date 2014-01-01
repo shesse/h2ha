@@ -185,6 +185,21 @@ public class FailoverTests
 
 
 	@Test
+	public void multiFailover()
+		throws SQLException, IOException, InterruptedException
+	{
+		for (int i = 0; i < 300; i++) {
+			if (i > 0) {
+				tearDown();
+				setUp();
+			}
+			log.info("######################################################################");
+			log.info("loop "+i);
+			failoverDuringTransaction();
+		}
+	}
+	
+	@Test
 	public void failoverDuringTransaction()
 		throws SQLException, IOException, InterruptedException
 	{
