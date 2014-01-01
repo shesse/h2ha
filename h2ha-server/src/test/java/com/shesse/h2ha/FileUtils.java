@@ -11,6 +11,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -104,7 +105,7 @@ public class FileUtils
 
                         byte[] bufa = new byte[4096];
                         byte[] bufb = new byte[4096];
-
+                        long pos = 0;
                         for (;;) {
                             int la = isa.read(bufa);
                             int lb = isb.read(bufb);
@@ -113,13 +114,19 @@ public class FileUtils
 
                             if (la != lb) {
                                 log.error("file cmp error: length mismatch between "+dira+" and "+dirb);
-                                return false;
+                                log.error(lsl(dira));
+                                log.error(lsl(dirb));
+                                 return false;
                             }
 
                             if (!Arrays.equals(bufa, bufb))  {
-                                log.error("file cmp error: content differs between "+dira+" and "+dirb);
+                                log.error("file cmp error: content differs between "+dira+" and "+dirb+" at "+pos);
+                                log.error(lsl(dira));
+                                log.error(lsl(dirb));
                                 return false;
                             }
+                            
+                            pos += la;
                         }
                     } finally {
                         isa.close();
@@ -134,7 +141,21 @@ public class FileUtils
         return true;
     }
     
-    private static Set<String> listDirectory(File dir)
+    /**
+	 * @param dira
+	 * @return
+	 */
+	private static String lsl(File file)
+	{
+		StringBuilder sb = new StringBuilder();
+		sb.append(file);
+		sb.append(": ").append(file.length());
+		sb.append(" - ").append(file.lastModified());
+		sb.append(" = ").append(new Date(file.lastModified()));
+		return sb.toString();
+	}
+
+	private static Set<String> listDirectory(File dir)
     {
         Set<String> entries = new HashSet<String>();
         

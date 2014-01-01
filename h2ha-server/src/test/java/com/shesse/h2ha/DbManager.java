@@ -158,6 +158,11 @@ public class DbManager
 	public void syncWithAllReplicators()
 		throws SQLException
 	{
+		try {
+			Thread.sleep(1000);
+		} catch (InterruptedException x1) {
+		}
+		
 		Connection conn = createConnection();
 		try {
 			Statement stmnt = conn.createStatement();
