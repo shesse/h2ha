@@ -3,3 +3,5 @@
 target
 /src
 /test
+/pom.xml.releaseBackup
+/release.properties

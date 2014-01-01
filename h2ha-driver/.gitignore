@@ -1,3 +1,4 @@
 target
 src/main/resources
 src/test/resources
+pom.xml.releaseBackup
