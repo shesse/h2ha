@@ -121,14 +121,19 @@ public class ReplicationServerInstance
 	// Methods
 	// /////////////////////////////////////////////////////////
 	/**
+	 * @throws InterruptedException 
+	 * @throws IOException 
      * 
      */
-	public void run()
+	@Override
+	public void body()
+		throws IOException, InterruptedException
 	{
 		log.info(getInstanceName() + ": a new client has connected");
 
 		try {
-			super.run();
+			super.body();
+			
 		} finally {
 			log.info(getInstanceName() + ": end of Client connection");
 			fileSystem.deregisterReplicator(this);

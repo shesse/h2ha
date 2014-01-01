@@ -163,7 +163,11 @@ public class PermanentLoadGenerator
 				try {
 					body();
 				} catch (SQLException x) {
-					log.error("got SQL exception within writer thread: "+x.getMessage());
+					if (x.getErrorCode() == ErrorCode.GENERAL_ERROR_1) {
+						log.error("got SQL exception within writer thread", x);
+					} else {
+						log.error("got SQL exception within writer thread: "+x.getMessage());
+					}
 				} catch (Throwable x) {
 					log.error("unexpected error within writer thread", x);
 				}

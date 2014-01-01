@@ -73,6 +73,10 @@ public class ReplicationProtocolReceiver
 		} catch (SocketException x) {
 			if (x.getMessage().contains("reset")) {
 				// treat like EOF
+				
+			} else if (x.getMessage().contains("closed")) {
+				log.info(instanceName + ": socket has been closed");
+				
 			} else {
 				log.warn(instanceName + ": caught socket exception on replication connection: " +
 					x.getMessage());

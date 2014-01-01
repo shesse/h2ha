@@ -36,7 +36,7 @@ import com.shesse.h2ha.H2HaServer.FailoverState;
  * 
  * @author sth
  */
-public class ReplicationProtocolInstance
+public abstract class ReplicationProtocolInstance
 	implements Runnable
 {
 	// /////////////////////////////////////////////////////////
@@ -307,6 +307,7 @@ public class ReplicationProtocolInstance
 
 		} finally {
 			closeSocket();
+			timer.cancel();
 		}
 	}
 
@@ -316,12 +317,23 @@ public class ReplicationProtocolInstance
 	 * @throws InterruptedException
 	 * 
 	 */
-	private void body()
-		throws SQLException, IOException, InterruptedException
+	protected void body()
+		throws IOException, InterruptedException
+	{
+		log.debug(instanceName + ": replication instance has started");
+
+		processMessagesForSingleConnection();
+	}
+	
+	/**
+	 * @throws IOException 
+	 * @throws InterruptedException 
+	 * 
+	 */
+	protected void processMessagesForSingleConnection()
+		throws InterruptedException, IOException
 	{
 		try {
-			log.debug(instanceName + ": replication instance has started");
-
 			processProtocolMessages();
 
 		} finally {
@@ -353,9 +365,9 @@ public class ReplicationProtocolInstance
 				waitingOperations.clear();
 			}
 
-			timer.cancel();
 			log.debug(instanceName + ": replication instance has ended");
 		}
+
 	}
 
 	/**
@@ -368,7 +380,7 @@ public class ReplicationProtocolInstance
 	{
 		log.debug(instanceName + ": processProtocolMessages");
 		try {
-			for (;;) {
+			while (oos != null) {
 				long now = System.currentTimeMillis();
 				if (now >= nextHeartbeatToSend) {
 					nextHeartbeatToSend = now + idleTimeout/2;
@@ -399,8 +411,8 @@ public class ReplicationProtocolInstance
 
 		} catch (SocketException x) {
 			if (x.getMessage().contains("closed")) {
-				log.info(instanceName + ": "+x.getMessage());
-				log.info(instanceName + ": connection has been terminated");
+				log.info(instanceName + ": connection has been closed");
+				
 			} else {
 				log.error(instanceName + ": error on socket to peer: "+x.getMessage());
 				log.error(instanceName + ": terminating connection!");
@@ -439,7 +451,6 @@ public class ReplicationProtocolInstance
 				(totalBytesReceived - lastStatisticsBytesReceived) /
 				((now - lastStatisticsTimestamp) / 1000.);
 
-			logStatistics();
 			log.info(instanceName +
 				String.format(": transmit/receive rate = %7.1f/%7.1f KB/sec",
 					transmittedBytesPerSecond / 1000, receivedBytesPerSecond / 1000));
@@ -502,6 +513,10 @@ public class ReplicationProtocolInstance
 	{
 		stopIdleTimer();
 		
+		if (oos == null) {
+			return;
+		}
+		
 		idleTimer = new TimerTask() {
 			@Override
 			public void run()
@@ -518,6 +533,9 @@ public class ReplicationProtocolInstance
 		timer.schedule(idleTimer, idleTimeout);
 	}
 	
+	/**
+	 * 
+	 */
 	private synchronized void stopIdleTimer()
 	{
 		if (idleTimer != null) {
@@ -561,6 +579,16 @@ public class ReplicationProtocolInstance
 						sendToPeer(message);
 					}
 
+				} catch (SocketException x) {
+					if (x.getMessage().contains("closed")) {
+						log.info(instanceName + ": socket has been closed");
+					} else {
+						log.error(instanceName +
+							": unexpected exception when sending message to peer", x);
+						log.error(instanceName + ": terminating connection!");
+					}
+					closeSocket();
+					
 				} catch (IOException x) {
 					log.error(instanceName + ": unexpected exception when sending message to peer",
 						x);

@@ -119,52 +119,48 @@ public class ReplicationClientInstance
 	// /////////////////////////////////////////////////////////
 	/**
 	 */
-	public void run()
+	@Override
+	protected void body()
 	{
+		log.debug("replication client instance has been started");
 		try {
-			body();
+			for (;;) {
+				// we will wait between reconnect attempts to prevent
+				// busy waits when no peer can be reached
+				long now = System.currentTimeMillis();
+				if (earliestNextConnect > now) {
+					try {
+						Thread.sleep(earliestNextConnect - now);
+					} catch (InterruptedException e) {
+						log.error("InterruptedException", e);
+					}
+
+				} else {
+					earliestNextConnect = System.currentTimeMillis() + waitBetweenReconnects;
+					try {
+						establishAndMaintainConnection();
+
+					} catch (Throwable x) {
+						log.error("unexepected exception within peer connection thread", x);
+
+					} finally {
+						peerState = FailoverState.INITIAL;
+					}
+				}
+			}
 		} catch (Throwable x) {
-			log.fatal("unexepected exception within HA client thread", x);
+			log.fatal("unexpected exception within HA client thread", x);
 			System.exit(1);
 		}
 	}
 
 
 	/**
+	 * @throws InterruptedException 
+	 * @throws IOException 
 	 */
-	private void body()
-	{
-		log.debug("replication client instance has been started");
-		for (;;) {
-			// we will wait between reconnect attempts to prevent
-			// busy waits when no peer can be reached
-			long now = System.currentTimeMillis();
-			if (earliestNextConnect > now) {
-				try {
-					Thread.sleep(earliestNextConnect - now);
-				} catch (InterruptedException e) {
-					log.error("InterruptedException", e);
-				}
-
-			} else {
-				earliestNextConnect = System.currentTimeMillis() + waitBetweenReconnects;
-				try {
-					establishAndMaintainConnection();
-
-				} catch (Throwable x) {
-					log.error("unexepected exception within peer connection thread", x);
-
-				} finally {
-					peerState = FailoverState.INITIAL;
-				}
-			}
-		}
-	}
-
-
-	/**
-	 */
-	private void establishAndMaintainConnection()
+	private void establishAndMaintainConnection() 
+		throws IOException, InterruptedException
 	{
 		// we will repeat a limited number of connect attempts in quick
 		// succession to be sure that the peer is really not available
@@ -190,7 +186,7 @@ public class ReplicationClientInstance
 
 			issueConnEvent();
 
-			super.run();
+			super.body();
 			log.info(getInstanceName() + ": connection to peer has ended");
 			haServer.applyEvent(Event.DISCONNECTED, null, null);
 
