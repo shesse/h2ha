@@ -84,7 +84,7 @@
 		<module>h2ha-driver</module>
 	</modules>
 	<properties>
-		<h2.version>1.3.174</h2.version>
+		<h2.version>1.3.175</h2.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 	</properties>
 </project>
