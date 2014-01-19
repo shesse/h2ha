@@ -307,7 +307,10 @@ public abstract class ReplicationProtocolInstance
 
 		} finally {
 			closeSocket();
-			timer.cancel();
+			synchronized (this) {
+				timer.cancel();
+				timer = null;
+			}
 		}
 	}
 
@@ -355,7 +358,7 @@ public abstract class ReplicationProtocolInstance
 
 			// signaling all still waiting operations that the connection has
 			// failed
-			synchronized (waitingOperations) {
+			synchronized (this) {
 				for (WaitingOperation<?> wo : waitingOperations.values()) {
 					wo.exception =
 						new IOException("connection terminated when waiting for confirm");
@@ -513,7 +516,7 @@ public abstract class ReplicationProtocolInstance
 	{
 		stopIdleTimer();
 		
-		if (oos == null) {
+		if (oos == null || timer == null) {
 			return;
 		}
 		
@@ -947,7 +950,7 @@ public abstract class ReplicationProtocolInstance
 			throws Exception
 		{
 			log.debug("processing operation confirm " + operationId);
-			synchronized (instance.waitingOperations) {
+			synchronized (instance) {
 				WaitingOperation<?> wo = instance.waitingOperations.remove(operationId);
 				if (wo != null) {
 					wo.cnf = cnf;
@@ -1001,7 +1004,7 @@ public abstract class ReplicationProtocolInstance
 					exception = new IOException("timeout when waiting for confirm");
 					waitGate.release();
 
-					synchronized (waitingOperations) {
+					synchronized (this) {
 						waitingOperations.remove(operationId);
 					}
 				}
@@ -1012,9 +1015,11 @@ public abstract class ReplicationProtocolInstance
 		public CnfType sendAndGetResult()
 			throws InterruptedException, IOException
 		{
-			synchronized (waitingOperations) {
+			synchronized (this) {
 				waitingOperations.put(operationId, this);
-				timer.schedule(watcher, 20000L);
+				if (timer != null) {
+					timer.schedule(watcher, 20000L);
+				}
 			}
 
 			try {
@@ -1025,7 +1030,7 @@ public abstract class ReplicationProtocolInstance
 				log.debug(instanceName + ": got result " + operationId);
 
 			} finally {
-				synchronized (waitingOperations) {
+				synchronized (this) {
 					waitingOperations.remove(operationId);
 				}
 			}
