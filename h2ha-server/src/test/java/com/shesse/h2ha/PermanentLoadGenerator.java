@@ -14,7 +14,7 @@ import org.apache.log4j.Appender;
 import org.apache.log4j.AppenderSkeleton;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
-import org.h2.constant.ErrorCode;
+import org.h2.api.ErrorCode;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;

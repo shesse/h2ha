@@ -20,7 +20,7 @@ import javax.transaction.xa.XAException;
 import javax.transaction.xa.XAResource;
 import javax.transaction.xa.Xid;
 
-import org.h2.constant.ErrorCode;
+import org.h2.api.ErrorCode;
 import org.h2.engine.SessionInterface;
 import org.h2.jdbcx.JdbcXAConnection;
 import org.h2.message.DbException;
