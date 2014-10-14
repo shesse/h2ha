@@ -307,7 +307,10 @@ public abstract class ReplicationProtocolInstance
 
 		} finally {
 			closeSocket();
-			timer.cancel();
+			synchronized (this) {
+				timer.cancel();
+				timer = null;
+			}
 		}
 	}
 
@@ -513,7 +516,7 @@ public abstract class ReplicationProtocolInstance
 	{
 		stopIdleTimer();
 		
-		if (oos == null) {
+		if (oos == null || timer == null) {
 			return;
 		}
 		
@@ -530,6 +533,7 @@ public abstract class ReplicationProtocolInstance
 				}
 			}
 		};
+
 		timer.schedule(idleTimer, idleTimeout);
 	}
 	
@@ -1014,9 +1018,14 @@ public abstract class ReplicationProtocolInstance
 		{
 			synchronized (waitingOperations) {
 				waitingOperations.put(operationId, this);
-				timer.schedule(watcher, 20000L);
 			}
-
+			
+			synchronized (ReplicationProtocolInstance.this) {
+				if (timer != null) {
+					timer.schedule(watcher, 20000L);
+				}
+			}
+			
 			try {
 				log.debug(instanceName + ": send WaitingOperation " + operationId);
 				send(request);
