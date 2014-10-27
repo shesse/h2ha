@@ -393,25 +393,18 @@ public abstract class ReplicationProtocolInstance
 				long nextActivity = nextHeartbeatToSend;
 				
 				long delta = nextActivity - now;
-				ReplicationMessage message = messageQueue.poll(delta, TimeUnit.MILLISECONDS);
-
-				if (message != null) {
-					totalMessagesDequeued++;
-
-					if (message == terminateMessage) {
-						log.info(instanceName + ": message processor is terminating");
-						break;
-					}
-					
-					log.debug("process message: " + message);
-					message.process(this);
-				}
+				
+				fetchAndProcessSingleMessage(delta);
 			}
 
 		} catch (TerminateThread x) {
-			x.logError(log, instanceName);
-			log.error(instanceName + ": terminating connection!");
-
+			if (x.isError()) {
+				x.logError(log, instanceName);
+				log.error(instanceName + ": terminating connection!");
+			} else {
+				log.info(instanceName + ": message processor is terminating: "+x.getMessage());
+			}
+			
 		} catch (SocketException x) {
 			if (x.getMessage().contains("closed")) {
 				log.info(instanceName + ": connection has been closed");
@@ -421,16 +414,69 @@ public abstract class ReplicationProtocolInstance
 				log.error(instanceName + ": terminating connection!");
 			}
 			
-		} catch (Exception x) {
-			log.error(instanceName + ": unexpected exception when processing message from peer", x);
-			log.error(instanceName + ": terminating connection!");
-
 		} finally {
 			closeSocket();
 			log.debug(instanceName + ": leaving processProtocolMessages");
 		}
 	}
 	
+	/**
+	 * process al messages currently waiting in the queue but do not
+	 * wait for any more of them
+	 * @throws TerminateThread 
+	 */
+	protected void fetchAndProcessWaitingMessages()
+		throws TerminateThread
+	{
+		try {
+			while (fetchAndProcessSingleMessage(0)) ;
+		} catch (InterruptedException x) {
+		}
+		
+	}
+	
+	/**
+	 * @param maxWait in milliseconds
+	 * @return true if a message has been processed and false if
+	 * no message has been received within the given time.
+	 * 
+	 * @throws InterruptedException 
+	 * @throws TerminateThread 
+	 * @throws Exception 
+	 * 
+	 */
+	private boolean fetchAndProcessSingleMessage(long maxWait) 
+		throws InterruptedException, TerminateThread
+	{
+		ReplicationMessage message = messageQueue.poll(maxWait, TimeUnit.MILLISECONDS);
+
+		if (message != null) {
+			totalMessagesDequeued++;
+
+			if (message == terminateMessage) {
+				throw new TerminateThread(false, "received termination request");
+			}
+			
+			log.debug("process message: " + message);
+			try {
+				message.process(this);
+				
+			} catch (TerminateThread x) {
+				throw x;
+				
+			} catch (Exception x) {
+				throw new TerminateThread("unexpected exception when processing message from peer", x);
+			}
+			
+			return true;
+			
+		} else {
+			return false;
+		}
+
+	}
+
+
 	/**
 	 * 
 	 */

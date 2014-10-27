@@ -22,25 +22,30 @@ public class TerminateThread
 	private static final long serialVersionUID = 1L;
 
 	/** */
-	private static Logger log = Logger.getLogger(TerminateThread.class);
+	//private static Logger log = Logger.getLogger(TerminateThread.class);
 
-
+	/** */
+	private boolean isError = true;
+	
+	
 	// /////////////////////////////////////////////////////////
 	// Constructors
 	// /////////////////////////////////////////////////////////
-	/**
-     */
-	public TerminateThread()
-	{
-		log.debug("TerminateThread()");
-	}
-
 	/**
 	 * @param message
 	 */
 	public TerminateThread(String message)
 	{
 		super(message);
+	}
+
+	/**
+	 * @param message
+	 */
+	public TerminateThread(boolean isError, String message)
+	{
+		super(message);
+		this.isError = isError;
 	}
 
 	/**
@@ -64,6 +69,14 @@ public class TerminateThread
 	// Methods
 	// /////////////////////////////////////////////////////////
 	/**
+	 * @return the isError
+	 */
+	public boolean isError()
+	{
+		return isError;
+	}
+	
+	/**
      * 
      */
 	public void logError(Logger logger, String prefix)
@@ -80,6 +93,8 @@ public class TerminateThread
 			logger.error(prefix + getMessage(), getCause());
 		}
 	}
+
+	
 
 	// /////////////////////////////////////////////////////////
 	// Inner Classes

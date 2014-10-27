@@ -226,9 +226,10 @@ public class ReplicationServerInstance
 	 * 
 	 * @param entries
 	 * @throws IOException
+	 * @throws TerminateThread 
 	 */
 	public void processSendFileRequestMessage(List<FileRequestData> entries)
-		throws IOException
+		throws IOException, TerminateThread
 	{
 		if (log.isDebugEnabled())
 			log.debug("got SendFileRequest: " + entries);
@@ -238,6 +239,7 @@ public class ReplicationServerInstance
 			} else if (entry.getTransmissionMethod() == FileRequestData.TransmissionMethod.DELTA) {
 				sendFileChecksums(entry);
 			}
+			fetchAndProcessWaitingMessages();
 		}
 
 		sendToPeer(new SendFileConfirmMessage());
@@ -316,11 +318,12 @@ public class ReplicationServerInstance
 	 * 
 	 * @param entry
 	 * @throws IOException
+	 * @throws TerminateThread 
 	 * @throws NoSuchAlgorithmException
 	 * @throws InvalidKeyException
 	 */
 	private void sendFileChecksums(FileRequestData entry)
-		throws IOException
+		throws IOException, TerminateThread
 	{
 		String haName = entry.getHaName();
 		log.info(getInstanceName() + ": sending checksums for file " + haName);
@@ -368,6 +371,11 @@ public class ReplicationServerInstance
 
 					sendToPeer(new FileChecksumMessage(haName, offset, rdlen, computeMd5(buffer)));
 					offset += rdlen;
+					
+					// we now need to give other messages a chance wating in the queue:
+					// our client may try to request a data block and a deadlock
+					// could result if we postpone it until all checksums have been sent.
+					fetchAndProcessWaitingMessages();
 
 				} catch (EOFException x) {
 					long nfs = fc.size();
