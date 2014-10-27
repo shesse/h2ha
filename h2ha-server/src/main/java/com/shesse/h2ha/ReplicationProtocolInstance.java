@@ -260,12 +260,14 @@ public abstract class ReplicationProtocolInstance
 			}
 		}
 
-		if (socket != null) {
-			try {
-				socket.shutdownOutput();
-			} catch (IOException x) {
-			}
-			socket = null;
+		synchronized (this) {
+			if (socket != null) {
+				try {
+					socket.shutdownOutput();
+				} catch (IOException x) {
+				}
+				socket = null;
+			}			
 		}
 		if (receiver != null) {
 			try {
@@ -358,7 +360,7 @@ public abstract class ReplicationProtocolInstance
 
 			// signaling all still waiting operations that the connection has
 			// failed
-			synchronized (this) {
+			synchronized (ReplicationProtocolInstance.this) {
 				for (WaitingOperation<?> wo : waitingOperations.values()) {
 					wo.exception =
 						new IOException("connection terminated when waiting for confirm");
@@ -527,9 +529,16 @@ public abstract class ReplicationProtocolInstance
 				log.error(instanceName +
 					": inactivity timeout - terminating connection");
 				try {
-					socket.close();
+					synchronized (ReplicationProtocolInstance.this) {
+						if (socket != null) {
+							socket.close();
+							socket = null;
+						}
+					}
 				} catch (IOException x) {
 					log.error("cannot close socket: "+x.getMessage());
+				} catch (Throwable x) {
+					log.error("unexpected exception within idle timer task", x);
 				}
 			}
 		};
@@ -1001,11 +1010,15 @@ public abstract class ReplicationProtocolInstance
 				@Override
 				public void run()
 				{
-					exception = new IOException("timeout when waiting for confirm");
-					waitGate.release();
+					try {
+						exception = new IOException("timeout when waiting for confirm");
+						waitGate.release();
 
-					synchronized (this) {
-						waitingOperations.remove(operationId);
+						synchronized (ReplicationProtocolInstance.this) {
+							waitingOperations.remove(operationId);
+						}
+					} catch (Throwable x) {
+						log.error("unexpected exception when waiting for confirm", x);
 					}
 				}
 
@@ -1015,7 +1028,7 @@ public abstract class ReplicationProtocolInstance
 		public CnfType sendAndGetResult()
 			throws InterruptedException, IOException
 		{
-			synchronized (this) {
+			synchronized (ReplicationProtocolInstance.this) {
 				waitingOperations.put(operationId, this);
 				if (timer != null) {
 					timer.schedule(watcher, 20000L);
@@ -1030,7 +1043,7 @@ public abstract class ReplicationProtocolInstance
 				log.debug(instanceName + ": got result " + operationId);
 
 			} finally {
-				synchronized (this) {
+				synchronized (ReplicationProtocolInstance.this) {
 					waitingOperations.remove(operationId);
 				}
 			}
