@@ -1422,7 +1422,7 @@ public class H2HaServer
 	 */
 	protected void logStatistics()
 	{
-		log.info("failoverState = " + getFailoverState());
+		log.info("H2HA "+getVersionInfo()+" - failoverState = " + getFailoverState());
 
 		Runtime rt = Runtime.getRuntime();
 		rt.gc();
