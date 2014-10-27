@@ -237,6 +237,8 @@ public class ServerProcess
 		throws InterruptedException
 	{
 		if (dbProcess != null) {
+			// allow the server a short time to finish writing out data 
+			Thread.sleep(500);
 			log.info(sideName+": stopping db server process");
 			dbProcess.destroy();
 			dbProcess.waitFor();
