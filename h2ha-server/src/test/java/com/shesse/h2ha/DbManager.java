@@ -12,7 +12,7 @@ import java.sql.Statement;
 import java.util.Properties;
 
 import org.apache.log4j.Logger;
-import org.h2.api.ErrorCode;
+import org.h2.constant.ErrorCode;
 import org.h2.jdbcx.JdbcConnectionPool;
 
 import com.shesse.jdbcproxy.HaDataSource;
