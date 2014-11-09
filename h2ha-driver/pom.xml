@@ -3,7 +3,7 @@
 	<parent>
 		<groupId>com.shesse.h2ha</groupId>
 		<artifactId>h2ha</artifactId>
-		<version>1.3.174.3-SNAPSHOT</version>
+		<version>1.3.174.3</version>
 	</parent>
 	<artifactId>h2ha-driver</artifactId>
 	<name>h2ha-driver</name>
