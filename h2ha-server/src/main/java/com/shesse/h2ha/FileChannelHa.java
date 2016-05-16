@@ -141,7 +141,7 @@ public class FileChannelHa
 			if (log.isDebugEnabled()) {
 				log.debug(filePath+": write from="+pos+", l="+l+", end="+(pos+l));
 			}
-			fileSystem.compressAndSendWrite(filePath, pos, src.array(), bpos, l);
+			fileSystem.sendWrite(filePath, pos, src.array(), bpos, l);
 			return l;
 		} else {
 			throw new IllegalArgumentException(
@@ -327,7 +327,7 @@ public class FileChannelHa
 		if (log.isDebugEnabled()) {
 			log.debug(filePath+": write from="+position+", l="+l+", end="+(position+l));
 		}
-		fileSystem.compressAndSendWrite(filePath, position, src.array(), bpos, l);
+		fileSystem.sendWrite(filePath, position, src.array(), bpos, l);
 		return l;
 	}
 

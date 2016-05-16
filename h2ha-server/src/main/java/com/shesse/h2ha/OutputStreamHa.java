@@ -113,7 +113,7 @@ public class OutputStreamHa
 
 		baseOutputStream.write(buffer, offset, length);
 
-		fileSystem.compressAndSendWrite(filePath, filePtr, buffer, offset, length);
+		fileSystem.sendWrite(filePath, filePtr, buffer, offset, length);
 		filePtr += length;
 	}
 
@@ -133,7 +133,7 @@ public class OutputStreamHa
 
 		baseOutputStream.write(buffer);
 
-		fileSystem.compressAndSendWrite(filePath, filePtr, buffer, 0, buffer.length);
+		fileSystem.sendWrite(filePath, filePtr, buffer, 0, buffer.length);
 		filePtr += buffer.length;
 	}
 
@@ -149,7 +149,7 @@ public class OutputStreamHa
 		singleByteBuffer[0] = (byte) i;
 		baseOutputStream.write(i);
 
-		fileSystem.compressAndSendWrite(filePath, filePtr, singleByteBuffer, 0, 1);
+		fileSystem.sendWrite(filePath, filePtr, singleByteBuffer, 0, 1);
 		filePtr += 1;
 	}
 

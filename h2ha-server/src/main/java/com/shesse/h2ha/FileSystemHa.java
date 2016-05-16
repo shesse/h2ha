@@ -358,19 +358,12 @@ public class FileSystemHa
 	 * @param off
 	 * @param len
 	 */
-	public void compressAndSendWrite(FilePathHa filePath, long filePointer, byte[] b, int off,
+	public void sendWrite(FilePathHa filePath, long filePointer, byte[] b, int off,
 		int len)
 	{
 		if (!filePath.mustReplicate()) {
 			return;
 		}
-
-		// All writing traffic will pass through this point. So we
-		// may use the block cache to limit the amount of data sent
-		// to the peer system to only the parts that have changed.
-		// The current implementation assumes that the block will
-		// usually have leading and trailing unchanged bytes and
-		// cuts them off.
 
 		replicationRawBytes += len;
 		// b may be changed by the caller upon return, so

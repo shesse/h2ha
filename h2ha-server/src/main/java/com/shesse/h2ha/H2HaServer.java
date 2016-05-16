@@ -301,14 +301,15 @@ public class H2HaServer
 		System.err.println("    -haMaxEnqueueWait");
 		System.err.println("        max millis to wait to enqueue HA data (default = 60000)");
 		System.err.println("    -haMaxWaitingMessages");
-		System.err.println("        max no of messages in message quere before connection");
+		System.err.println("        max no of messages in message queue before connection");
+		System.err.println("        is considered defect. 0 = default = unlimited");
+		System.err.println("    -haMaxEnqueuedBytes");
+		System.err.println("        max no of bytes in message queue before connection");
 		System.err.println("        is considered defect. 0 = default = unlimited");
 		System.err.println("    -statisticsInterval");
 		System.err.println("        cycle millis for statistics logging, default = 300000");
 		System.err.println("    -idleTimeout");
 		System.err.println("        max millis waiting for activity on a peer connection, default = 20000");
-		System.err.println("    -haCacheSize");
-		System.err.println("        size of HA block cache (default = 1000)");
 		System.err.println("    -haConnectTimeout");
 		System.err.println("        max millis to wait for HA connection, default = 10000");
 		System.err.println("    -connectRetry");
@@ -345,7 +346,6 @@ public class H2HaServer
 		masterPriority = removeOptionWithInt(serverArgs, "-masterPriority", 10);
 	
 		removeOptionWithValue(serverArgs, "-haPeerPort", null);
-		removeOptionWithValue(serverArgs, "-haCacheSize", null);
 		removeOptionWithValue(serverArgs, "-haConnectTimeout", null);
 		long statisticsInterval = removeOptionWithInt(serverArgs, "-statisticsInterval", 300000);
 		removeOptionWithValue(serverArgs, "-idleTimeout", null);
@@ -354,6 +354,7 @@ public class H2HaServer
 		removeOptionWithValue(serverArgs, "-haMaxQueueSize", null);
 		removeOptionWithValue(serverArgs, "-haMaxEnqueueWait", null);
 		removeOptionWithValue(serverArgs, "-haMaxWaitingMessages", null);
+		removeOptionWithValue(serverArgs, "-haMaxEnqueuedBytes", null);
 		removeOption(serverArgs, "-autoFailback");
 		removeOption(serverArgs, "-haRestrictPeer");
 	

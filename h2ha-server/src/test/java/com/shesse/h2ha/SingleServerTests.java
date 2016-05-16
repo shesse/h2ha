@@ -60,7 +60,6 @@ public class SingleServerTests
 			((AppenderSkeleton) a).setThreshold(Level.DEBUG);
 		}
 		dbManager.cleanup();
-		servers.setHaCacheSize(0);
 		servers.cleanupA();
 		servers.startA();
 		servers.waitUntilAIsActive();

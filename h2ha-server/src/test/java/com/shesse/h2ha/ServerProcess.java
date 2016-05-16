@@ -79,7 +79,7 @@ public class ServerProcess
 	 * @throws InterruptedException
 	 * 
 	 */
-	public void start(int haCacheSize, boolean isPrimary)
+	public void start(boolean isPrimary)
 		throws IOException, InterruptedException
 	{
 		stop();
@@ -119,11 +119,6 @@ public class ServerProcess
 			};
 
 		cmd.addAll(Arrays.asList(serverCommand));
-
-		if (haCacheSize >= 0) {
-			cmd.add("-haCacheSize");
-			cmd.add(String.valueOf(haCacheSize));
-		}
 
 		log.info(sideName+": starting up instance");
 		log.info(sideName+": arguments=" + cmd);

@@ -111,7 +111,7 @@ public class ReplicationClientInstance
 		autoFailback = H2HaServer.findOption(args, "-autoFailback");
 		
 		setInstanceName("replClient-" + peerHost + ":" + peerPort);
-		setParameters(0, 0, idleTimeout);
+		setParameters(0, 0, 0, idleTimeout);
 	}
 
 	// /////////////////////////////////////////////////////////

@@ -46,9 +46,6 @@ public class ServerProcessPair
 	private static final int syncPortB = 8126;
 
 	/** */
-	private int haCacheSize = -1;
-
-	/** */
 	private ServerProcess processA = new ServerProcess("a", dbDirA, tcpPortA, syncPortA, syncPortB);
 
 	/** */
@@ -69,14 +66,6 @@ public class ServerProcessPair
 	// Methods
 	// /////////////////////////////////////////////////////////
 	/**
-	 * @param haCacheSize
-	 */
-	public void setHaCacheSize(int haCacheSize)
-	{
-		this.haCacheSize = haCacheSize;
-	}
-
-	/**
 	 * @throws InterruptedException
 	 * @throws IOException
 	 * 
@@ -96,7 +85,7 @@ public class ServerProcessPair
 	public void startA()
 		throws IOException, InterruptedException
 	{
-		processA.start(haCacheSize, true);
+		processA.start(true);
 	}
 
 	/**
@@ -107,7 +96,7 @@ public class ServerProcessPair
 	public void startB()
 		throws IOException, InterruptedException
 	{
-		processB.start(haCacheSize, false);
+		processB.start(false);
 	}
 
 	/**

@@ -56,6 +56,9 @@ public abstract class ReplicationProtocolInstance
 	private int maxWaitingMessages;
 
 	/** */
+	private int maxEnqueuedBytes;
+
+	/** */
 	protected Socket socket = null;
 
 	/** */
@@ -68,7 +71,10 @@ public abstract class ReplicationProtocolInstance
 	protected Thread instanceThread = null;
 
 	/** */
-	protected BlockingQueue<ReplicationMessage> messageQueue;
+	private BlockingQueue<ReplicationMessage> messageQueue;
+
+	/** */
+	private int enqueuedBytes = 0;
 
 	/** */
 	protected ReplicationMessage terminateMessage = new ReplicationMessage() {
@@ -203,10 +209,12 @@ public abstract class ReplicationProtocolInstance
 	 * @param idleTimeout2 
      * 
      */
-	public void setParameters(long maxEnqueueWait, int maxWaitingMessages, long idleTimeout)
+	public void setParameters(long maxEnqueueWait, int maxWaitingMessages, int maxEnqueuedBytes, 
+	                          long idleTimeout)
 	{
 		this.maxEnqueueWait = maxEnqueueWait;
 		this.maxWaitingMessages = maxWaitingMessages;
+		this.maxEnqueuedBytes = maxEnqueuedBytes;
 		this.idleTimeout = idleTimeout;
 	}
 
@@ -347,6 +355,9 @@ public abstract class ReplicationProtocolInstance
 			ReplicationMessage message;
 			while ((message = messageQueue.poll()) != null) {
 				totalMessagesDequeued++;
+				synchronized (messageQueue) {
+					enqueuedBytes -= message.getSizeEstimate();
+				}
 				if (!message.callOnlyIfConnected()) {
 					try {
 						message.process(this);
@@ -454,6 +465,9 @@ public abstract class ReplicationProtocolInstance
 
 		if (message != null) {
 			totalMessagesDequeued++;
+			synchronized (messageQueue) {
+				enqueuedBytes -= message.getSizeEstimate();
+			}
 
 			if (message == terminateMessage) {
 				throw new TerminateThread(false, "received termination request");
@@ -685,11 +699,20 @@ public abstract class ReplicationProtocolInstance
 			return;
 		}
 
+		if (maxEnqueuedBytes > 0 && enqueuedBytes > maxEnqueuedBytes) {
+			log.error(instanceName +
+				": too much data waiting for transfer - replicator connection will be canceled");
+			cancelConnection();
+			return;
+		}
+
 		try {
 			if (maxEnqueueWait > 0) {
 				if (messageQueue.offer(message, maxEnqueueWait, TimeUnit.MILLISECONDS)) {
 					totalMessagesEnqueued++;
-
+					synchronized (messageQueue) {
+						enqueuedBytes += message.getSizeEstimate();
+					}
 				} else {
 					log.error(instanceName +
 						": replication connection is too slow - it will be terminated.");
@@ -702,6 +725,9 @@ public abstract class ReplicationProtocolInstance
 			} else {
 				messageQueue.put(message);
 				totalMessagesEnqueued++;
+				synchronized (messageQueue) {
+					enqueuedBytes += message.getSizeEstimate();
+				}
 			}
 
 		} catch (InterruptedException e) {
@@ -736,7 +762,11 @@ public abstract class ReplicationProtocolInstance
 	{
 		connectionCanceled = true;
 
-		messageQueue.clear();
+		synchronized (messageQueue) {
+			messageQueue.clear();
+			enqueuedBytes = 0;
+		}
+		
 
 		enqueue(new ReplicationMessage() {
 			private static final long serialVersionUID = 1L;
