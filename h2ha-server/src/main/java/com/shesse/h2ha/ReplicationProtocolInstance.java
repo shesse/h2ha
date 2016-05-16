@@ -357,6 +357,7 @@ public abstract class ReplicationProtocolInstance
 				totalMessagesDequeued++;
 				synchronized (messageQueue) {
 					enqueuedBytes -= message.getSizeEstimate();
+					messageQueue.notifyAll();
 				}
 				if (!message.callOnlyIfConnected()) {
 					try {
@@ -467,6 +468,7 @@ public abstract class ReplicationProtocolInstance
 			totalMessagesDequeued++;
 			synchronized (messageQueue) {
 				enqueuedBytes -= message.getSizeEstimate();
+				messageQueue.notifyAll();
 			}
 
 			if (message == terminateMessage) {
@@ -699,14 +701,34 @@ public abstract class ReplicationProtocolInstance
 			return;
 		}
 
-		if (maxEnqueuedBytes > 0 && enqueuedBytes > maxEnqueuedBytes) {
-			log.error(instanceName +
-				": too much data waiting for transfer - replicator connection will be canceled");
-			cancelConnection();
-			return;
-		}
-
 		try {
+			if (maxEnqueuedBytes > 0 && enqueuedBytes > maxEnqueuedBytes) {
+				// we dont want to cancel the connection immediately. Instead,
+				// we wait for maxEnqueueWait millis for the queue size to drop.
+				synchronized (messageQueue) {
+					long maxWait = 0;
+					if (maxEnqueueWait > 0) {
+						maxWait = System.currentTimeMillis() + maxEnqueueWait;
+					}
+
+					while (enqueuedBytes > maxEnqueuedBytes) {
+						if (maxWait == 0) {
+							messageQueue.wait();
+
+						} else {
+							long delta = maxWait - System.currentTimeMillis();
+							if (delta <= 0) {
+								log.error(instanceName +
+									": too much data waiting for transfer - replicator connection will be canceled");
+								cancelConnection();
+								return;
+							}
+							messageQueue.wait(delta);
+						}
+					}
+				}
+			}
+
 			if (maxEnqueueWait > 0) {
 				if (messageQueue.offer(message, maxEnqueueWait, TimeUnit.MILLISECONDS)) {
 					totalMessagesEnqueued++;
@@ -765,6 +787,7 @@ public abstract class ReplicationProtocolInstance
 		synchronized (messageQueue) {
 			messageQueue.clear();
 			enqueuedBytes = 0;
+			messageQueue.notifyAll();
 		}
 		
 
