@@ -158,11 +158,6 @@ public class DbManager
 	public void syncWithAllReplicators()
 		throws SQLException
 	{
-		try {
-			Thread.sleep(1000);
-		} catch (InterruptedException x1) {
-		}
-		
 		Connection conn = createConnection();
 		try {
 			Statement stmnt = conn.createStatement();
@@ -175,6 +170,15 @@ public class DbManager
 		} finally {
 			conn.close();
 		}
+		
+		// we will wait for the MVStrore Background Writer to do its
+		// last commit. This is usually done within 1 second
+		try {
+			Thread.sleep(2000);
+		} catch (InterruptedException x1) {
+		}
+		
+
 	}
 
 

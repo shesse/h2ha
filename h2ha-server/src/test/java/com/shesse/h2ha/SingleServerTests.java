@@ -84,7 +84,7 @@ public class SingleServerTests
 	@Test
 	public void createDb()
 	{
-		Assert.assertTrue(new File(servers.getDirA(), "test.h2.db").exists());
+		Assert.assertTrue(new File(servers.getDirA(), "test.mv.db").exists());
 	}
 
 	/**

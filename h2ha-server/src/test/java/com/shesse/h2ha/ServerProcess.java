@@ -103,7 +103,8 @@ public class ServerProcess
 		}
 		*/
 		cmd.add("-Dstderr.threshold=DEBUG");
-
+		cmd.add("-Dlogfile=target/junit-"+sideName+".log");
+						
 		String[] serverCommand = {//
 			"-DhaTestProc=" + sideName, //
 				"com.shesse.h2ha.H2HaServer",//

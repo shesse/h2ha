@@ -83,6 +83,10 @@ public class FilePathHa
 			log.debug("file " + normalizedHaName + " is a page file");
 			isDatabaseFile = true;
 			needsReplication = true;
+		} else if (normalizedHaName.endsWith(Constants.SUFFIX_MV_FILE)) {
+			log.debug("file " + normalizedHaName + " is an mv file");
+			isDatabaseFile = true;
+			needsReplication = true;
 		} else if (normalizedHaName.endsWith(Constants.SUFFIX_LOCK_FILE)) {
 			log.debug("file " + normalizedHaName + " is a lock file");
 			isDatabaseFile = true;
@@ -103,6 +107,18 @@ public class FilePathHa
 			log.debug("file " + normalizedHaName + " is an trace file");
 			isDatabaseFile = true;
 			needsReplication = false;
+		} else if (normalizedHaName.endsWith(Constants.SUFFIX_MV_STORE_NEW_FILE)) {
+			log.debug("file " + normalizedHaName + " is an mv new file");
+			isDatabaseFile = true;
+			needsReplication = true;
+		} else if (normalizedHaName.endsWith(Constants.SUFFIX_MV_STORE_TEMP_FILE)) {
+			log.debug("file " + normalizedHaName + " is an mv temp file");
+			isDatabaseFile = true;
+			needsReplication = false;
+		} else if (normalizedHaName.endsWith(Constants.SUFFIX_OLD_DATABASE_FILE)) {
+			log.debug("file " + normalizedHaName + " is an old DB file");
+			isDatabaseFile = true;
+			needsReplication = true;
 		} else if (normalizedHaName.endsWith(Constants.SUFFIX_DB_FILE)) {
 			log.debug("file " + normalizedHaName + " is an unrecognized DB file");
 			isDatabaseFile = true;
@@ -113,6 +129,9 @@ public class FilePathHa
 			needsReplication = false;
 		}
 
+		if (log.isDebugEnabled()) {
+			log.debug(basePath+": FilePathHa");
+		}
 	}
 
 	// /////////////////////////////////////////////////////////
@@ -247,6 +266,10 @@ public class FilePathHa
 	{
 		getBasePath().createDirectory();
 
+		if (log.isDebugEnabled()) {
+			log.debug(basePath+": createDirectory");
+		}
+
 		fileSystem.sendCreateDirectory(this);
 	}
 
@@ -259,6 +282,10 @@ public class FilePathHa
 	public boolean createFile()
 	{
 		boolean success = getBasePath().createFile();
+
+		if (log.isDebugEnabled()) {
+			log.debug(basePath+": createFile -> "+success);
+		}
 
 		if (success) {
 			fileSystem.sendCreateFile(this);
@@ -276,6 +303,10 @@ public class FilePathHa
 	public void delete()
 	{
 		getBasePath().delete();
+
+		if (log.isDebugEnabled()) {
+			log.debug(basePath+": delete");
+		}
 
 		fileSystem.sendDelete(this);
 	}
@@ -397,16 +428,23 @@ public class FilePathHa
 
 	/**
 	 * {@inheritDoc}
-	 * 
-	 * @see org.h2.store.fs.FilePath#moveTo(org.h2.store.fs.FilePath)
+	 *
+	 * @see org.h2.store.fs.FilePath#moveTo(org.h2.store.fs.FilePath, boolean)
 	 */
 	@Override
-	public void moveTo(FilePath newPath)
+	public void moveTo(FilePath newPath, boolean atomicReplace)
 	{
 		if (newPath instanceof FilePathHa) {
 			FilePathHa newPathHa = (FilePathHa) newPath;
-			getBasePath().moveTo(newPathHa.getBasePath());
-			fileSystem.sendMoveTo(this, newPathHa);
+			getBasePath().moveTo(newPathHa.getBasePath(), atomicReplace);
+			if (log.isDebugEnabled()) {
+				log.debug(basePath+": moveTo "+newPath);
+			}
+
+
+			fileSystem.sendMoveTo(this, newPathHa, atomicReplace);
+		} else {
+			throw new IllegalStateException("cannot move ha file "+basePath+" to "+newPath);
 		}
 	}
 
@@ -460,6 +498,9 @@ public class FilePathHa
 	public OutputStream newOutputStream(boolean append)
 		throws IOException
 	{
+		if (log.isDebugEnabled()) {
+			log.debug(basePath+": newOutputStream append="+append);
+		}
 		OutputStream baseOutputStream = getBasePath().newOutputStream(append);
 		if (mustReplicate()) {
 			return new OutputStreamHa(fileSystem, this, baseOutputStream, append);
@@ -480,8 +521,14 @@ public class FilePathHa
 	{
 		FileChannel baseChannel = getBasePath().open(accessMode);
 		if (mustReplicate()) {
+			if (log.isDebugEnabled()) {
+				log.debug(basePath+": open mode="+accessMode);
+			}
 			return new FileChannelHa(fileSystem, this, baseChannel, accessMode);
 		} else {
+			if (log.isDebugEnabled()) {
+				log.debug(basePath+": open unreplicated mode="+accessMode);
+			}
 			return baseChannel;
 		}
 	}
@@ -510,7 +557,11 @@ public class FilePathHa
 	@Override
 	public long size()
 	{
-		return basePath.size();
+		long s = basePath.size();
+		if (log.isDebugEnabled()) {
+			log.debug(basePath+": size="+s);
+		}
+		return s;
 	}
 
 	/**

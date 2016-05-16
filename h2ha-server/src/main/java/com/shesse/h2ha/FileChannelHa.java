@@ -14,6 +14,8 @@ import java.nio.channels.FileLock;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
 
+import org.apache.log4j.Logger;
+
 /**
  * This class implements (by delegation) everything of the FileChannel semantics
  * - except the map() call. It seems that H2 currently (as of 1.3.74) does not
@@ -33,8 +35,7 @@ public class FileChannelHa
 	// Class Members
 	// /////////////////////////////////////////////////////////
 	/** */
-	// private static Logger log =
-	// Logger.getLogger(FileChannelHa.class.getName());
+	private static Logger log = Logger.getLogger(FileChannelHa.class);
 
 	/** */
 	private FileSystemHa fileSystem;
@@ -79,6 +80,9 @@ public class FileChannelHa
 			long pos = baseChannel.position();
 			int bpos = dst.position() + dst.arrayOffset();
 			int l = baseChannel.read(dst);
+			if (log.isDebugEnabled()) {
+				log.debug(filePath+": read from="+pos+", l="+l);
+			}
 			if (l > 0) {
 				fileSystem.cacheRead(filePath, pos, dst.array(), bpos, l);
 			}
@@ -138,6 +142,9 @@ public class FileChannelHa
 			long pos = baseChannel.position();
 			int bpos = src.position() + src.arrayOffset();
 			int l = baseChannel.write(src);
+			if (log.isDebugEnabled()) {
+				log.debug(filePath+": write from="+pos+", l="+l+", end="+(pos+l));
+			}
 			fileSystem.compressAndSendWrite(filePath, pos, src.array(), bpos, l);
 			return l;
 		} else {
@@ -183,6 +190,9 @@ public class FileChannelHa
 	public FileChannel position(long newPosition)
 		throws IOException
 	{
+		if (log.isDebugEnabled()) {
+			log.debug(filePath+": position at "+newPosition);
+		}
 		baseChannel.position(newPosition);
 		return this;
 	}
@@ -208,6 +218,9 @@ public class FileChannelHa
 	public FileChannel truncate(long size)
 		throws IOException
 	{
+		if (log.isDebugEnabled()) {
+			log.debug(filePath+": truncate at "+size);
+		}
 		baseChannel.truncate(size);
 		fileSystem.sendTruncate(filePath, size);
 		return this;
@@ -222,6 +235,9 @@ public class FileChannelHa
 	public void force(boolean metaData)
 		throws IOException
 	{
+		if (log.isDebugEnabled()) {
+			log.debug(filePath+": force");
+		}
 		baseChannel.force(metaData);
 		fileSystem.force();
 	}
@@ -236,7 +252,11 @@ public class FileChannelHa
 	public long transferTo(long position, long count, WritableByteChannel target)
 		throws IOException
 	{
-		return baseChannel.transferTo(position, count, target);
+		long l = baseChannel.transferTo(position, count, target);
+		if (log.isDebugEnabled()) {
+			log.debug(filePath+": transferTo from="+position+", l="+count+", target="+target.getClass().getName());
+		}
+		return l;
 	}
 
 	/**
@@ -249,6 +269,9 @@ public class FileChannelHa
 	public long transferFrom(ReadableByteChannel src, long position, long count)
 		throws IOException
 	{
+		if (log.isDebugEnabled()) {
+			log.debug(filePath+": transferFrom to="+position+", l="+count+", src="+src.getClass().getName());
+		}
 		long startPos = baseChannel.position();
 		baseChannel.position(position);
 
@@ -287,7 +310,11 @@ public class FileChannelHa
 	public int read(ByteBuffer dst, long position)
 		throws IOException
 	{
-		return baseChannel.read(dst, position);
+		int l = baseChannel.read(dst, position);
+		if (log.isDebugEnabled()) {
+			log.debug(filePath+": read from="+position+", l="+l);
+		}
+		return l;
 	}
 
 	/**
@@ -301,6 +328,9 @@ public class FileChannelHa
 	{
 		int bpos = src.position();
 		int l = baseChannel.write(src, position);
+		if (log.isDebugEnabled()) {
+			log.debug(filePath+": write from="+position+", l="+l+", end="+(position+l));
+		}
 		fileSystem.compressAndSendWrite(filePath, position, src.array(), bpos, l);
 		return l;
 	}
@@ -328,6 +358,9 @@ public class FileChannelHa
 	public FileLock lock(long position, long size, boolean shared)
 		throws IOException
 	{
+		if (log.isDebugEnabled()) {
+			log.debug(filePath+": lock at="+position+", size="+size+", shared="+shared);
+		}
 		return baseChannel.lock(position, size, shared);
 	}
 
@@ -340,6 +373,9 @@ public class FileChannelHa
 	public FileLock tryLock(long position, long size, boolean shared)
 		throws IOException
 	{
+		if (log.isDebugEnabled()) {
+			log.debug(filePath+": tryLock at="+position+", size="+size+", shared="+shared);
+		}
 		return baseChannel.tryLock(position, size, shared);
 	}
 
@@ -352,8 +388,12 @@ public class FileChannelHa
 	protected void implCloseChannel()
 		throws IOException
 	{
+		if (log.isDebugEnabled()) {
+			log.debug(filePath+": implCloseChannel");
+		}
 		fileSystem.sendClose(filePath);
 	}
+
 
 
 	// /////////////////////////////////////////////////////////

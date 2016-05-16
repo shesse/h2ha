@@ -627,11 +627,11 @@ public class FileSystemHa
 	 * @param filePath
 	 * @param filePath2
 	 */
-	public void sendMoveTo(FilePathHa from, FilePathHa to)
+	public void sendMoveTo(FilePathHa from, FilePathHa to, boolean atomicReplace)
 	{
 		if (from.mustReplicate() && to.mustReplicate()) {
 			sendToReplicators(new MoveToMessage(from.getNormalizedHaName(),
-				to.getNormalizedHaName()));
+				to.getNormalizedHaName(), atomicReplace));
 
 		} else if (from.mustReplicate() || to.mustReplicate()) {
 			log.error("attempt to rename with differing replication requirements: " + from +
@@ -859,18 +859,20 @@ public class FileSystemHa
 		private static final long serialVersionUID = 1L;
 		String oldName;
 		String newName;
+		boolean atomicReplace;
 
-		MoveToMessage(String oldName, String newName)
+		MoveToMessage(String oldName, String newName, boolean atomicReplace)
 		{
 			this.oldName = oldName;
 			this.newName = newName;
+			this.atomicReplace = atomicReplace;
 		}
 
 		@Override
 		protected void processMessageToClient(ReplicationClientInstance instance)
 			throws Exception
 		{
-			instance.processMoveToMessage(oldName, newName);
+			instance.processMoveToMessage(oldName, newName, atomicReplace);
 		}
 
 		@Override

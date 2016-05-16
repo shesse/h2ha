@@ -571,11 +571,11 @@ public class ReplicationClientInstance
 	/**
 	 * @param oldName
 	 */
-	public void processMoveToMessage(String oldName, String newName)
+	public void processMoveToMessage(String oldName, String newName, boolean atomicReplace)
 	{
 		FilePathHa oldFp = getFilePathHa(oldName);
 		FilePathHa newFp = getFilePathHa(newName);
-		oldFp.moveTo(newFp);
+		oldFp.moveTo(newFp, atomicReplace);
 	}
 
 	/**
