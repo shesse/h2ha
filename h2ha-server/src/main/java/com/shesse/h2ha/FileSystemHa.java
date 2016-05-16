@@ -8,9 +8,7 @@ package com.shesse.h2ha;
 
 import java.io.IOException;
 import java.util.Date;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map.Entry;
 
 import org.apache.log4j.Logger;
 import org.h2.store.fs.FilePath;
@@ -40,36 +38,7 @@ public class FileSystemHa
 	private ReplicationServerInstance[] replicators = new ReplicationServerInstance[0];
 
 	/** */
-	private enum BlocksizeLearningState {
-		INITIAL, LEARNING, LEARNED
-	};
-
-	/** */
-	private BlocksizeLearningState blocksizeLearningState = BlocksizeLearningState.INITIAL;
-
-	/** */
-	private int learnedBlocksize = 0;
-
-	/** */
-	private int blocksizeOccurenceCount = 0;
-
-	/** */
-	private LinkedHashMap<String, byte[]> blockCache;
-
-	/** */
-	private static final int REQUIRED_LEARN_COUNT = 5;
-
-	/** */
-	private int haCacheSize = DEFAULT_CACHE_SIZE;
-
-	/** */
-	private static final int DEFAULT_CACHE_SIZE = 1000;
-
-	/** */
 	private long replicationRawBytes = 0L;
-
-	/** */
-	private long replicationCroppedBytes = 0L;
 
 	/** */
 	private long blockCacheLookups = 0L;
@@ -93,7 +62,6 @@ public class FileSystemHa
 		this.haServer = haServer;
 
 		String baseDirArg = H2HaServer.findOptionWithValue(args, "-haBaseDir", null);
-		haCacheSize = H2HaServer.findOptionWithInt(args, "-haCacheSize", DEFAULT_CACHE_SIZE);
 
 		if (baseDirArg == null) {
 			throw new TerminateThread("missing flag: -haBaseDir");
@@ -103,25 +71,6 @@ public class FileSystemHa
 		haBaseDir = new FilePathHa(this, "", false);
 		FilePath.register(haBaseDir);
 
-		if (haCacheSize > 0) {
-			blockCache = new LinkedHashMap<String, byte[]>((haCacheSize * 4) / 3, 0.75f, true) {
-				private static final long serialVersionUID = 1L;
-
-				/**
-				 * {@inheritDoc}
-				 * 
-				 * @see java.util.LinkedHashMap#removeEldestEntry(java.util.Map.Entry)
-				 */
-				@Override
-				protected boolean removeEldestEntry(Entry<String, byte[]> eldest)
-				{
-					return size() > haCacheSize;
-				}
-			};
-
-		} else {
-			blockCache = null;
-		}
 	}
 
 
@@ -378,15 +327,6 @@ public class FileSystemHa
 
 
 	/**
-	 * @return the replicationCompressedBytes
-	 */
-	public long getReplicationCroppedBytes()
-	{
-		return replicationCroppedBytes;
-	}
-
-
-	/**
 	 * @return the blockCacheLookups
 	 */
 	public long getBlockCacheLookups()
@@ -413,72 +353,6 @@ public class FileSystemHa
 	}
 
 	/**
-	 * @param b
-	 * @param off
-	 * @param len
-	 */
-	public synchronized void cacheRead(FilePathHa filePath, long filePointer, byte[] b, int off,
-		int len)
-	{
-		if (blockCache == null) {
-			return;
-		}
-
-		if (blocksizeLearningState == BlocksizeLearningState.INITIAL) {
-			blocksizeLearningState = BlocksizeLearningState.LEARNING;
-			learnedBlocksize = len;
-			blocksizeOccurenceCount = 1;
-			log.debug("initial blocksize hypothesis: " + len);
-
-		} else if (blocksizeLearningState == BlocksizeLearningState.LEARNING) {
-			long blockno = filePointer / learnedBlocksize;
-			if (learnedBlocksize == len && blockno * learnedBlocksize == filePointer) {
-				blocksizeOccurenceCount++;
-				if (blocksizeOccurenceCount > REQUIRED_LEARN_COUNT) {
-					blocksizeLearningState = BlocksizeLearningState.LEARNED;
-					log.debug("learned blocksize: " + len);
-				} else {
-					log.debug(blocksizeOccurenceCount + "th blocksize repetition: " + len);
-				}
-
-			} else {
-				learnedBlocksize = len;
-				blocksizeOccurenceCount = 1;
-				log.debug("blocksize hypothesis mismatch: " + len);
-
-			}
-
-		} else {
-			// We have already learned a blocksize. We will put any read
-			// for whole blocks into a LRU cache. to allow computing deltas
-			// in subsequent writes.
-			// There is no need to make sure that all data read are but
-			// into the cache - we are only interested in reads of whole
-			// blocks. Other read sizes or stream reads will be ignored.
-			// In the worst case this will one result in worse compression
-			// be computing deltas.
-			long blockno = filePointer / learnedBlocksize;
-			if (learnedBlocksize == len && blockno * learnedBlocksize == filePointer) {
-				// incrementing blocksizeOccurenceCount after learning has
-				// completed
-				// is basically pointless. However, we may want to add some
-				// statistics
-				// at a later time, so we keep incrementing the count
-				blocksizeOccurenceCount++;
-
-				// b may be changed by the caller upon return, so
-				// we need to copy the data before placing it in the cache
-				byte[] dupData = new byte[len];
-				System.arraycopy(b, off, dupData, 0, len);
-				String cacheKey = cacheKey(filePath, blockno);
-				blockCache.put(cacheKey, dupData);
-				blockCacheAdds++;
-				log.debug("read: adding to cache: '" + cacheKey + "'");
-			}
-		}
-	}
-
-	/**
 	 * @param fileSystem
 	 * @param b
 	 * @param off
@@ -497,95 +371,12 @@ public class FileSystemHa
 		// The current implementation assumes that the block will
 		// usually have leading and trailing unchanged bytes and
 		// cuts them off.
-		byte[] dupData;
-		synchronized (this) {
-			boolean addToCache = false;
-			replicationRawBytes += len;
-			if (blockCache != null && blocksizeLearningState == BlocksizeLearningState.LEARNED) {
-				long blockno = filePointer / learnedBlocksize;
-				if (learnedBlocksize == len && blockno * learnedBlocksize == filePointer) {
-					// blocked write
-					String cacheKey = cacheKey(filePath, blockno);
-					byte[] oldData = blockCache.get(cacheKey);
-					blockCacheLookups++;
-					if (oldData != null) {
-						log.debug("found in cache: '" + cacheKey + "'");
-						blockCacheHits++;
-						// we found a cached entry - modifying offset and length
-						int ofirst = 0;
-						for (; ofirst < oldData.length; ofirst++) {
-							if (b[off] == oldData[ofirst]) {
-								off++;
-								filePointer++;
-								len--;
-							} else {
-								break;
-							}
-						}
 
-						int blast = off + len - 1;
-						int olast = oldData.length - 1;
-						for (; olast >= ofirst; olast--) {
-							if (b[blast] == oldData[olast]) {
-								blast--;
-								len--;
-							} else {
-								break;
-							}
-						}
-						log.debug("adjusted bounds to " + ofirst + " - " + olast + ", len=" + len);
-
-						if (len == 0) {
-							return;
-						}
-
-						// we need to remember the update in case this block
-						// gets updated again
-						System.arraycopy(b, off, oldData, ofirst, len);
-
-					} else {
-						// block sized write but no cached entry - we will add
-						// the block to the cache after we have created a copy
-						// of the data
-						log.debug("not in cache: '" + cacheKey + "'");
-						addToCache = true;
-					}
-
-				} else {
-					// not a block sized write. We need to flush
-					// all entries from the cache that may have been invalidated
-					// by this write
-					log.debug("non-blocked: " + filePath.getNormalizedHaName() + " - p=" +
-						filePointer + ", l=" + len);
-					long lastBlockModified = (filePointer + len - 1) / learnedBlocksize;
-					while (blockno <= lastBlockModified) {
-						blockCache.remove(cacheKey(filePath, blockno));
-						blockno++;
-					}
-				}
-
-			} else {
-				log.debug("blocksize not yet learned");
-				// we don't have a blocksize yet - we can assume that
-				// the cache is still empty so that we don't need to flush
-				// any entries
-			}
-
-			// b may be changed by the caller upon return, so
-			// we need to copy the data before placing it into the queue
-			dupData = new byte[len];
-			System.arraycopy(b, off, dupData, 0, len);
-			replicationCroppedBytes += len;
-
-			if (addToCache) {
-				long blockno = filePointer / learnedBlocksize;
-				String cacheKey = cacheKey(filePath, blockno);
-				blockCache.put(cacheKey, dupData);
-				blockCacheAdds++;
-				log.debug("write: adding to cache: '" + cacheKey + "'");
-			}
-
-		}
+		replicationRawBytes += len;
+		// b may be changed by the caller upon return, so
+		// we need to copy the data before placing it into the queue
+		byte[] dupData = new byte[len];
+		System.arraycopy(b, off, dupData, 0, len);
 
 		sendToReplicators(new WriteMessage(filePath.getNormalizedHaName(), filePointer, dupData));
 	}
@@ -670,15 +461,6 @@ public class FileSystemHa
 		if (filePath.mustReplicate()) {
 			sendToReplicators(new SetReadOnlyMessage(filePath.getNormalizedHaName()));
 		}
-	}
-
-
-	/**
-     * 
-     */
-	private String cacheKey(FilePathHa filePath, long blockno)
-	{
-		return filePath.getNormalizedHaName() + ":" + blockno;
 	}
 
 

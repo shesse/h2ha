@@ -78,13 +78,9 @@ public class FileChannelHa
 	{
 		if (dst.hasArray()) {
 			long pos = baseChannel.position();
-			int bpos = dst.position() + dst.arrayOffset();
 			int l = baseChannel.read(dst);
 			if (log.isDebugEnabled()) {
 				log.debug(filePath+": read from="+pos+", l="+l);
-			}
-			if (l > 0) {
-				fileSystem.cacheRead(filePath, pos, dst.array(), bpos, l);
 			}
 			return l;
 		} else {

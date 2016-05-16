@@ -812,7 +812,6 @@ public class H2HaServer
 		rs.addColumn("PEER_PORT", Types.INTEGER, 5, 0);
 		rs.addColumn("PEER_STATUS", Types.VARCHAR, 20, 0);
 		rs.addColumn("REPL_BYTES_RAW", Types.INTEGER, 20, 0);
-		rs.addColumn("REPL_BYTES_CROPPED", Types.INTEGER, 20, 0);
 		rs.addColumn("BLOCK_CACHE_LOOKUPS", Types.INTEGER, 20, 0);
 		rs.addColumn("BLOCK_CACHE_ADDS", Types.INTEGER, 20, 0);
 		rs.addColumn("BLOCK_CACHE_HITS", Types.INTEGER, 20, 0);
@@ -834,7 +833,6 @@ public class H2HaServer
 				(client == null ? null : client.getPeerPort()),//
 				(client == null ? null : client.getPeerState().toString()),//
 				fileSystem.getReplicationRawBytes(),//
-				fileSystem.getReplicationCroppedBytes(),//
 				fileSystem.getBlockCacheLookups(),//
 				fileSystem.getBlockCacheAdds(),//
 				fileSystem.getBlockCacheHits()//
