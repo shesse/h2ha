@@ -303,9 +303,6 @@ public class H2HaServer
 		System.err.println("    -haMaxWaitingMessages");
 		System.err.println("        max no of messages in message queue before connection");
 		System.err.println("        is considered defect. 0 = default = unlimited");
-		System.err.println("    -haMaxEnqueuedBytes");
-		System.err.println("        max no of bytes in message queue before connection");
-		System.err.println("        is considered defect. 0 = default = unlimited");
 		System.err.println("    -statisticsInterval");
 		System.err.println("        cycle millis for statistics logging, default = 300000");
 		System.err.println("    -idleTimeout");
@@ -354,7 +351,6 @@ public class H2HaServer
 		removeOptionWithValue(serverArgs, "-haMaxQueueSize", null);
 		removeOptionWithValue(serverArgs, "-haMaxEnqueueWait", null);
 		removeOptionWithValue(serverArgs, "-haMaxWaitingMessages", null);
-		removeOptionWithValue(serverArgs, "-haMaxEnqueuedBytes", null);
 		removeOption(serverArgs, "-autoFailback");
 		removeOption(serverArgs, "-haRestrictPeer");
 	
@@ -1249,7 +1245,7 @@ public class H2HaServer
 
 			ReplicationServerInstance[] sdup = replicators;
 			for (ReplicationServerInstance server : sdup) {
-				server.enqueue(new ReplicationMessage() {
+				server.expandAndEnqueue(new ReplicationMessage() {
 					private static final long serialVersionUID = 1L;
 
 					@Override

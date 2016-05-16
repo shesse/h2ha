@@ -56,9 +56,6 @@ public abstract class ReplicationProtocolInstance
 	private int maxWaitingMessages;
 
 	/** */
-	private int maxEnqueuedBytes;
-
-	/** */
 	protected Socket socket = null;
 
 	/** */
@@ -72,9 +69,6 @@ public abstract class ReplicationProtocolInstance
 
 	/** */
 	private BlockingQueue<ReplicationMessage> messageQueue;
-
-	/** */
-	private int enqueuedBytes = 0;
 
 	/** */
 	protected ReplicationMessage terminateMessage = new ReplicationMessage() {
@@ -209,12 +203,10 @@ public abstract class ReplicationProtocolInstance
 	 * @param idleTimeout2 
      * 
      */
-	public void setParameters(long maxEnqueueWait, int maxWaitingMessages, int maxEnqueuedBytes, 
-	                          long idleTimeout)
+	public void setParameters(long maxEnqueueWait, int maxWaitingMessages, long idleTimeout)
 	{
 		this.maxEnqueueWait = maxEnqueueWait;
 		this.maxWaitingMessages = maxWaitingMessages;
-		this.maxEnqueuedBytes = maxEnqueuedBytes;
 		this.idleTimeout = idleTimeout;
 	}
 
@@ -355,10 +347,6 @@ public abstract class ReplicationProtocolInstance
 			ReplicationMessage message;
 			while ((message = messageQueue.poll()) != null) {
 				totalMessagesDequeued++;
-				synchronized (messageQueue) {
-					enqueuedBytes -= message.getSizeEstimate();
-					messageQueue.notifyAll();
-				}
 				if (!message.callOnlyIfConnected()) {
 					try {
 						message.process(this);
@@ -466,10 +454,6 @@ public abstract class ReplicationProtocolInstance
 
 		if (message != null) {
 			totalMessagesDequeued++;
-			synchronized (messageQueue) {
-				enqueuedBytes -= message.getSizeEstimate();
-				messageQueue.notifyAll();
-			}
 
 			if (message == terminateMessage) {
 				throw new TerminateThread(false, "received termination request");
@@ -638,7 +622,7 @@ public abstract class ReplicationProtocolInstance
 	public void send(final ReplicationMessage message)
 	{
 		final long enqueueTimestamp = System.currentTimeMillis();
-		enqueue(new ReplicationMessage() {
+		expandAndEnqueue(new ReplicationMessage() {
 			private static final long serialVersionUID = 1L;
 
 			@Override
@@ -687,9 +671,53 @@ public abstract class ReplicationProtocolInstance
 	}
 
 	/**
+     * Wrapper around enqueue(). It will enqueue the message itself
+     * followed by a sequence of DoNothing messages dependent
+     * on the estimated size of the message.
+     * <p>
+     * The intention is to prevent memory overflow when very large
+     * messages are enqueued and the queue size is based on more
+     * "normal" messages. Example: Default queue size is 5000
+     * messages and MVStore was observed to produce messages of 
+     * more than 500kB. This would lead to a memory consumption
+     * maximum of about 2,5GB, which is probably more than 
+     * expected.
+     * <p>
+     * To overcome this, a NoNothing message will be enqueued
+     * for every 100KB message size, so that a queue size of 5000
+     * would never require more that 500MB. 
+     */
+	public void expandAndEnqueue(ReplicationMessage message)
+	{
+		enqueue(message);
+		final int expandThreshold = 100000;
+
+		// Add DoNothing messages
+		for (int sz = message.getSizeEstimate(); sz > expandThreshold; sz -= expandThreshold) {
+			enqueue(new ReplicationMessage(){
+				private static final long serialVersionUID = 1L;
+
+				@Override
+				protected void process(ReplicationProtocolInstance instance)
+					throws Exception
+				{
+					// Do Nothing
+				}
+
+				@Override
+				public int getSizeEstimate()
+				{
+					return 8;
+				}
+				
+			});
+		}
+	}
+	
+	/**
      * 
      */
-	public void enqueue(ReplicationMessage message)
+	private void enqueue(ReplicationMessage message)
 	{
 		if (connectionCanceled)
 			return;
@@ -702,39 +730,9 @@ public abstract class ReplicationProtocolInstance
 		}
 
 		try {
-			if (maxEnqueuedBytes > 0 && enqueuedBytes > maxEnqueuedBytes) {
-				// we dont want to cancel the connection immediately. Instead,
-				// we wait for maxEnqueueWait millis for the queue size to drop.
-				synchronized (messageQueue) {
-					long maxWait = 0;
-					if (maxEnqueueWait > 0) {
-						maxWait = System.currentTimeMillis() + maxEnqueueWait;
-					}
-
-					while (enqueuedBytes > maxEnqueuedBytes) {
-						if (maxWait == 0) {
-							messageQueue.wait();
-
-						} else {
-							long delta = maxWait - System.currentTimeMillis();
-							if (delta <= 0) {
-								log.error(instanceName +
-									": too much data waiting for transfer - replicator connection will be canceled");
-								cancelConnection();
-								return;
-							}
-							messageQueue.wait(delta);
-						}
-					}
-				}
-			}
-
 			if (maxEnqueueWait > 0) {
 				if (messageQueue.offer(message, maxEnqueueWait, TimeUnit.MILLISECONDS)) {
 					totalMessagesEnqueued++;
-					synchronized (messageQueue) {
-						enqueuedBytes += message.getSizeEstimate();
-					}
 				} else {
 					log.error(instanceName +
 						": replication connection is too slow - it will be terminated.");
@@ -747,9 +745,6 @@ public abstract class ReplicationProtocolInstance
 			} else {
 				messageQueue.put(message);
 				totalMessagesEnqueued++;
-				synchronized (messageQueue) {
-					enqueuedBytes += message.getSizeEstimate();
-				}
 			}
 
 		} catch (InterruptedException e) {
@@ -784,14 +779,10 @@ public abstract class ReplicationProtocolInstance
 	{
 		connectionCanceled = true;
 
-		synchronized (messageQueue) {
-			messageQueue.clear();
-			enqueuedBytes = 0;
-			messageQueue.notifyAll();
-		}
+		messageQueue.clear();
 		
 
-		enqueue(new ReplicationMessage() {
+		expandAndEnqueue(new ReplicationMessage() {
 			private static final long serialVersionUID = 1L;
 
 			@Override
@@ -835,7 +826,7 @@ public abstract class ReplicationProtocolInstance
 			ReplicationMessage repmsg = (ReplicationMessage) message;
 			int estimatedSize = repmsg.getSizeEstimate();
 			totalBytesReceived += estimatedSize;
-			enqueue(repmsg);
+			expandAndEnqueue(repmsg);
 
 		} else {
 			log.debug(instanceName + ": got unexpected object from protocol connection: " +
@@ -857,7 +848,7 @@ public abstract class ReplicationProtocolInstance
 	{
 		final Semaphore sema = new Semaphore(0);
 
-		enqueue(new ReplicationMessage() {
+		expandAndEnqueue(new ReplicationMessage() {
 			private static final long serialVersionUID = 1L;
 
 			@Override
@@ -914,7 +905,7 @@ public abstract class ReplicationProtocolInstance
      */
 	public void terminate()
 	{
-		enqueue(terminateMessage);
+		expandAndEnqueue(terminateMessage);
 	}
 
 	/**

@@ -56,9 +56,6 @@ public class ReplicationServer
 	private int maxWaitingMessages = 0;
 
 	/** */
-	private int maxEnqueuedBytes = 0;
-
-	/** */
 	private long idleTimeout = 20000;
 	
 	/** */
@@ -93,7 +90,6 @@ public class ReplicationServer
 		maxQueueSize = H2HaServer.findOptionWithInt(args, "-haMaxQueueSize", 5000);
 		maxEnqueueWait = H2HaServer.findOptionWithInt(args, "-haMaxEnqueueWait", 60000);
 		maxWaitingMessages = H2HaServer.findOptionWithInt(args, "-haMaxWaitingMessages", 0);
-		maxEnqueuedBytes = H2HaServer.findOptionWithInt(args, "-haMaxEnqueuedBytes", 0);
 		idleTimeout = H2HaServer.findOptionWithInt(args, "-idleTimeout", 10000);
 
 		if (restrictPeer) {
@@ -152,7 +148,7 @@ public class ReplicationServer
 				ReplicationServerInstance rsrv =
 					new ReplicationServerInstance(instanceName, maxQueueSize, haServer, fileSystem,
 						connSocket);
-				rsrv.setParameters(maxEnqueueWait, maxWaitingMessages, maxEnqueuedBytes, idleTimeout);
+				rsrv.setParameters(maxEnqueueWait, maxWaitingMessages, idleTimeout);
 				new Thread(rsrv, "ha-server-conn").start();
 
 			} else {

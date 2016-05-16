@@ -101,7 +101,7 @@ public abstract class ServerSideProtocolInstance
 			// when processed.
 			// The heartbeat will carry state information of the time when it
 			// is sent out.
-			enqueue(new ReplicationMessage() {
+			expandAndEnqueue(new ReplicationMessage() {
 				private static final long serialVersionUID = 1L;
 
 				@Override

@@ -144,7 +144,7 @@ public class FileSystemHa
 
 		ReplicationServerInstance[] reps = replicators;
 		for (ReplicationServerInstance rep : reps) {
-			rep.enqueue(message);
+			rep.expandAndEnqueue(message);
 		}
 	}
 
