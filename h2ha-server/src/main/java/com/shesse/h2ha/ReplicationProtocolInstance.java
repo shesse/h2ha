@@ -640,6 +640,8 @@ public abstract class ReplicationProtocolInstance
 				} catch (SocketException x) {
 					if (x.getMessage().contains("closed")) {
 						log.info(instanceName + ": socket has been closed");
+					} else if (x.getMessage().toLowerCase().contains("broken pipe")) {
+						log.info(instanceName + ": connection broken");
 					} else {
 						log.error(instanceName +
 							": unexpected exception when sending message to peer", x);

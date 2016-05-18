@@ -36,6 +36,18 @@ public class TestTable
 	/** */
 	private int nextIndex = 0;
 
+	/** */
+	private static String cont;
+	static {
+		cont = "0123456789"; // 10
+		cont += cont; // 20
+		cont += cont; // 40
+		cont += cont; // 80
+		cont += cont; // 160
+		cont += cont; // 320
+		cont += cont; // 640
+		cont += cont; // 1280
+	}
 
 	// /////////////////////////////////////////////////////////
 	// Constructors
@@ -73,7 +85,17 @@ public class TestTable
 			String sql = "create table " + name + "(" + //
 				"  i integer not null auto_increment primary key, " + //
 				"  j integer, " + //
-				"  s varchar2(255) not null);";
+				"  s varchar2(255) not null, " + //
+				"  s0 varchar2(4000), " + //
+				"  s1 varchar2(4000), " + //
+				"  s2 varchar2(4000), " + //
+				"  s3 varchar2(4000), " + //
+				"  s4 varchar2(4000), " + //
+				"  s5 varchar2(4000), " + //
+				"  s6 varchar2(4000), " + //
+				"  s7 varchar2(4000), " + //
+				"  s8 varchar2(4000), " + //
+				"  s9 varchar2(4000));";
 
 			Statement stmnt = conn.createStatement();
 			stmnt.executeUpdate(sql);
@@ -97,10 +119,20 @@ public class TestTable
 	public void insertRecord()
 		throws SQLException
 	{
+		insertRecord(0);
+	}
+
+	/**
+	 * @throws SQLException
+	 * 
+	 */
+	public void insertRecord(int addData)
+					throws SQLException
+	{
 		Connection conn = dbManager.createConnection();
 		try {
 			Statement stmnt = conn.createStatement();
-			insertRecordWithoutCommit(stmnt);
+			insertRecordWithoutCommit(stmnt, addData);
 			conn.commit();
 
 		} finally {
@@ -115,11 +147,30 @@ public class TestTable
 	public void insertRecordWithoutCommit(Statement stmnt)
 		throws SQLException
 	{
+		insertRecordWithoutCommit(stmnt, 0);
+		
+	}
+	/**
+	 * @throws SQLException
+	 * 
+	 */
+	public void insertRecordWithoutCommit(Statement stmnt, int addData)
+		throws SQLException
+	{
 		int i = nextIndex++;
 		int j = (i + 45) % 222;
 		String s = "Hallo: " + i;
 		String sql =
-			"insert into " + name + " (i, j, s) values (" + i + ", " + j + ", '" + s + "');";
+			"insert into " + name + " (i, j, s";
+		for (int c = 0; c < addData; c++) {
+			sql += ", s"+c;
+		}
+		sql += ") values (" + i + ", " + j + ", '" + s + "'";
+		
+		for (int c = 0; c < addData; c++) {
+			sql += ", '"+cont+"'";
+		}
+		sql += ");";
 
 		stmnt.executeUpdate(sql);
 	}

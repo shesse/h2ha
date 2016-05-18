@@ -172,6 +172,12 @@ public class TestGroupBase
 
 			try {
 				stmnt.executeUpdate("create alias SERVER_INFO for \"com.shesse.h2ha.H2HaServer.getServerInfo\"");
+
+			} catch (SQLException x) {
+				// ignore
+			}
+
+			try {
 				stmnt.executeUpdate("create alias REPLICATION_INFO for \"com.shesse.h2ha.H2HaServer.getReplicationInfo\"");
 
 			} catch (SQLException x) {
@@ -180,6 +186,35 @@ public class TestGroupBase
 
 			logTable(stmnt, "SERVER_INFO");
 			logTable(stmnt, "REPLICATION_INFO");
+
+		} finally {
+			conn.close();
+		}
+	}
+
+	/**
+	 * @throws SQLException
+	 * 
+	 */
+	protected String getPeerState()
+		throws SQLException
+	{
+		Connection conn = dbManager.createConnection();
+		try {
+			Statement stmnt = conn.createStatement();
+
+			try {
+				stmnt.executeUpdate("create alias SERVER_INFO for \"com.shesse.h2ha.H2HaServer.getServerInfo\"");
+
+			} catch (SQLException x) {
+				// ignore
+			}
+
+			ResultSet rset = stmnt.executeQuery("select * from SERVER_INFO()");
+			if (rset.next()) {
+				return rset.getString("PEER_STATUS");
+			}
+			return null;
 
 		} finally {
 			conn.close();

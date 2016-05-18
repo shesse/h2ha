@@ -61,7 +61,7 @@ public class FileUtils
      */
     public static boolean dbDirsEqual(File dira, File dirb)
     {
-        log.debug("compare "+dira+" <=> "+dirb);
+        log.info("compare "+dira+" <=> "+dirb);
         if (dira.isDirectory()) {
             if (dirb.isDirectory()) {
                 Set<String> suba = listDirectory(dira);
@@ -103,8 +103,8 @@ public class FileUtils
                     InputStream isb = new FileInputStream(dirb);
                     try {
 
-                        byte[] bufa = new byte[4096];
-                        byte[] bufb = new byte[4096];
+                        byte[] bufa = new byte[4096000];
+                        byte[] bufb = new byte[4096000];
                         long pos = 0;
                         for (;;) {
                             int la = isa.read(bufa);
