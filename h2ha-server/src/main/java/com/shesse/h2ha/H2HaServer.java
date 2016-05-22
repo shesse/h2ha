@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.channels.FileChannel;
@@ -216,6 +217,10 @@ public class H2HaServer
 			} else if ("version".equals(command)) {
 				performVersionCommand(args);
 
+			} else if (startAsMain(command, args)) {
+				// action has already beean carried out as side effect
+				// of startAsTool
+
 			} else {
 				System.err.println("usage: java -jar " + getJarname() + " <command> [option ...]");
 				System.err.println("with command:");
@@ -229,6 +234,8 @@ public class H2HaServer
 				System.err.println("        Create a new database");
 				System.err.println("    version");
 				System.err.println("        print version info");
+				System.err.println("    <class name>");
+				System.err.println("        Start an arbitrary command from H2 library");
 
 				System.exit(1);
 
@@ -728,6 +735,52 @@ public class H2HaServer
 	{
 		System.err.println("H2HA Server " + getVersionInfo());
 	}
+
+	/**
+	 * @param args2
+	 * @return
+	 */
+	private static boolean startAsMain(String command, List<String> args)
+	{
+		String clsName = command;
+		try {
+			log.debug("trying to find a class for command '"+clsName+"'");
+			Class<?> cls = Class.forName(clsName);
+
+			Method main = cls.getMethod("main", String[].class);
+
+			if (!Modifier.isStatic(main.getModifiers())) {
+				log.debug("main for "+cls.getName()+" is not static");
+				return false;
+			}
+
+			String[] invokeArgs = args.toArray(new String[0]);
+			log.debug("invoke "+cls.getName()+"."+main.getName());
+			main.invoke(null, (Object)invokeArgs);
+			return true;
+			
+		} catch (ClassNotFoundException x) {
+			log.debug("no class found for "+clsName);
+			return false;
+		} catch (IllegalAccessException x) {
+			log.debug("illegal access for "+clsName);
+			return false;
+		} catch (SecurityException x) {
+			log.debug("security exception for "+clsName);
+			return false;
+		} catch (NoSuchMethodException x) {
+			log.debug("no method main for "+clsName);
+			return false;
+		} catch (IllegalArgumentException x) {
+			log.debug("illegal argument for "+clsName+".main");
+			return false;
+		} catch (InvocationTargetException x) {
+			log.error("unexpected exception when running "+clsName+": "+x.getCause().getMessage());
+			System.exit(1);
+			return false;
+		}
+	}
+
 
 	/**
 	 * 
