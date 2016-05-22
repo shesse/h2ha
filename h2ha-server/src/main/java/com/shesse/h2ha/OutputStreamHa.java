@@ -113,6 +113,9 @@ public class OutputStreamHa
 
 		baseOutputStream.write(buffer, offset, length);
 
+		if (log.isDebugEnabled()) {
+			log.debug(filePath+": write from="+filePtr+", l="+length+", end="+(filePtr+length));
+		}
 		fileSystem.sendWrite(filePath, filePtr, buffer, offset, length);
 		filePtr += length;
 	}
@@ -133,6 +136,9 @@ public class OutputStreamHa
 
 		baseOutputStream.write(buffer);
 
+		if (log.isDebugEnabled()) {
+			log.debug(filePath+": write from="+filePtr+", l="+buffer.length+", end="+(filePtr+buffer.length));
+		}
 		fileSystem.sendWrite(filePath, filePtr, buffer, 0, buffer.length);
 		filePtr += buffer.length;
 	}
@@ -149,6 +155,9 @@ public class OutputStreamHa
 		singleByteBuffer[0] = (byte) i;
 		baseOutputStream.write(i);
 
+		if (log.isDebugEnabled()) {
+			log.debug(filePath+": write from="+filePtr+", l=1, end="+(filePtr+1));
+		}
 		fileSystem.sendWrite(filePath, filePtr, singleByteBuffer, 0, 1);
 		filePtr += 1;
 	}

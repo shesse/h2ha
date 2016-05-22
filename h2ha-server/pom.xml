@@ -93,6 +93,11 @@
 					<includes>
 						<include>**/*Tests.java</include>
 					</includes>
+					<excludes>
+						<!-- dont run the following test by default - it takes nearly
+						 an hour! -->
+						<exclude>**/DbLargeSyncTests.java</exclude>
+					</excludes>
 				</configuration>
 			</plugin>
 		</plugins>

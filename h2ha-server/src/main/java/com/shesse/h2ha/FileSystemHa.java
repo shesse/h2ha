@@ -144,7 +144,7 @@ public class FileSystemHa
 
 		ReplicationServerInstance[] reps = replicators;
 		for (ReplicationServerInstance rep : reps) {
-			rep.expandAndEnqueue(message);
+			rep.enqueue(message);
 		}
 	}
 
@@ -368,10 +368,32 @@ public class FileSystemHa
 		replicationRawBytes += len;
 		// b may be changed by the caller upon return, so
 		// we need to copy the data before placing it into the queue
-		byte[] dupData = new byte[len];
-		System.arraycopy(b, off, dupData, 0, len);
-
-		sendToReplicators(new WriteMessage(filePath.getNormalizedHaName(), filePointer, dupData));
+		// N.b.: MvStore passes quite long buffers (6MB size has been 
+		// observed). We split this down to a more manageable size
+		// to ensure a better dynamic when transferring data.
+		
+		synchronized (filePath.getNormalizedHaName().intern()) {
+			// We want to make sure that the break-up
+			// of a single local file system operation into 
+			// multiple messages will not cause race conditions.
+			// So we synchronize on an object that uniquely
+			// identifies a target file.
+			
+			final int maxWriteMessageSize = ReplicationProtocolInstance.transferGranularity;
+			while (len > 0) {
+				int blen = (len > maxWriteMessageSize ? maxWriteMessageSize : len);
+				
+				byte[] dupData = new byte[blen];
+				System.arraycopy(b, off, dupData, 0, blen);
+				
+				sendToReplicators(new WriteMessage(filePath.getNormalizedHaName(), filePointer, dupData));
+				
+				off += blen;
+				len -= blen;
+				filePointer += blen;
+			}
+		}
+		
 	}
 
 	/**
@@ -456,6 +478,45 @@ public class FileSystemHa
 		}
 	}
 
+	/**
+	 * @param string
+	 * @param data2
+	 * @param l
+	 * @param m
+	 */
+	private static void logBytes(Logger log, String message, byte[] data, long offs, long length)
+	{
+		if (length > 10) {
+			length = 10;
+		}
+		dumpToDebug(log, message, data, (int)offs, (int)length);
+	}
+	
+	/**
+	 * @param log
+	 * @param buffer
+	 * @param offs
+	 * @param length
+	 */
+	private static void dumpToDebug(Logger log, String message, byte[] buffer, int offs, int length)
+	{
+		if (log.isDebugEnabled()) {
+			message += ": ";
+			while (length > 0) {
+				StringBuilder sb = new StringBuilder();
+				for (int i = 0; i < length && i < 32; i++) {
+					sb.append(String.format("%02x ", buffer[offs+i]));
+				}
+				log.debug(message + sb);
+				message = "  ";
+				length -= 32;
+				offs += 32;
+			}
+		}
+	}
+
+
+
 
 	// /////////////////////////////////////////////////////////
 	// Inner Classes
@@ -532,18 +593,30 @@ public class FileSystemHa
 		String haName;
 		long filePointer;
 		byte[] data;
+		
+		// only used for testing
+		private static final long samplingPoint = 65536;
 
 		WriteMessage(String haName, long filePointer, byte[] data)
 		{
 			this.haName = haName;
 			this.filePointer = filePointer;
 			this.data = data;
+			
+			// only used for testing
+			if (filePointer <= samplingPoint && filePointer+data.length > samplingPoint) {
+				logBytes(log, "sending for "+samplingPoint, data, samplingPoint-filePointer, filePointer+data.length - samplingPoint);
+			}
 		}
 
 		@Override
 		protected void processMessageToClient(ReplicationClientInstance instance)
 			throws Exception
 		{
+			// only used for testing
+			if (filePointer <= samplingPoint && filePointer+data.length > samplingPoint) {
+				logBytes(log, "processing for "+samplingPoint, data, samplingPoint-filePointer, filePointer+data.length - samplingPoint);
+			}
 			instance.processWriteMessage(haName, filePointer, data);
 		}
 

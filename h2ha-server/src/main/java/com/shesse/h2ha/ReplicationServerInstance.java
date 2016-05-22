@@ -96,7 +96,7 @@ public class ReplicationServerInstance
 
 	/** */
 	private Map<FilePathHa, SyncInfo> syncInfos = new HashMap<FilePathHa, SyncInfo>();
-
+	
 
 	// /////////////////////////////////////////////////////////
 	// Constructors
@@ -265,9 +265,8 @@ public class ReplicationServerInstance
 
 		FileChannel fc = getFileChannel(haName);
 		long fileSize = fc.size();
-		ByteBuffer buffer = ByteBuffer.allocate(4096);
+		ByteBuffer buffer = ByteBuffer.allocate(transferGranularity);
 		long offset = 0;
-		fc.position(offset);
 		syncInfo.setEndIgnore(fileSize);
 		while (offset < fileSize) {
 			buffer.clear();
@@ -282,24 +281,20 @@ public class ReplicationServerInstance
 
 				syncInfo.setBeginIgnore(endrd);
 
-				if (fc instanceof FileChannelHa) {
-					((FileChannelHa) fc).readNoCache(buffer);
-				} else {
-					fc.read(buffer);
-				}
+				fc.read(buffer, offset);
 
 				buffer.flip();
 				byte[] sendBuffer = new byte[buffer.limit()];
 				buffer.get(sendBuffer);
 				sendToPeer(new FileDataMessage(haName, offset, sendBuffer));
 				offset += rdlen;
+				totalSyncBlocksSent++;
 
 			} catch (EOFException x) {
 				long nfs = fc.size();
 				if (nfs < fileSize) {
 					log.debug("adjusting to shrinking random access file");
 					fileSize = nfs;
-					fc.position(offset);
 				} else {
 					throw x;
 				}
@@ -345,9 +340,8 @@ public class ReplicationServerInstance
 
 			FileChannel fc = getFileChannel(haName);
 			long fileSize = fc.size();
-			ByteBuffer buffer = ByteBuffer.allocate(4096);
+			ByteBuffer buffer = ByteBuffer.allocate(syncGranularity);
 			long offset = 0;
-			fc.position(offset);
 			while (offset < fileSize) {
 				buffer.clear();
 				try {
@@ -360,17 +354,19 @@ public class ReplicationServerInstance
 					}
 
 					syncInfo.setBeginIgnore(endrd);
-
-					if (fc instanceof FileChannelHa) {
-						((FileChannelHa) fc).readNoCache(buffer);
-					} else {
-						fc.read(buffer);
+					
+					int reslen = fc.read(buffer, offset);
+					
+					if (reslen < rdlen) {
+						log.debug(haName+": got less than expected at "+offset+": expected "+rdlen+" and got "+reslen);
 					}
 
 					buffer.flip();
 
+					log.debug(haName+": computing checksum at "+offset+" for len="+rdlen);
 					sendToPeer(new FileChecksumMessage(haName, offset, rdlen, computeMd5(buffer)));
 					offset += rdlen;
+					totalChecksumsSent++;
 					
 					// we now need to give other messages a chance wating in the queue:
 					// our client may try to request a data block and a deadlock
@@ -382,7 +378,6 @@ public class ReplicationServerInstance
 					if (nfs < fileSize) {
 						log.debug("adjusting to shrinking random access file");
 						fileSize = nfs;
-						fc.position(offset);
 					} else {
 						throw x;
 					}
@@ -415,16 +410,12 @@ public class ReplicationServerInstance
 		for (;;) {
 			try {
 				ByteBuffer buffer = ByteBuffer.allocate(length);
-				fc.position(offset);
-				if (fc instanceof FileChannelHa) {
-					((FileChannelHa) fc).readNoCache(buffer);
-				} else {
-					fc.read(buffer);
-				}
+				fc.read(buffer, offset);
 				buffer.flip();
 				byte[] sendBuffer = new byte[buffer.limit()];
 				buffer.get(sendBuffer);
 				sendToPeer(new FileDataMessage(haName, offset, sendBuffer));
+				totalSyncBlocksSent++;
 				return;
 
 			} catch (EOFException x) {

@@ -119,7 +119,19 @@ public abstract class ReplicationProtocolInstance
 	private long totalBytesTransmitted = 0;
 
 	/** */
+	private long totalMsgsTransmitted = 0;
+
+	/** */
 	private long totalBytesReceived = 0;
+
+	/** */
+	private long totalMsgsReceived = 0;
+
+	/** */
+	protected long totalChecksumsSent = 0;
+
+	/** */
+	protected long totalSyncBlocksSent = 0;
 
 	/** */
 	private long lastStatisticsTimestamp = 0L;
@@ -134,7 +146,19 @@ public abstract class ReplicationProtocolInstance
 	private long lastStatisticsBytesTransmitted = 0L;
 
 	/** */
+	private long lastStatisticsMsgsTransmitted = 0L;
+
+	/** */
 	private long lastStatisticsBytesReceived = 0L;
+
+	/** */
+	private long lastStatisticsMsgsReceived = 0L;
+
+	/** */
+	private long lastStatisticsChecksumsSent = 0L;
+
+	/** */
+	private long lastStatisticsSyncBlocksSent = 0L;
 
 	/** */
 	private long nextHeartbeatToSend = 0L;
@@ -147,6 +171,28 @@ public abstract class ReplicationProtocolInstance
 
 	/** */
 	private int objectsSentWithoutReset = 0;
+	
+	/** 
+	 * only used for testing! A value > 0 throttles speed of 
+	 * transferring data to the peer by a value of throttle KB/sec
+	 */
+	private int throttle = 0;
+
+	/**  */
+	private static double outstandingThrottleMillis = 0;
+	
+	/**  */
+	private static long lastMeasurement = 0L;
+	
+
+	/** */
+	public static final int syncGranularity = 32768;
+
+	/** */
+	public static final int transferGranularity = 131072;
+
+
+
 
 
 	// /////////////////////////////////////////////////////////
@@ -163,6 +209,14 @@ public abstract class ReplicationProtocolInstance
 			messageQueue = new LinkedBlockingQueue<ReplicationMessage>(maxQueueSize);
 		} else {
 			messageQueue = new LinkedBlockingQueue<ReplicationMessage>();
+		}
+		
+		String throttleProp = System.getProperty("throttle");
+		if (throttleProp != null) {
+			throttle = Integer.parseInt(throttleProp);
+			if (throttle > 0) {
+				log.warn(instanceName+": throttling data transfer to "+throttle+"KB/sec");
+			}
 		}
 	}
 
@@ -495,16 +549,36 @@ public abstract class ReplicationProtocolInstance
 				((now - lastStatisticsTimestamp) / 1000.);
 
 			double transmittedBytesPerSecond =
-				(totalBytesTransmitted - lastStatisticsBytesTransmitted) /
-				((now - lastStatisticsTimestamp) / 1000.);
+							(totalBytesTransmitted - lastStatisticsBytesTransmitted) /
+							((now - lastStatisticsTimestamp) / 1000.);
+
+			double transmittedMsgsPerSecond =
+							(totalMsgsTransmitted - lastStatisticsMsgsTransmitted) /
+							((now - lastStatisticsTimestamp) / 1000.);
 
 			double receivedBytesPerSecond =
-				(totalBytesReceived - lastStatisticsBytesReceived) /
-				((now - lastStatisticsTimestamp) / 1000.);
+							(totalBytesReceived - lastStatisticsBytesReceived) /
+							((now - lastStatisticsTimestamp) / 1000.);
+						
+			double receivedMsgsPerSecond =
+							(totalMsgsReceived - lastStatisticsMsgsReceived) /
+							((now - lastStatisticsTimestamp) / 1000.);
+						
+			double checksumsSentPerSecond = 
+							(totalChecksumsSent - lastStatisticsChecksumsSent) /
+							((now - lastStatisticsTimestamp) / 1000.);
+
+			double syncBlocksSentPerSecond = 
+							(totalSyncBlocksSent - lastStatisticsSyncBlocksSent) /
+							((now - lastStatisticsTimestamp) / 1000.);
 
 			log.info(instanceName +
 				String.format(": transmit/receive rate = %7.1f/%7.1f KB/sec",
 					transmittedBytesPerSecond / 1000, receivedBytesPerSecond / 1000));
+
+			log.info(instanceName +
+				String.format(": transmit/receive rate = %7.1f/%7.1f Msg/sec",
+					transmittedMsgsPerSecond, receivedMsgsPerSecond));
 
 			log.info(instanceName +
 				String.format(": enqueue/dequeue rate  = %7.1f/%7.1f Msg/sec",
@@ -512,12 +586,26 @@ public abstract class ReplicationProtocolInstance
 
 			log.info(instanceName +
 				String.format(": queue size    = %5d", messageQueue.size()));
+			
+			if (checksumsSentPerSecond > 0 || syncBlocksSentPerSecond > 0) {
+				log.info(instanceName +
+					String.format(": checksums sent        = %7.1f Msg/sec",
+						checksumsSentPerSecond));
+				log.info(instanceName +
+					String.format(": sync blocks sent      = %7.1f Msg/sec",
+						syncBlocksSentPerSecond));
+			}
 		}
 		
 		lastStatisticsMessagesEnqueued = totalMessagesEnqueued;
 		lastStatisticsMessagesDequeued = totalMessagesDequeued;
 		lastStatisticsBytesTransmitted = totalBytesTransmitted;
+		lastStatisticsMsgsTransmitted = totalMsgsTransmitted;
 		lastStatisticsBytesReceived = totalBytesReceived;
+		lastStatisticsMsgsReceived = totalMsgsReceived;
+		lastStatisticsChecksumsSent = totalChecksumsSent;
+		lastStatisticsSyncBlocksSent = totalSyncBlocksSent;
+		
 		lastStatisticsTimestamp = now;
 	}
 
@@ -622,7 +710,7 @@ public abstract class ReplicationProtocolInstance
 	public void send(final ReplicationMessage message)
 	{
 		final long enqueueTimestamp = System.currentTimeMillis();
-		expandAndEnqueue(new ReplicationMessage() {
+		enqueue(new ReplicationMessage() {
 			private static final long serialVersionUID = 1L;
 
 			@Override
@@ -673,53 +761,9 @@ public abstract class ReplicationProtocolInstance
 	}
 
 	/**
-     * Wrapper around enqueue(). It will enqueue the message itself
-     * followed by a sequence of DoNothing messages dependent
-     * on the estimated size of the message.
-     * <p>
-     * The intention is to prevent memory overflow when very large
-     * messages are enqueued and the queue size is based on more
-     * "normal" messages. Example: Default queue size is 5000
-     * messages and MVStore was observed to produce messages of 
-     * more than 500kB. This would lead to a memory consumption
-     * maximum of about 2,5GB, which is probably more than 
-     * expected.
-     * <p>
-     * To overcome this, a NoNothing message will be enqueued
-     * for every 100KB message size, so that a queue size of 5000
-     * would never require more that 500MB. 
-     */
-	public void expandAndEnqueue(ReplicationMessage message)
-	{
-		enqueue(message);
-		final int expandThreshold = 100000;
-
-		// Add DoNothing messages
-		for (int sz = message.getSizeEstimate(); sz > expandThreshold; sz -= expandThreshold) {
-			enqueue(new ReplicationMessage(){
-				private static final long serialVersionUID = 1L;
-
-				@Override
-				protected void process(ReplicationProtocolInstance instance)
-					throws Exception
-				{
-					// Do Nothing
-				}
-
-				@Override
-				public int getSizeEstimate()
-				{
-					return 8;
-				}
-				
-			});
-		}
-	}
-	
-	/**
      * 
      */
-	private void enqueue(ReplicationMessage message)
+	public void enqueue(ReplicationMessage message)
 	{
 		if (connectionCanceled)
 			return;
@@ -732,6 +776,7 @@ public abstract class ReplicationProtocolInstance
 		}
 
 		try {
+			log.debug("enqueue sz="+message.getSizeEstimate());
 			if (maxEnqueueWait > 0) {
 				if (messageQueue.offer(message, maxEnqueueWait, TimeUnit.MILLISECONDS)) {
 					totalMessagesEnqueued++;
@@ -784,7 +829,7 @@ public abstract class ReplicationProtocolInstance
 		messageQueue.clear();
 		
 
-		expandAndEnqueue(new ReplicationMessage() {
+		enqueue(new ReplicationMessage() {
 			private static final long serialVersionUID = 1L;
 
 			@Override
@@ -827,8 +872,9 @@ public abstract class ReplicationProtocolInstance
 
 			ReplicationMessage repmsg = (ReplicationMessage) message;
 			int estimatedSize = repmsg.getSizeEstimate();
+			totalMsgsReceived++;
 			totalBytesReceived += estimatedSize;
-			expandAndEnqueue(repmsg);
+			enqueue(repmsg);
 
 		} else {
 			log.debug(instanceName + ": got unexpected object from protocol connection: " +
@@ -850,7 +896,7 @@ public abstract class ReplicationProtocolInstance
 	{
 		final Semaphore sema = new Semaphore(0);
 
-		expandAndEnqueue(new ReplicationMessage() {
+		enqueue(new ReplicationMessage() {
 			private static final long serialVersionUID = 1L;
 
 			@Override
@@ -907,7 +953,7 @@ public abstract class ReplicationProtocolInstance
      */
 	public void terminate()
 	{
-		expandAndEnqueue(terminateMessage);
+		enqueue(terminateMessage);
 	}
 
 	/**
@@ -969,11 +1015,13 @@ public abstract class ReplicationProtocolInstance
 		}
 
 		oos.writeObject(message);
+		
+		totalMsgsTransmitted++;
 
 		// we need to reset() the oos to force the oos to release all references
 		// to already written objects. However, we try to allow the oos to
 		// optimize
-		// by calling reset not on every write. The factor is arbitray and may
+		// by calling reset not on every write. The factor is arbitrary and may
 		// be changed
 		// to enhance optimization
 		if (++objectsSentWithoutReset > 20) {
@@ -982,6 +1030,36 @@ public abstract class ReplicationProtocolInstance
 		}
 
 		oos.flush();
+
+		if (throttle > 0) {
+			// throttle: KB / sec 
+			// *= 1024 = B / sec
+			// /= 1000 = B / msec
+			double t  = throttle * 1024L;
+			t /= 1000L;
+			
+			// Bytes / Bytes / msec) = msec
+			synchronized (ReplicationProtocolInstance.class) {
+				outstandingThrottleMillis += sizeEstimate / t;
+				
+				long now = System.currentTimeMillis();
+				long delta = now - lastMeasurement;
+				lastMeasurement = now;
+				outstandingThrottleMillis -= delta;
+				if (outstandingThrottleMillis < 0) {
+					// nothing has happened for a time - resetting
+					outstandingThrottleMillis = 0;
+				} else if (outstandingThrottleMillis > 10.) {
+					log.debug(instanceName + ": throttle waiting "+outstandingThrottleMillis);
+					try {
+						Thread.sleep((long)outstandingThrottleMillis);
+					} catch (InterruptedException x) {
+					}
+				}
+				
+			}
+			
+		}
 
 		totalBytesTransmitted += sizeEstimate;
 	}
@@ -1131,9 +1209,13 @@ public abstract class ReplicationProtocolInstance
 				log.debug(instanceName + ": send WaitingOperation " + operationId);
 				send(request);
 				log.debug(instanceName + ": wait for result " + operationId);
-				waitGate.acquire();
-				log.debug(instanceName + ": got result " + operationId);
-
+				if (waitGate.tryAcquire(20000, TimeUnit.MILLISECONDS)) {
+					log.debug(instanceName + ": got result " + operationId);
+				} else {
+					log.debug(instanceName + ": die not get a result for " + operationId);
+					
+				}
+				
 			} finally {
 				synchronized (ReplicationProtocolInstance.this) {
 					waitingOperations.remove(operationId);

@@ -63,10 +63,22 @@ public class FileChannelHa
 		this.filePath = filePath;
 		this.baseChannel = baseChannel;
 	}
+	
+	
+
+
 
 	// /////////////////////////////////////////////////////////
 	// Methods
 	// /////////////////////////////////////////////////////////
+	/**
+	 * @return the baseChannel
+	 */
+	public FileChannel getBaseChannel()
+	{
+		return baseChannel;
+	}
+
 	/**
 	 * {@inheritDoc}
 	 * 
@@ -74,25 +86,6 @@ public class FileChannelHa
 	 */
 	@Override
 	public int read(ByteBuffer dst)
-		throws IOException
-	{
-		if (dst.hasArray()) {
-			long pos = baseChannel.position();
-			int l = baseChannel.read(dst);
-			if (log.isDebugEnabled()) {
-				log.debug(filePath+": read from="+pos+", l="+l);
-			}
-			return l;
-		} else {
-			throw new IllegalArgumentException(
-				"only ByteBuffers with hasArray() = true are supported");
-		}
-	}
-
-	/**
-	 * 
-	 */
-	public int readNoCache(ByteBuffer dst)
 		throws IOException
 	{
 		return baseChannel.read(dst);
@@ -107,23 +100,28 @@ public class FileChannelHa
 	public long read(ByteBuffer[] dsts, int offset, int length)
 		throws IOException
 	{
-		long total = 0;
-		while (length > 0) {
-			int l = read(dsts[offset]);
-			if (l < 0) {
-				if (total > 0) {
-					return total;
-				} else {
-					return l;
-				}
-			}
-			total += l;
-			offset++;
-			length--;
-		}
-
-		return total;
+		return baseChannel.read(dsts, offset, length);
 	}
+
+	/**
+	 * {@inheritDoc}
+	 * 
+	 * @see java.nio.channels.FileChannel#read(java.nio.ByteBuffer, long)
+	 */
+	@Override
+	public int read(ByteBuffer dst, long position)
+		throws IOException
+	{
+		int l = baseChannel.read(dst, position);
+		if (log.isDebugEnabled()) {
+			log.debug(filePath+": read from="+position+", l="+l);
+		}
+		return l;
+	}
+
+
+
+
 
 	/**
 	 * {@inheritDoc}
@@ -164,6 +162,28 @@ public class FileChannelHa
 		}
 		return l;
 	}
+
+	/**
+	 * {@inheritDoc}
+	 * 
+	 * @see java.nio.channels.FileChannel#write(java.nio.ByteBuffer, long)
+	 */
+	@Override
+	public int write(ByteBuffer src, long position)
+		throws IOException
+	{
+		int bpos = src.position();
+		int l = baseChannel.write(src, position);
+		if (log.isDebugEnabled()) {
+			log.debug(filePath+": write from="+position+", l="+l+", end="+(position+l));
+		}
+		fileSystem.sendWrite(filePath, position, src.array(), bpos, l);
+		return l;
+	}
+
+
+
+
 
 	/**
 	 * {@inheritDoc}
@@ -268,8 +288,6 @@ public class FileChannelHa
 		if (log.isDebugEnabled()) {
 			log.debug(filePath+": transferFrom to="+position+", l="+count+", src="+src.getClass().getName());
 		}
-		long startPos = baseChannel.position();
-		baseChannel.position(position);
 
 		final int maxBufferSize = 8192;
 		ByteBuffer buffer = null;
@@ -288,47 +306,14 @@ public class FileChannelHa
 				break;
 			} else {
 				buffer.flip();
-				total += write(buffer);
+				int wl = write(buffer, position);
+				total += wl;
+				position += wl;
+				count -= wl;
 			}
 		}
 
-		// position will not be changed!
-		baseChannel.position(startPos);
 		return total;
-	}
-
-	/**
-	 * {@inheritDoc}
-	 * 
-	 * @see java.nio.channels.FileChannel#read(java.nio.ByteBuffer, long)
-	 */
-	@Override
-	public int read(ByteBuffer dst, long position)
-		throws IOException
-	{
-		int l = baseChannel.read(dst, position);
-		if (log.isDebugEnabled()) {
-			log.debug(filePath+": read from="+position+", l="+l);
-		}
-		return l;
-	}
-
-	/**
-	 * {@inheritDoc}
-	 * 
-	 * @see java.nio.channels.FileChannel#write(java.nio.ByteBuffer, long)
-	 */
-	@Override
-	public int write(ByteBuffer src, long position)
-		throws IOException
-	{
-		int bpos = src.position();
-		int l = baseChannel.write(src, position);
-		if (log.isDebugEnabled()) {
-			log.debug(filePath+": write from="+position+", l="+l+", end="+(position+l));
-		}
-		fileSystem.sendWrite(filePath, position, src.array(), bpos, l);
-		return l;
 	}
 
 	/**

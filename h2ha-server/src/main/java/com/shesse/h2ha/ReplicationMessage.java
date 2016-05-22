@@ -65,7 +65,7 @@ public abstract class ReplicationMessage
 	}
 
 	/**
-	 * @return estimated size of this object when serialized. This value is only
+	 * @return estimated size in bytes of this object when serialized. This value is only
 	 *         used for statistical purposes and need not be exact.
 	 */
 	public abstract int getSizeEstimate();

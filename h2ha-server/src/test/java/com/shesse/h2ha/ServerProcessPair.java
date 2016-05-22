@@ -70,11 +70,11 @@ public class ServerProcessPair
 	 * @throws IOException
 	 * 
 	 */
-	public void start()
+	public void start(String... args)
 		throws IOException, InterruptedException
 	{
-		startA();
-		startB();
+		startA(args);
+		startB(args);
 	}
 
 	/**
@@ -82,10 +82,10 @@ public class ServerProcessPair
 	 * @throws IOException
 	 * 
 	 */
-	public void startA()
+	public void startA(String... args)
 		throws IOException, InterruptedException
 	{
-		processA.start(true);
+		processA.start(true, args);
 	}
 
 	/**
@@ -93,10 +93,10 @@ public class ServerProcessPair
 	 * @throws IOException
 	 * 
 	 */
-	public void startB()
+	public void startB(String... args)
 		throws IOException, InterruptedException
 	{
-		processB.start(false);
+		processB.start(false, args);
 	}
 
 	/**

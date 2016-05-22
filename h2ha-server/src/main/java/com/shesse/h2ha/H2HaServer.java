@@ -1245,7 +1245,7 @@ public class H2HaServer
 
 			ReplicationServerInstance[] sdup = replicators;
 			for (ReplicationServerInstance server : sdup) {
-				server.expandAndEnqueue(new ReplicationMessage() {
+				server.enqueue(new ReplicationMessage() {
 					private static final long serialVersionUID = 1L;
 
 					@Override

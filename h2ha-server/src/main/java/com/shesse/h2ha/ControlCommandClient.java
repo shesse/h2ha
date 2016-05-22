@@ -151,7 +151,7 @@ public class ControlCommandClient
 		@Override
 		public int getSizeEstimate()
 		{
-			return 16 + dbNameAndParameters.length() + adminUser.length() + adminPassword.length();
+			return 16 + 2*(dbNameAndParameters.length() + adminUser.length() + adminPassword.length());
 		}
 
 		@Override

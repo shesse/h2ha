@@ -35,6 +35,14 @@ public class DbLargeSyncTests
 
 	/** */
 	private Random rnd = new Random();
+	
+	/** */
+	private static String[] serverArgs = {
+		"-Dthrottle=10000", 
+		"-statisticsInterval", "5000",
+		//"-haMaxQueueSize", "50"
+	};
+	
 
 	// /////////////////////////////////////////////////////////
 	// Constructors
@@ -61,7 +69,7 @@ public class DbLargeSyncTests
 		}
 		dbManager.cleanup();
 		servers.cleanup();
-		servers.start();
+		servers.start(serverArgs);
 		servers.waitUntilActive();
 		servers.createDatabaseA();
 		tr.startup();
@@ -86,18 +94,64 @@ public class DbLargeSyncTests
 
 
 	@Test
-	public void largeSyncTest()
+	public void syncAll()
 		throws SQLException, IOException, InterruptedException
 	{
 		log.info("######################################################################");
 		log.info("######################################################################");
-		log.info("start of test largeSyncTest");
+		log.info("start of test syncAll");
 		
-		//syncTest(2);
-		syncTest(60);
+		//syncTest(2, 1.);
+		syncTest(60, 1.);
 	}
 	
-	private void syncTest(int threads) throws SQLException, IOException, InterruptedException
+	@Test
+	public void syncNone()
+		throws SQLException, IOException, InterruptedException
+	{
+		log.info("######################################################################");
+		log.info("######################################################################");
+		log.info("start of test syncNone");
+		
+		//syncTest(2);
+		syncTest(60, 0.);
+	}
+	
+	@Test
+	public void syncMiddle()
+		throws SQLException, IOException, InterruptedException
+	{
+		log.info("######################################################################");
+		log.info("######################################################################");
+		log.info("start of test syncMiddle");
+		
+		//syncTest(2);
+		syncTest(60, 0.5);
+	}
+	
+	@Test
+	public void syncFull()
+		throws SQLException, IOException, InterruptedException
+	{
+		log.info("######################################################################");
+		log.info("######################################################################");
+		log.info("start of test syncFull");
+		
+
+		servers.stopB();
+		
+		log.info("wait for sync");
+		tr.getDbManager().syncWithAllReplicators();
+		log.info("sync finished");
+		
+		new File(servers.getDirB(), "test.mv.db").delete();
+		
+
+		//syncTest(2, 2.);
+		syncTest(60, 2.);
+	}
+	
+	private void syncTest(int threads, double stopReplAt) throws SQLException, IOException, InterruptedException
 	{
 		TestTable[] tables = new TestTable[100];
 		for (int i = 0; i < tables.length; i++) {
@@ -106,9 +160,9 @@ public class DbLargeSyncTests
 
 		Thread[] writers = new Thread[threads];
 		for (int i = 0; i < writers.length; i++) {
-			Runnable onHalfway = null;
-			if (i == 0) {
-				onHalfway = new Runnable() {
+			Runnable onStopRepl = null;
+			if (i == 0 && stopReplAt <= 1.0) {
+				onStopRepl = new Runnable() {
 					@Override
 					public void run()
 					{
@@ -120,7 +174,7 @@ public class DbLargeSyncTests
 					}
 				};
 			}
-			writers[i] = createWriter(i, tables, onHalfway);
+			writers[i] = createWriter(i, tables, stopReplAt, onStopRepl);
 			writers[i].start();
 		}
 
@@ -136,7 +190,7 @@ public class DbLargeSyncTests
 		log.info("file size B="+new File(servers.getDirB(), "test.mv.db").length());
 		
 	
-		servers.startB();
+		servers.startB(serverArgs);
 		
 		for (;;) {
 			String ps = getPeerState();
@@ -161,7 +215,8 @@ public class DbLargeSyncTests
 
 	/**
      */
-	private Thread createWriter(final int wi, final TestTable[] tables, final Runnable onHalfway)
+	private Thread createWriter(final int wi, final TestTable[] tables, 
+	                            final double stopReplAt, final Runnable onStopRepl)
 	{
 		return new Thread() {
 			public void run()
@@ -176,7 +231,8 @@ public class DbLargeSyncTests
 			public void body()
 				throws SQLException
 			{
-				for (int i = 0; i < 5000; i++) {
+				final int max = 5000;
+				for (int i = 0; i < max; i++) {
 					TestTable tab;
 					synchronized (rnd) {
 						tab = tables[rnd.nextInt(tables.length)];
@@ -190,9 +246,12 @@ public class DbLargeSyncTests
 						log.info("writer[" + wi + "]: " + (i + 1));
 					}
 					
-					if (i == 2500 && onHalfway != null) {
-						onHalfway.run();
+					if (i == (int)(max*stopReplAt) && onStopRepl != null) {
+						onStopRepl.run();
 					}
+				}
+				if (max == (int)(max*stopReplAt) && onStopRepl != null) {
+					onStopRepl.run();
 				}
 			}
 		};

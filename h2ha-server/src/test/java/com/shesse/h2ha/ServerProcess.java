@@ -79,7 +79,7 @@ public class ServerProcess
 	 * @throws InterruptedException
 	 * 
 	 */
-	public void start(boolean isPrimary)
+	public void start(boolean isPrimary, String[] args)
 		throws IOException, InterruptedException
 	{
 		stop();
@@ -102,8 +102,24 @@ public class ServerProcess
 			cmd.add("-Dlog4j.configuration=file:///" + l4j);
 		}
 		*/
+	
+		for (int i = 5; i > 1; i--) {
+			File to = new File("target/junit-"+sideName+".log."+i);
+			File from = new File("target/junit-"+sideName+".log"+(i == 2 ? "" : "."+(i-1)));
+			from.renameTo(to);
+		}
+		
+		
+		List<String> serverArgs = new ArrayList<String>();
 		cmd.add("-Dstderr.threshold=DEBUG");
 		cmd.add("-Dlogfile=target/junit-"+sideName+".log");
+		for (String a: args) {
+			if (a.startsWith("-D")) {
+				cmd.add(a);
+			} else {
+				serverArgs.add(a);
+			}
+		}
 						
 		String[] serverCommand = {//
 			"-DhaTestProc=" + sideName, //
@@ -119,6 +135,7 @@ public class ServerProcess
 			};
 
 		cmd.addAll(Arrays.asList(serverCommand));
+		cmd.addAll(serverArgs);
 
 		log.info(sideName+": starting up instance");
 		log.info(sideName+": arguments=" + cmd);

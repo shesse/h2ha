@@ -101,7 +101,7 @@ public abstract class ServerSideProtocolInstance
 			// when processed.
 			// The heartbeat will carry state information of the time when it
 			// is sent out.
-			expandAndEnqueue(new ReplicationMessage() {
+			enqueue(new ReplicationMessage() {
 				private static final long serialVersionUID = 1L;
 
 				@Override
@@ -178,15 +178,39 @@ public abstract class ServerSideProtocolInstance
 	protected byte[] computeMd5(ByteBuffer buffer)
 	{
 		if (buffer.hasArray()) {
+			int offs = buffer.arrayOffset() + buffer.position();
+			int length = buffer.limit() - buffer.position();
 			md5Digest.reset();
-			md5Digest.update(buffer.array(), buffer.arrayOffset() + buffer.position(),
-				buffer.limit() - buffer.position());
-			return md5Digest.digest();
+			md5Digest.update(buffer.array(), offs,length);
+			byte[] ret =  md5Digest.digest();
+			
+			if (log.isDebugEnabled()) {
+				StringBuilder sb = new StringBuilder();
+				long mysum = 0;
+				for (int i = 0; i < length; i++) {
+					mysum = (mysum * 113) + ( buffer.array()[offs+i] & 0xff);
+				}
+				for (int i = 0; i < length && i < 10; i++) {
+					sb.append(String.format("%02x ", buffer.array()[offs+i]));
+				}
+				String bufDump = sb.toString();
+				
+				sb = new StringBuilder();
+				for (int i = 0; i < ret.length; i++) {
+					sb.append(String.format("%02x ", ret[i]));
+				}
+				String hashDump = sb.toString();
+
+				
+				log.debug("md5 offs="+offs+", len="+length+": "+bufDump+"-> "+hashDump+" (mysum="+mysum);
+			}
+			return ret;
+
 		} else {
 			throw new IllegalArgumentException("only array based buffers are supported");
 		}
 	}
-
+	
 	/**
      * 
      */
@@ -218,6 +242,34 @@ public abstract class ServerSideProtocolInstance
 			openFiles.put(fp, fc);
 		}
 
+		return fc;
+	}
+
+	/**
+	 * @throws IOException
+	 * 
+	 */
+	protected FileChannel getBaseFileChannel(String haName)
+		throws IOException
+	{
+		FileChannel fc = getFileChannel(haName);
+		if (fc instanceof FileChannelHa) {
+			fc = ((FileChannelHa)fc).getBaseChannel();
+		}
+		return fc;
+	}
+
+	/**
+	 * @throws IOException
+	 * 
+	 */
+	protected FileChannel getBaseFileChannel(FilePathHa fp)
+		throws IOException
+	{
+		FileChannel fc = getFileChannel(fp);
+		if (fc instanceof FileChannelHa) {
+			fc = ((FileChannelHa)fc).getBaseChannel();
+		}
 		return fc;
 	}
 

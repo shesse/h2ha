@@ -409,8 +409,7 @@ public class ReplicationClientInstance
 	{
 		log.debug("got FileData - ha=" + haName + ", offset=" + offset + ", length=" + data.length);
 		FileChannel fc = getFileChannel(haName);
-		fc.position(offset);
-		fc.write(ByteBuffer.wrap(data, 0, data.length));
+		fc.write(ByteBuffer.wrap(data, 0, data.length), offset);
 	}
 
 
@@ -436,26 +435,22 @@ public class ReplicationClientInstance
 			segmentDiffers = true;
 
 		} else {
-			fc.position(offset);
 			ByteBuffer buffer = ByteBuffer.allocate(length);
-			int rlength;
-			if (fc instanceof FileChannelHa) {
-				rlength = ((FileChannelHa) fc).readNoCache(buffer);
-			} else {
-				rlength = fc.read(buffer);
-			}
+			int rlength = fc.read(buffer, offset);
 
 			if (rlength < length) {
 				log.debug("unexpected EOF when reading local file - ha=" + haName + ", offset=" +
 					offset + ", length=" + length + ": got only " + rlength);
 				segmentDiffers = true;
 			} else {
-				buffer.hasArray();
+				buffer.flip();
+				//buffer.hasArray();
 				byte[] localMd5 = computeMd5(buffer);
 				if (!Arrays.equals(localMd5, checksum)) {
 					log.debug("got FileChecksum - ha=" + haName + ", offset=" + offset +
 						", length=" + length + ": checksums differ");
 					segmentDiffers = true;
+
 				} else {
 					log.debug("got FileChecksum - ha=" + haName + ", offset=" + offset +
 						", length=" + length + ": same checksums");
@@ -604,7 +599,7 @@ public class ReplicationClientInstance
 	public void processTruncateMessage(String haName, long newLength)
 		throws IOException
 	{
-		FileChannel fc = getFileChannel(haName);
+		FileChannel fc = getBaseFileChannel(haName);
 		fc.truncate(newLength);
 	}
 
@@ -615,10 +610,9 @@ public class ReplicationClientInstance
 	public void processWriteMessage(String haName, long filePointer, byte[] data)
 		throws IOException
 	{
-		FileChannel fc = getFileChannel(haName);
-		fc.position(filePointer);
+		FileChannel fc = getBaseFileChannel(haName);
 		ByteBuffer buffer = ByteBuffer.wrap(data);
-		fc.write(buffer);
+		fc.write(buffer, filePointer);
 	}
 
 	// /////////////////////////////////////////////////////////
