@@ -1,3 +1,8 @@
+1.4.193.1
+=========
+- based on H2 1.4.193
+- added separate tests to verify Page STore is still working
+
 1.4.191.1
 =========
 - based on H2 1.4.191
