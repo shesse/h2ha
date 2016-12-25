@@ -44,6 +44,7 @@ public class TableRegistry
     private Random rnd = new Random();
     
     
+    
     // /////////////////////////////////////////////////////////
     // Constructors
     // /////////////////////////////////////////////////////////
@@ -54,7 +55,6 @@ public class TableRegistry
     {
         log.debug("TableRegistry()");
         this.dbManager = dbManager;
-        
     }
 
     // /////////////////////////////////////////////////////////
@@ -170,7 +170,7 @@ public class TableRegistry
     throws Exception
     {
         log.info("discovering ...");
-        TableRegistry tr = new TableRegistry(new DbManager());
+        TableRegistry tr = new TableRegistry(new DbManager(true));
         TestTable table = tr.createTable();
         tr.dropTable(table.getName());
         log.info("done");

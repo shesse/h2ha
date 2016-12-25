@@ -35,7 +35,7 @@ public class TestTable
 
 	/** */
 	private int nextIndex = 0;
-
+	
 	/** */
 	private static String cont;
 	static {

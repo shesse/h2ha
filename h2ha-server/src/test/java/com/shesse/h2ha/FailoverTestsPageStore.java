@@ -24,20 +24,20 @@ import org.junit.Test;
  * 
  * @author sth
  */
-public class FailoverTests
+public class FailoverTestsPageStore
 	extends TestGroupBase
 {
 	// /////////////////////////////////////////////////////////
 	// Class Members
 	// /////////////////////////////////////////////////////////
 	/** */
-	static private Logger log = Logger.getLogger(FailoverTests.class);
+	static private Logger log = Logger.getLogger(FailoverTestsPageStore.class);
 
 	/** */
 	private Random rnd = new Random();
 	
 	/** */
-	private static final boolean mvStore = true;
+	private static final boolean mvStore = false;
 
 	// /////////////////////////////////////////////////////////
 	// Constructors
@@ -45,7 +45,7 @@ public class FailoverTests
 	/**
 	 * @throws SQLException
 	 */
-	public FailoverTests()
+	public FailoverTestsPageStore()
 		throws SQLException
 	{
 		super(mvStore);

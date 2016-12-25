@@ -43,7 +43,7 @@ public class PermanentLoadGenerator
 	 */
 	public PermanentLoadGenerator()
 	{
-		super(new DbManager("h2ha-a,h2ha-b", "sa", "sa"));
+		super(new DbManager(true, "h2ha-a,h2ha-b", "sa", "sa"));
 
 		log.debug("FailoverTests()");
 	}

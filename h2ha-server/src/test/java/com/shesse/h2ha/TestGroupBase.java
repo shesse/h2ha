@@ -57,9 +57,9 @@ public class TestGroupBase
 	/**
      * 
      */
-	public TestGroupBase()
+	public TestGroupBase(boolean mvStore)
 	{
-		this(new DbManager());
+		this(new DbManager(mvStore));
 		
 	}
 	/**

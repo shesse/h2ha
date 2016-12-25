@@ -41,25 +41,29 @@ public class DbManager
 	/** */
 	private JdbcConnectionPool cp = null;
 
+	/** */
+	private boolean mvStore;
+
 
 	// /////////////////////////////////////////////////////////
 	// Constructors
 	// /////////////////////////////////////////////////////////
 	/**
      */
-	public DbManager()
+	public DbManager(boolean mvStore)
 	{
-		this("localhost:9092,localhost:9093", "sa", "sa");
+		this(mvStore, "localhost:9092,localhost:9093", "sa", "sa");
 	}
 	
 	/**
      */
-	public DbManager(String addresses, String user, String password)
+	public DbManager(boolean mvStore, String addresses, String user, String password)
 	{
 		log.debug("DbManager()");
 		this.addresses = addresses;
 		this.user = user;
 		this.password = password;
+		this.mvStore = mvStore;
 	}
 
 
@@ -97,6 +101,9 @@ public class DbManager
 	{
 		if (cp == null) {
 			String url = "jdbc:h2ha:tcp://"+addresses+"/test";
+			if (!mvStore) {
+				url += ";MV_STORE=FALSE";
+			}
 			
 			Properties props = new Properties();
 			props.setProperty("user", user);
@@ -210,13 +217,21 @@ public class DbManager
 
 
 	/**
+	 * @return the mvStore
+	 */
+	public boolean isMvStore()
+	{
+		return mvStore;
+	}
+
+	/**
 	 * for testing only
 	 */
 	public static void main(String[] args)
 		throws Exception
 	{
 		log.info("connecting ...");
-		new DbManager().createConnection();
+		new DbManager(true).createConnection();
 		log.info("connected");
 	}
 	// /////////////////////////////////////////////////////////

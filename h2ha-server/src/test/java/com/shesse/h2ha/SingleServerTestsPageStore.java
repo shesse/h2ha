@@ -24,20 +24,20 @@ import org.junit.Test;
  * 
  * @author sth
  */
-public class SingleServerTests
+public class SingleServerTestsPageStore
 	extends TestGroupBase
 {
 	// /////////////////////////////////////////////////////////
 	// Class Members
 	// /////////////////////////////////////////////////////////
 	/** */
-	static private Logger log = Logger.getLogger(SingleServerTests.class);
+	static private Logger log = Logger.getLogger(SingleServerTestsPageStore.class);
 
 	/** */
 	private Random rnd = new Random();
 	
 	/** */
-	private static final boolean mvStore = true;
+	private static final boolean mvStore = false;
 
 	// /////////////////////////////////////////////////////////
 	// Constructors
@@ -45,7 +45,7 @@ public class SingleServerTests
 	/**
 	 * @throws SQLException
 	 */
-	public SingleServerTests()
+	public SingleServerTestsPageStore()
 		throws SQLException
 	{
 		super(mvStore);
@@ -87,7 +87,7 @@ public class SingleServerTests
 	@Test
 	public void createDb()
 	{
-		Assert.assertTrue(new File(servers.getDirA(), "test.mv.db").exists());
+		Assert.assertTrue(new File(servers.getDirA(), "test.h2.db").exists());
 	}
 
 	/**

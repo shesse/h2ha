@@ -24,14 +24,14 @@ import org.junit.Test;
  * 
  * @author sth
  */
-public class DbLargeSyncTests
+public class DbLargeSyncTestsPageStore
 	extends TestGroupBase
 {
 	// /////////////////////////////////////////////////////////
 	// Class Members
 	// /////////////////////////////////////////////////////////
 	/** */
-	static private Logger log = Logger.getLogger(DbLargeSyncTests.class);
+	static private Logger log = Logger.getLogger(DbLargeSyncTestsPageStore.class);
 
 	/** */
 	private Random rnd = new Random();
@@ -44,7 +44,7 @@ public class DbLargeSyncTests
 	};
 	
 	/** */
-	private final static boolean mvStore = true;
+	private static final boolean mvStore = false;
 
 
 	// /////////////////////////////////////////////////////////
@@ -53,7 +53,7 @@ public class DbLargeSyncTests
 	/**
 	 * @throws SQLException
 	 */
-	public DbLargeSyncTests()
+	public DbLargeSyncTestsPageStore()
 		throws SQLException
 	{
 		super(mvStore);
@@ -148,7 +148,7 @@ public class DbLargeSyncTests
 		tr.getDbManager().syncWithAllReplicators();
 		log.info("sync finished");
 		
-		new File(servers.getDirB(), "test.mv.db").delete();
+		new File(servers.getDirB(), "test.h2.db").delete();
 		
 
 		//syncTest(2, 2.);
@@ -190,8 +190,8 @@ public class DbLargeSyncTests
 		tr.getDbManager().syncWithAllReplicators();
 		log.info("sync finished");
 		
-		log.info("file size A="+new File(servers.getDirA(), "test.mv.db").length());
-		log.info("file size B="+new File(servers.getDirB(), "test.mv.db").length());
+		log.info("file size A="+new File(servers.getDirA(), "test.h2.db").length());
+		log.info("file size B="+new File(servers.getDirB(), "test.h2.db").length());
 		
 	
 		servers.startB(serverArgs);
@@ -209,8 +209,8 @@ public class DbLargeSyncTests
 		tr.getDbManager().syncWithAllReplicators();
 		log.info("sync finished");
 		
-		log.info("file size A="+new File(servers.getDirA(), "test.mv.db").length());
-		log.info("file size B="+new File(servers.getDirB(), "test.mv.db").length());
+		log.info("file size A="+new File(servers.getDirA(), "test.h2.db").length());
+		log.info("file size B="+new File(servers.getDirB(), "test.h2.db").length());
 		
 
 		Assert.assertTrue(servers.contentEquals());

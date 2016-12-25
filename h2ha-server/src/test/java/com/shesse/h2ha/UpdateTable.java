@@ -58,7 +58,7 @@ public class UpdateTable
     public static void main(String[] args)
     throws SQLException, ClassNotFoundException, InterruptedException
     {
-        new UpdateTable().run(args);
+        new UpdateTable().run(true, args);
     }
     
     /**
@@ -67,7 +67,7 @@ public class UpdateTable
      * @throws InterruptedException 
      * 
      */
-    private void run(String[] args)
+    private void run(boolean mvStore, String[] args)
     throws SQLException, ClassNotFoundException, InterruptedException
     {
         tcpServer = Server.createTcpServer(args).start();
@@ -76,9 +76,9 @@ public class UpdateTable
         //new ReplicationServer(fileSystem, args).start();
 
         Class.forName("org.h2.Driver");
-        Connection conn1 = makeConnection();
-        Connection conn2 = makeConnection();
-        Connection conn3 = makeConnection();
+        Connection conn1 = makeConnection(mvStore);
+        Connection conn2 = makeConnection(mvStore);
+        Connection conn3 = makeConnection(mvStore);
         
         Statement stmnt1 = conn1.createStatement();
         Statement stmnt2 = conn2.createStatement();
@@ -109,11 +109,16 @@ public class UpdateTable
     /**
      * @throws SQLException  
      */
-    private Connection makeConnection() 
+    private Connection makeConnection(boolean mvStore) 
     throws SQLException
     {
-        Connection conn = DriverManager.getConnection("jdbc:h2:tcp://localhost/test;LOCK_TIMEOUT=30000", "sa", "sa");
-         conn.setAutoCommit(false);
+    	String url = "jdbc:h2:tcp://localhost/test;LOCK_TIMEOUT=30000";
+		if (!mvStore) {
+			url += ";MV_STORE=FALSE";
+		}
+
+        Connection conn = DriverManager.getConnection(url, "sa", "sa");
+        conn.setAutoCommit(false);
         
         return conn;
     }
