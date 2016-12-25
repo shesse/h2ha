@@ -2,7 +2,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.shesse.h2ha</groupId>
 	<artifactId>h2ha</artifactId>
-	<version>1.4.193.1</version>
+	<version>1.4.193.2-SNAPSHOT</version>
 	<packaging>pom</packaging>
 	<name>h2ha</name>
 	<description>High Availability for H2 database server by filesystem replication</description>
@@ -24,7 +24,7 @@
 	<scm>
 		<url>https://github.com/shesse/h2ha.git</url>
 		<developerConnection>scm:git:https://github.com/shesse/h2ha.git</developerConnection>
-	  <tag>h2ha-1.4.193.1</tag>
+	  <tag>HEAD</tag>
   </scm>
 
 	<build>
