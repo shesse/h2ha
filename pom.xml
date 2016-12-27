@@ -8,6 +8,15 @@
 	<name>h2ha</name>
 	<description>High Availability for H2 database server by filesystem replication</description>
 	<url>https://github.com/shesse/h2ha</url>
+	
+	<developers>
+		<developer>
+			<name>Stephan Hesse</name>
+			<id>shesse</id>
+			<email>h2ha@shesse.com</email>
+			<url>https://github.com/shesse</url>
+		</developer>
+	</developers>
 
 	<licenses>
 		<license>
