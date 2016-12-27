@@ -1,9 +1,8 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.shesse.h2ha</groupId>
 	<artifactId>h2ha</artifactId>
-	<version>1.4.193.2-SNAPSHOT</version>
+	<version>1.4.193.1</version>
 	<packaging>pom</packaging>
 	<name>h2ha</name>
 	<description>High Availability for H2 database server by filesystem replication</description>
@@ -20,7 +19,7 @@
 	<scm>
 		<url>https://github.com/shesse/h2ha.git</url>
 		<developerConnection>scm:git:https://github.com/shesse/h2ha.git</developerConnection>
-		<tag>HEAD</tag>
+		<tag>h2ha-1.4.193.1</tag>
 	</scm>
 
 	<distributionManagement>
