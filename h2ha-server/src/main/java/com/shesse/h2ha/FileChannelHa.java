@@ -45,6 +45,7 @@ public class FileChannelHa
 
 	/** */
 	private FileChannel baseChannel;
+	
 
 
 	// /////////////////////////////////////////////////////////
@@ -62,6 +63,11 @@ public class FileChannelHa
 		this.fileSystem = fileSystem;
 		this.filePath = filePath;
 		this.baseChannel = baseChannel;
+
+		if (log.isDebugEnabled()) {
+			log.debug(DebugUtil.debugId(this)+": FileChannelHa("+filePath+
+				") -> path="+filePath.getBasePath()+", base="+DebugUtil.debugId(baseChannel));
+		}
 	}
 	
 	
@@ -112,9 +118,13 @@ public class FileChannelHa
 	public int read(ByteBuffer dst, long position)
 		throws IOException
 	{
+		if (position < 0) {
+			throw new IOException("Negative seek offset");
+		}
+		
 		int l = baseChannel.read(dst, position);
 		if (log.isDebugEnabled()) {
-			log.debug(filePath+": read from="+position+", l="+l);
+			log.debug(DebugUtil.debugId(this)+": "+filePath+": read from="+position+", l="+l);
 		}
 		return l;
 	}
@@ -137,7 +147,7 @@ public class FileChannelHa
 			int bpos = src.position() + src.arrayOffset();
 			int l = baseChannel.write(src);
 			if (log.isDebugEnabled()) {
-				log.debug(filePath+": write from="+pos+", l="+l+", end="+(pos+l));
+				log.debug(DebugUtil.debugId(this)+": "+filePath+": write from="+pos+", l="+l+", end="+(pos+l));
 			}
 			fileSystem.sendWrite(filePath, pos, src.array(), bpos, l);
 			return l;
@@ -175,7 +185,7 @@ public class FileChannelHa
 		int bpos = src.position();
 		int l = baseChannel.write(src, position);
 		if (log.isDebugEnabled()) {
-			log.debug(filePath+": write from="+position+", l="+l+", end="+(position+l));
+			log.debug(DebugUtil.debugId(this)+". "+filePath+": write from="+position+", l="+l+", end="+(position+l));
 		}
 		fileSystem.sendWrite(filePath, position, src.array(), bpos, l);
 		return l;
@@ -207,7 +217,7 @@ public class FileChannelHa
 		throws IOException
 	{
 		if (log.isDebugEnabled()) {
-			log.debug(filePath+": position at "+newPosition);
+			log.debug(DebugUtil.debugId(this)+". "+filePath+": position at "+newPosition);
 		}
 		baseChannel.position(newPosition);
 		return this;
@@ -235,7 +245,7 @@ public class FileChannelHa
 		throws IOException
 	{
 		if (log.isDebugEnabled()) {
-			log.debug(filePath+": truncate at "+size);
+			log.debug(DebugUtil.debugId(this)+". "+filePath+": truncate at "+size);
 		}
 		baseChannel.truncate(size);
 		fileSystem.sendTruncate(filePath, size);
@@ -252,7 +262,7 @@ public class FileChannelHa
 		throws IOException
 	{
 		if (log.isDebugEnabled()) {
-			log.debug(filePath+": force");
+			log.debug(DebugUtil.debugId(this)+". "+filePath+": force");
 		}
 		baseChannel.force(metaData);
 		fileSystem.force();
@@ -270,7 +280,7 @@ public class FileChannelHa
 	{
 		long l = baseChannel.transferTo(position, count, target);
 		if (log.isDebugEnabled()) {
-			log.debug(filePath+": transferTo from="+position+", l="+count+", target="+target.getClass().getName());
+			log.debug(DebugUtil.debugId(this)+". "+filePath+": transferTo from="+position+", l="+count+", target="+target.getClass().getName());
 		}
 		return l;
 	}
@@ -286,7 +296,7 @@ public class FileChannelHa
 		throws IOException
 	{
 		if (log.isDebugEnabled()) {
-			log.debug(filePath+": transferFrom to="+position+", l="+count+", src="+src.getClass().getName());
+			log.debug(DebugUtil.debugId(this)+". "+filePath+": transferFrom to="+position+", l="+count+", src="+src.getClass().getName());
 		}
 
 		final int maxBufferSize = 8192;
@@ -340,9 +350,10 @@ public class FileChannelHa
 		throws IOException
 	{
 		if (log.isDebugEnabled()) {
-			log.debug(filePath+": lock at="+position+", size="+size+", shared="+shared);
+			log.debug(DebugUtil.debugId(this)+". "+filePath+": lock at="+position+", size="+size+", shared="+shared);
 		}
-		return baseChannel.lock(position, size, shared);
+		return new DummyLock(this, position, size, shared);
+		//return baseChannel.lock(position, size, shared);
 	}
 
 	/**
@@ -355,9 +366,10 @@ public class FileChannelHa
 		throws IOException
 	{
 		if (log.isDebugEnabled()) {
-			log.debug(filePath+": tryLock at="+position+", size="+size+", shared="+shared);
+			log.debug(DebugUtil.debugId(this)+". "+filePath+": tryLock at="+position+", size="+size+", shared="+shared);
 		}
-		return baseChannel.tryLock(position, size, shared);
+		return new DummyLock(this, position, size, shared);
+		//return baseChannel.tryLock(position, size, shared);
 	}
 
 	/**
@@ -370,8 +382,9 @@ public class FileChannelHa
 		throws IOException
 	{
 		if (log.isDebugEnabled()) {
-			log.debug(filePath+": implCloseChannel");
+			log.debug(DebugUtil.debugId(this)+". "+filePath+": implCloseChannel");
 		}
+		baseChannel.close();
 		fileSystem.sendClose(filePath);
 	}
 
@@ -380,6 +393,54 @@ public class FileChannelHa
 	// /////////////////////////////////////////////////////////
 	// Inner Classes
 	// /////////////////////////////////////////////////////////
+	/**
+	 * Work around to the file locking beahvour on Windows: 
+	 * WIndows seems to enforce file locking per channel, not
+	 * per JVM. This would prevent our file accesses for
+	 * HA synchronization.
+	 * <p>
+	 * As a remedy we replace the locking mechanism by 
+	 * a dummy which does not actually lock. This behaviour seems
+	 * acceptable, since the Java API says: "File locks are held on 
+	 * behalf of the entire Java virtual machine. They are not suitable 
+	 * for controlling access to a file by multiple threads within
+	 * the same virtual machine". This means, that H2 file locking
+	 * would only help against access by another process - and
+	 * that will also be avoided by thge lock file mechanism. 
+	 */
+	private static class DummyLock
+	extends FileLock
+	{
+		boolean valid = true;
+		
+		protected DummyLock(FileChannel channel, long position, long size, boolean shared)
+		{
+			super(channel, position, size, shared);
+		}
 
+		/**
+		 * {@inheritDoc}
+		 *
+		 * @see java.nio.channels.FileLock#isValid()
+		 */
+		@Override
+		public boolean isValid()
+		{
+			return valid;
+		}
+
+		/**
+		 * {@inheritDoc}
+		 *
+		 * @see java.nio.channels.FileLock#release()
+		 */
+		@Override
+		public void release()
+			throws IOException
+		{
+			valid = false;
+		}
+		
+	}
 
 }

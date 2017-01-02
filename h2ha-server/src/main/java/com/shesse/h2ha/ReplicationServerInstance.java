@@ -338,7 +338,7 @@ public class ReplicationServerInstance
 
 		} else {
 
-			FileChannel fc = getFileChannel(haName);
+			FileChannel fc = getFileChannel(haName, "r");
 			long fileSize = fc.size();
 			ByteBuffer buffer = ByteBuffer.allocate(syncGranularity);
 			long offset = 0;

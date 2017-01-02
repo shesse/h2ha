@@ -233,16 +233,38 @@ public abstract class ServerSideProtocolInstance
 	 * @throws IOException
 	 * 
 	 */
+	protected FileChannel getFileChannel(String haName, String accessMode)
+		throws IOException
+	{
+		return getFileChannel(getFilePathHa(haName), accessMode);
+	}
+
+	/**
+	 * @throws IOException
+	 * 
+	 */
 	protected FileChannel getFileChannel(FilePathHa fp)
 		throws IOException
 	{
-		FileChannel fc = openFiles.get(fp);
-		if (fc == null) {
-			fc = fp.open("rw");
-			openFiles.put(fp, fc);
-		}
+		return getFileChannel(fp, "rw");
+	}
 
-		return fc;
+	/**
+	 * @throws IOException
+	 * 
+	 */
+	protected FileChannel getFileChannel(FilePathHa fp, String accessMode)
+		throws IOException
+	{
+		synchronized (openFiles) {
+			FileChannel fc = openFiles.get(fp);
+			if (fc == null) {
+				fc = fp.open(accessMode);
+				openFiles.put(fp, fc);
+			}
+
+			return fc;
+		}
 	}
 
 	/**
@@ -292,10 +314,13 @@ public abstract class ServerSideProtocolInstance
 	protected void closeFileObject(FilePathHa filePath, long lastModified)
 		throws IOException
 	{
-		FileChannel fc = openFiles.remove(filePath);
-		if (fc != null) {
-			fc.close();
+		synchronized (openFiles) {
+			FileChannel fc = openFiles.remove(filePath);
+			if (fc != null) {
+				fc.close();
+			}
 		}
+		
 		if (filePath.exists()) {
 			filePath.lastModified(lastModified);
 		}
@@ -306,15 +331,17 @@ public abstract class ServerSideProtocolInstance
      */
 	protected void closeAllFileObjects()
 	{
-		for (FileChannel fo : openFiles.values()) {
-			try {
-				fo.close();
-			} catch (IOException x) {
-				log.debug("error when trying to close a FileObject", x);
+		synchronized (openFiles) {
+			for (FileChannel fo : openFiles.values()) {
+				try {
+					fo.close();
+				} catch (IOException x) {
+					log.debug("error when trying to close a FileObject", x);
+				}
 			}
-		}
 
-		openFiles.clear();
+			openFiles.clear();
+		}
 	}
 
 

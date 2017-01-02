@@ -4,7 +4,3 @@ Particularly useful will be
 
   mvn install
 
-
-Note that the build process need the environment
-variable JAVA_1_6_HOME to be defined. It must contain
-the base directory of a Java 1.6 JDK.
