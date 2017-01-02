@@ -273,6 +273,11 @@ public class DbDuplicate
 					sb.append("(" + p + ")");
 				}
 				sb.append(" UNSIGNED");
+			} else if ("FLOAT".equals(columnTypeName) || "DOUBLE".equals(columnTypeName)) {
+				sb.append(columnTypeName);
+				if (p < 65536 && p > 0) {
+					sb.append("(" + p + ")");
+				}
 			} else {
 				sb.append(columnTypeName);
 
