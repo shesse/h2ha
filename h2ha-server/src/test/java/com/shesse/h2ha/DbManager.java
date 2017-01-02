@@ -223,6 +223,19 @@ public class DbManager
 	{
 		return mvStore;
 	}
+	
+	
+	// /////////////////////////////////////////////////////////
+	// Inner Classes
+	// /////////////////////////////////////////////////////////
+	
+	/**
+	 * @return
+	 */
+	public boolean isActive()
+	{
+		return cp != null;
+	}
 
 	/**
 	 * for testing only

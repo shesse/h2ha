@@ -7,8 +7,12 @@
 package com.shesse.h2ha;
 
 
+import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.lang.ProcessBuilder.Redirect;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -33,7 +37,7 @@ public class TestGroupBase
 	static private Logger log = Logger.getLogger(FailoverTests.class);
 
 	/** */
-	protected ServerProcessPair servers = new ServerProcessPair();
+	protected ServerProcessPair servers;
 
 	/** */
 	protected DbManager dbManager;
@@ -70,6 +74,8 @@ public class TestGroupBase
 		super();
 		
 		this.dbManager = dbManager;
+		this.servers = new ServerProcessPair(dbManager);
+		
 		this.tr = new TableRegistry(dbManager);
 	}
 
@@ -87,13 +93,42 @@ public class TestGroupBase
 		boolean stillActive;
 		do {
 			stillActive = false;
-			ProcessUtils.ExecResult psres = ProcessUtils.exec("jps -v | grep DhaTestProc=");
-
-			for (String psline : psres.outputLines) {
-				String[] fields = psline.split("\\s+");
-				log.info("terminating old ha test process " + fields[1]);
-				ProcessUtils.exec("kill -9 " + fields[0]);
-				stillActive = true;
+			
+			File jhome = new File(System.getProperty("java.home"));
+			
+			File jps = null;
+			for (String rel: new String[]{"bin/jps", "bin/jps.exe", "../bin/jps", "../bin/jps.exe"}) {
+				File check = new File(jhome, rel);
+				if (check.exists()) {
+					jps = check;
+					break;
+				}
+			}
+			
+			if (jps == null) {
+				throw new IllegalStateException("cannot find jps command - please start the test from a JDK");
+			}
+			
+			ProcessBuilder pb = new ProcessBuilder(jps.getPath(), "-v");
+			pb.redirectInput(Redirect.INHERIT);
+			pb.redirectErrorStream(true);
+			
+			Process proc = pb.start();
+			BufferedReader br = new BufferedReader(new InputStreamReader(proc.getInputStream()));
+			String line;
+			while ((line = br.readLine()) != null) {
+				if (line.contains("DhaTestProc=")) {
+					String[] fields = line.split("\\s+");
+					log.info("terminating old ha test process " + fields[1]);
+					String killer;
+					if (System.getProperty("os.name").toLowerCase().contains("windows")) {
+						killer = "taskkill /PID "+fields[0]+" /F";
+					} else {
+						killer = "kill -9 " + fields[0];
+					}
+					ProcessUtils.exec(killer);
+					stillActive = true;
+				}
 			}
 
 			if (stillActive) {
@@ -166,6 +201,10 @@ public class TestGroupBase
 	protected void logStatistics()
 		throws SQLException
 	{
+		if (!dbManager.isActive()) {
+			return;
+		}
+		
 		Connection conn = dbManager.createConnection();
 		try {
 			Statement stmnt = conn.createStatement();

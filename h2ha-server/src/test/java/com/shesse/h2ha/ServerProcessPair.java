@@ -51,15 +51,18 @@ public class ServerProcessPair
 	/** */
 	private ServerProcess processB = new ServerProcess("b", dbDirB, tcpPortB, syncPortB, syncPortA);
 
+	/** */
+	private DbManager dbManager;
 
 	// /////////////////////////////////////////////////////////
 	// Constructors
 	// /////////////////////////////////////////////////////////
 	/**
      */
-	public ServerProcessPair()
+	public ServerProcessPair(DbManager dbManager)
 	{
 		log.debug("ServerProcessPair()");
+		this.dbManager = dbManager;
 	}
 
 	// /////////////////////////////////////////////////////////
@@ -214,11 +217,14 @@ public class ServerProcessPair
 
 	/**
 	 * @throws InterruptedException
+	 * @throws SQLException 
 	 * 
 	 */
 	public void stop()
-		throws InterruptedException
+		throws InterruptedException, SQLException
 	{
+		dbManager.cleanup();
+		
 		processA.stop();
 		processB.stop();
 	}
@@ -252,10 +258,13 @@ public class ServerProcessPair
 	}
 
 	/**
+	 * @throws SQLException 
+	 * @throws InterruptedException 
      * 
      */
-	public boolean contentEquals()
+	public boolean contentEquals() throws InterruptedException, SQLException
 	{
+		stop();
 		return FileUtils.dbDirsEqual(dbDirA, dbDirB);
 	}
 
