@@ -69,6 +69,9 @@ public class H2HaServer
 	private Server tcpDatabaseServer;
 
 	/** */
+	private Server pgDatabaseServer;
+
+	/** */
 	private String peerHost = null;
 
 	/** */
@@ -320,6 +323,8 @@ public class H2HaServer
 		System.err.println("        max retries for a single connect attempt. Default = 5");
 		System.err.println("    -tcpPort");
 		System.err.println("        port for database connections (default: 9092)");
+		System.err.println("    -pgPort");
+		System.err.println("        port for postgresql connections if > 0. (default: 0)");
 		System.err.println("    -trace");
 		System.err.println("        print additional trace information");
 		System.err.println("");
@@ -339,6 +344,7 @@ public class H2HaServer
 		serverArgs = new ArrayList<String>();
 	
 		serverArgs.add("-tcpAllowOthers");
+		serverArgs.add("-pgAllowOthers");
 		serverArgs.add("-baseDir");
 		serverArgs.add("ha:///");
 		serverArgs.add("-ifExists");
@@ -1396,6 +1402,11 @@ public class H2HaServer
 			log.info("creating H2 TCP server with args: " + serverArgs);
 			tcpDatabaseServer =
 				Server.createTcpServer(serverArgs.toArray(new String[serverArgs.size()])).start();
+			
+			if (findOption(serverArgs, "-pgPort")) {
+				pgDatabaseServer =
+					Server.createPgServer(serverArgs.toArray(new String[serverArgs.size()])).start();
+			}
 			log.info("DB server is ready to accept connections");
 			applyEvent(Event.MASTER_STARTED, null, null);
 
@@ -1423,6 +1434,9 @@ public class H2HaServer
 	{
 		log.info("shutting down DB server");
 		tcpDatabaseServer.stop();
+		if (pgDatabaseServer != null) {
+			pgDatabaseServer.stop();
+		}
 		applyEvent(Event.MASTER_STOPPED, null, null);
 	}
 

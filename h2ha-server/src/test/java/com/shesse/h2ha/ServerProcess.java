@@ -129,6 +129,7 @@ public class ServerProcess
 				"-haPeerPort", String.valueOf(peerSyncPort), //
 				"-haListenPort", String.valueOf(localSyncPort),//
 				"-tcpPort", String.valueOf(localTcpPort),//
+				"-pgPort", String.valueOf(localTcpPort-1000),//
 				"-ifExists",//
 				"-haBaseDir", dbDir.getPath(),//
 				"-masterPriority", (isPrimary ? "20" : "10"),//
