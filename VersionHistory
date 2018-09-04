@@ -1,3 +1,8 @@
+1.4.193.3
+=========
+- added option -pgPort to the H2HA server to start PostgresQL
+  compatible server.
+  
 1.4.193.1
 =========
 - based on H2 1.4.193
