@@ -21,7 +21,7 @@ import javax.transaction.xa.XAResource;
 import javax.transaction.xa.Xid;
 
 import org.h2.api.ErrorCode;
-import org.h2.engine.SessionInterface;
+import org.h2.engine.Session;
 import org.h2.jdbcx.JdbcXAConnection;
 import org.h2.message.DbException;
 
@@ -50,7 +50,7 @@ public class HaXaConnection
 	private JdbcXAConnection h2XaConnection;
 	
 	/** */
-	private SessionInterface session = null;
+	private Session session = null;
 	
 	/** */
 	private Map<ConnectionEventListener, ConnectionEventListener> connectionListeners =

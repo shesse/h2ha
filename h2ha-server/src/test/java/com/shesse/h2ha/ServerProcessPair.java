@@ -264,6 +264,7 @@ public class ServerProcessPair
      */
 	public boolean contentEquals() throws InterruptedException, SQLException
 	{
+		log.info("Stopping DB instances before comparing the files");
 		stop();
 		return FileUtils.dbDirsEqual(dbDirA, dbDirB);
 	}

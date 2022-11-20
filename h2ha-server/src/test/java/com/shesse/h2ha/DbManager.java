@@ -78,6 +78,18 @@ public class DbManager
 		throws SQLException
 	{
 		if (cp != null) {
+			log.info("Shutting down DB");
+			Connection conn = createConnection();
+			try {
+				String sql = "shutdown";
+
+				Statement stmnt = conn.createStatement();
+				stmnt.executeUpdate(sql);
+
+			} finally {
+				conn.close();
+			}
+
 			cp.dispose();
 			cp = null;
 		}

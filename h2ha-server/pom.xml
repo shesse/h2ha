@@ -1,11 +1,14 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
+
+	<artifactId>h2ha-server</artifactId>
+
 	<parent>
 		<groupId>com.shesse.h2ha</groupId>
 		<artifactId>h2ha</artifactId>
-		<version>1.4.193.4-SNAPSHOT</version>
+		<version>2.1.214.0-SNAPSHOT</version>
 	</parent>
-	<artifactId>h2ha-server</artifactId>
+
 	<name>h2ha-server</name>
 	<description>High Availablity H2 Database Server</description>
 
@@ -31,8 +34,8 @@
 				<artifactId>maven-compiler-plugin</artifactId>
 				<version>3.0</version>
 				<configuration>
-					<source>1.7</source>
-					<target>1.7</target>
+					<source>1.8</source>
+					<target>1.8</target>
 					<!-- <compilerVersion>1.7</compilerVersion>
 					<fork>true</fork>
 					<executable>${JAVA_1_7_HOME}/bin/javac</executable> -->
@@ -151,7 +154,6 @@
 			</plugin>
 		</plugins>
 	</reporting>
-
 
 
 </project>

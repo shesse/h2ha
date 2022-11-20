@@ -120,7 +120,18 @@ public class FileUtils
                             }
 
                             if (!Arrays.equals(bufa, bufb))  {
-                                log.error("file cmp error: content differs between "+dira+" and "+dirb+" at "+pos);
+                                log.error("file cmp error: content differs between "+dira+" and "+dirb);
+                                int ndiff = 0;
+                                for (int i = 0; i < la; i++) {
+                                	if (bufa[i] != bufb[i]) {
+                                		if (++ndiff > 10) {
+                                			log.error("  ...");
+                                			break;
+                                		}
+                                		log.error(String.format("  %06x: %02x -> %02x", pos+i, 
+                                			bufa[i] & 0xff, bufb[i] & 0xff));
+                                	}
+                                }
                                 log.error(lsl(dira));
                                 log.error(lsl(dirb));
                                 return false;

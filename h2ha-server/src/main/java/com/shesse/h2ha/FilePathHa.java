@@ -79,11 +79,7 @@ public class FilePathHa
 		FilePath haDir = fileSystem.getLocalBaseDir();
 		basePath = haDir.getPath(haDir.toString() + normalizedHaName.substring(5));
 
-		if (normalizedHaName.endsWith(Constants.SUFFIX_PAGE_FILE)) {
-			log.debug("file " + normalizedHaName + " is a page file");
-			isDatabaseFile = true;
-			needsReplication = true;
-		} else if (normalizedHaName.endsWith(Constants.SUFFIX_MV_FILE)) {
+		if (normalizedHaName.endsWith(Constants.SUFFIX_MV_FILE)) {
 			log.debug("file " + normalizedHaName + " is an mv file");
 			isDatabaseFile = true;
 			needsReplication = true;
@@ -91,14 +87,6 @@ public class FilePathHa
 			log.debug("file " + normalizedHaName + " is a lock file");
 			isDatabaseFile = true;
 			needsReplication = false;
-		} else if (normalizedHaName.endsWith(Constants.SUFFIX_LOB_FILE)) {
-			log.debug("file " + normalizedHaName + " is a LOB file");
-			isDatabaseFile = true;
-			needsReplication = true;
-		} else if (normalizedHaName.endsWith(Constants.SUFFIX_LOBS_DIRECTORY)) {
-			log.debug("file " + normalizedHaName + " is a LOBs directory");
-			isDatabaseFile = true;
-			needsReplication = true;
 		} else if (normalizedHaName.endsWith(Constants.SUFFIX_TEMP_FILE)) {
 			log.debug("file " + normalizedHaName + " is a temp file");
 			isDatabaseFile = true;
@@ -117,10 +105,6 @@ public class FilePathHa
 			needsReplication = false;
 		} else if (normalizedHaName.endsWith(Constants.SUFFIX_OLD_DATABASE_FILE)) {
 			log.debug("file " + normalizedHaName + " is an old DB file");
-			isDatabaseFile = true;
-			needsReplication = true;
-		} else if (normalizedHaName.endsWith(Constants.SUFFIX_DB_FILE)) {
-			log.debug("file " + normalizedHaName + " is an unrecognized DB file");
 			isDatabaseFile = true;
 			needsReplication = true;
 		} else {
@@ -208,17 +192,16 @@ public class FilePathHa
 
 	/**
 	 * {@inheritDoc}
-	 * 
-	 * @see org.h2.store.fs.FilePath#createTempFile(java.lang.String, boolean,
-	 *      boolean)
+	 *
+	 * @see org.h2.store.fs.FilePath#createTempFile(java.lang.String, boolean)
 	 */
 	@Override
-	public FilePath createTempFile(String suffix, boolean deleteOnExit, boolean inTempDir)
+	public FilePath createTempFile(String suffix, boolean inTempDir)
 		throws IOException
 	{
 		// we leave temp files always on the local host and never replicate
 		// them
-		return basePath.createTempFile(suffix, deleteOnExit, inTempDir);
+		return basePath.createTempFile(suffix, inTempDir);
 	}
 
 	/**
@@ -381,6 +364,17 @@ public class FilePathHa
 	 */
 	@Override
 	public boolean isDirectory()
+	{
+		return getBasePath().isDirectory();
+	}
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @see org.h2.store.fs.FilePath#isRegularFile()
+	 */
+	@Override
+	public boolean isRegularFile()
 	{
 		return getBasePath().isDirectory();
 	}

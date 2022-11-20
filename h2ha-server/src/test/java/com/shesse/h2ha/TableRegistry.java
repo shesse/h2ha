@@ -93,7 +93,7 @@ public class TableRegistry
             DatabaseMetaData meta = conn.getMetaData();
             ResultSet trset = meta.getTables(null, null, null, null);
             while (trset.next()) {
-                String schema = trset.getString("TABLE_SCHEMA");
+                String schema = trset.getString("TABLE_SCHEM");
                 String name = trset.getString("TABLE_NAME");
                 //log.info("schema=" + schema + ", name=" + name);
                 

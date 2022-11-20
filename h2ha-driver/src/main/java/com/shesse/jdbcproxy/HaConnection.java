@@ -30,7 +30,7 @@ import java.util.concurrent.Executor;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.h2.engine.SessionInterface;
+import org.h2.engine.Session;
 import org.h2.jdbc.JdbcConnection;
 import org.h2.jdbcx.JdbcXAConnection;
 import org.h2.value.Transfer;
@@ -64,7 +64,7 @@ public class HaConnection
 	private JdbcConnection h2Connection;
 
 	/** */
-	private SessionInterface session;
+	private Session session;
 
 
 	// /////////////////////////////////////////////////////////
@@ -150,7 +150,7 @@ public class HaConnection
 	 *  
 	 * @param session
 	 */
-	public static void forceCloseCommunicationSocket(SessionInterface session)
+	public static void forceCloseCommunicationSocket(Session session)
 	{
 		if (session == null) {
 			log.fine("not closing session because it is null");
